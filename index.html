@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-    <title>모바일 LOL: 하이퍼 어택 Mini</title>
+    <title>모바일 LOL: 하이퍼 어택 Pro</title>
     <style>
         * {
             box-sizing: border-box;
             user-select: none;
             -webkit-user-select: none;
-            touch-action: none; /* 브라우저 기본 터치 동작 방지 */
+            touch-action: none;
             margin: 0;
             padding: 0;
         }
@@ -27,262 +27,437 @@
         #top-ui {
             display: flex;
             justify-content: space-between;
+            align-items: center;
             width: 100%;
             max-width: 480px;
-            padding: 10px 15px;
-            background-color: rgba(22, 26, 35, 0.8);
+            padding: 8px 12px;
+            background-color: rgba(22, 26, 35, 0.95);
             backdrop-filter: blur(5px);
-            font-size: 14px;
+            font-size: 13px;
             font-weight: bold;
             border-bottom: 2px solid #333;
             position: fixed;
             top: 0;
             z-index: 10;
         }
+        .ui-group {
+            display: flex;
+            gap: 10px;
+        }
+        .hp-bar-container {
+            width: 90px;
+            height: 16px;
+            background-color: #333;
+            border: 1px solid #555;
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+        }
+        .hp-bar-fill {
+            height: 100%;
+            background-color: #e74c3c;
+            width: 100%;
+            transition: width 0.1s linear;
+        }
+        .hp-bar-text {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            font-size: 10px; text-align: center; line-height: 16px;
+            color: #fff; font-weight: bold; text-shadow: 0 0 2px #000;
+        }
         canvas {
             background-color: #12181b;
             box-shadow: 0 4px 20px rgba(0,0,0,0.8);
-            margin-top: 45px; /* UI 높이만큼 */
+            margin-top: 40px;
         }
+        /* 우하단 컨트롤 */
         #controls-overlay {
             position: absolute;
-            bottom: 30px;
-            right: 20px;
+            bottom: 20px;
+            right: 15px;
             display: flex;
-            gap: 15px;
+            gap: 10px;
             z-index: 10;
         }
-        .btn-skill {
-            width: 65px;
-            height: 65px;
+        /* 좌하단 메뉴 (스탯 & 상점) */
+        #menu-overlay {
+            position: absolute;
+            bottom: 20px;
+            left: 15px;
+            display: flex;
+            gap: 10px;
+            z-index: 10;
+        }
+        .btn-ui {
+            width: 55px;
+            height: 55px;
             border-radius: 50%;
-            border: 3px solid #f39c12;
+            border: 2px solid #f39c12;
             background: rgba(44, 62, 80, 0.9);
             color: #fff;
             font-weight: bold;
-            font-size: 16px;
+            font-size: 12px;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             cursor: pointer;
             box-shadow: 0 4px 8px rgba(0,0,0,0.5);
-            transition: 0.1s;
         }
-        .btn-skill:active {
-            transform: scale(0.9);
-            background: #d35400;
+        .btn-ui:active { transform: scale(0.92); }
+        .btn-stat { border-color: #3498db; }
+        .btn-shop { border-color: #2ecc71; }
+
+        /* 모달 팝업 창 (스탯 & 상점) */
+        .modal {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 85%;
+            max-width: 380px;
+            background: rgba(22, 26, 35, 0.95);
+            border: 2px solid #f39c12;
+            border-radius: 12px;
+            padding: 18px;
+            display: none;
+            flex-direction: column;
+            gap: 12px;
+            z-index: 100;
+            box-shadow: 0 0 20px rgba(0,0,0,0.8);
         }
-        .btn-skill span {
-            font-size: 10px;
-            margin-top: 2px;
-            color: #ddd;
+        .modal-title {
+            font-size: 18px;
+            font-weight: bold;
+            text-align: center;
+            color: #f39c12;
+            border-bottom: 1px solid #444;
+            padding-bottom: 8px;
         }
-        /* 알림 메시지 */
+        .modal-content {
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        .shop-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255,255,255,0.05);
+            padding: 8px 10px;
+            border-radius: 6px;
+            margin-bottom: 6px;
+        }
+        .btn-buy {
+            background: #2ecc71;
+            color: #fff;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .btn-close {
+            background: #e74c3c;
+            color: #fff;
+            border: none;
+            padding: 8px;
+            border-radius: 6px;
+            font-weight: bold;
+            margin-top: 5px;
+        }
         #game-msg {
             position: absolute;
-            top: 50%;
-            left: 50%;
+            top: 40%; left: 50%;
             transform: translate(-50%, -50%);
-            background: rgba(0,0,0,0.8);
+            background: rgba(0,0,0,0.85);
             padding: 20px;
             border-radius: 10px;
-            font-size: 20px;
+            font-size: 22px;
+            font-weight: bold;
+            color: #e74c3c;
             display: none;
-            z-index: 100;
+            z-index: 200;
+            text-align: center;
         }
     </style>
 </head>
 <body>
 
+    <!-- 상단 UI 영역 -->
     <div id="top-ui">
-        <div>💰 Gold: <span id="gold">0</span></div>
-        <div>⚔️ CS: <span id="kills">0</span></div>
-        <div>🏰 Tower: <span id="towerHp">1500</span></div>
+        <div class="ui-group">
+            <div>🚩 R<span id="round">1</span></div>
+            <div>💰 <span id="gold">0</span>G</div>
+        </div>
+        <!-- 타워 HP 게이지 + 숫자 -->
+        <div class="ui-group" style="align-items: center;">
+            <span style="font-size:11px;">🏰</span>
+            <div class="hp-bar-container">
+                <div class="hp-bar-fill" id="towerHpBar"></div>
+                <div class="hp-bar-text" id="towerHpText">1500 / 1500</div>
+            </div>
+        </div>
     </div>
 
     <canvas id="gameCanvas"></canvas>
-    
     <div id="game-msg">게임 오버!</div>
 
-    <!-- 스킬 버튼 오버레이 (우하단 배치) -->
+    <!-- 좌하단 메뉴 버튼 -->
+    <div id="menu-overlay">
+        <button class="btn-ui btn-stat" id="btnOpenStat">스탯</button>
+        <button class="btn-ui btn-shop" id="btnOpenShop">상점</button>
+    </div>
+
+    <!-- 우하단 스킬 버튼 -->
     <div id="controls-overlay">
-        <button class="btn-skill" id="btnQ">Q<br><span>하이퍼어택</span></button>
+        <button class="btn-ui" id="btnQ">Q<br><span style="font-size:9px">난사</span></button>
+    </div>
+
+    <!-- 스탯 모달 팝업 -->
+    <div class="modal" id="modalStat">
+        <div class="modal-title">챔피언 스탯</div>
+        <div class="modal-content" id="statContent"></div>
+        <button class="btn-close" onclick="closeModal('modalStat')">닫기</button>
+    </div>
+
+    <!-- 상점 모달 팝업 -->
+    <div class="modal" id="modalShop">
+        <div class="modal-title">아이템 상점</div>
+        <div class="modal-content">
+            <div class="shop-item">
+                <div>공격력 +10<br><small style="color:#aaa">가격: 50 Gold</small></div>
+                <button class="btn-buy" onclick="buyUpgrade('atk')">구매</button>
+            </div>
+            <div class="shop-item">
+                <div>공격속도 +10%<br><small style="color:#aaa">가격: 70 Gold</small></div>
+                <button class="btn-buy" onclick="buyUpgrade('spd')">구매</button>
+            </div>
+            <div class="shop-item">
+                <div>타워 체력 +300 회복<br><small style="color:#aaa">가격: 40 Gold</small></div>
+                <button class="btn-buy" onclick="buyUpgrade('heal')">구매</button>
+            </div>
+        </div>
+        <button class="btn-close" onclick="closeModal('modalShop')">닫기</button>
     </div>
 
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-        const uiTowerHp = document.getElementById('towerHp');
-        const uiGold = document.getElementById('gold');
-        const uiKills = document.getElementById('kills');
-        const uiMsg = document.getElementById('game-msg');
 
-        // 반응형 Canvas 크기 (모바일 최적화)
+        // Canvas 크기
         const canvasWidth = Math.min(window.innerWidth, 480);
-        const canvasHeight = Math.min(window.innerHeight - 50, 640);
+        const canvasHeight = Math.min(window.innerHeight - 40, 640);
         canvas.width = canvasWidth;
         canvas.height = canvasHeight;
 
-        // 게임 상태
+        // 게임 제어 변수
         let gold = 0;
-        let kills = 0;
+        let round = 1;
         let isGameOver = false;
 
-        // 플레이어 (챔피언)
+        // 플레이어 스탯
         const player = {
             x: canvasWidth / 2,
             y: canvasHeight - 120,
-            targetX: canvasWidth / 2, // 이동 목표 위치
+            targetX: canvasWidth / 2,
             targetY: canvasHeight - 120,
             radius: 18,
-            baseSpeed: 3.5,
-            hp: 800,
-            maxHp: 800,
-            attackRange: 160,
-            attackBaseCooldown: 15, // 평타 기본 쿨타임 (낮을수록 빠름, 랜덤다이스 기본)
+            moveSpeed: 3.8,
+            attackPower: 30,
+            attackBaseCooldown: 15, // 프레임 단위 (낮을수록 빠름)
             attackCooldown: 0,
-            qBuffTimer: 0 // Q스킬 하이퍼어택 지속시간
+            attackRange: 170,
+            qBuffTimer: 0
         };
 
-        // 아군 타워 (넥서스 대용)
+        // 아군 타워
         const tower = {
             x: canvasWidth / 2,
             y: canvasHeight - 40,
             radius: 30,
             hp: 1500,
-            maxHp: 1500,
-            range: 200,
-            cooldown: 0
+            maxHp: 1500
         };
 
-        // 객체 배열
+        // 객체 및 이펙트 관리 배열
         let minions = [];
         let projectiles = [];
+        let floatingTexts = []; // 데미지 표기 텍스트
         let particles = [];
-        let clickEffects = [];
+
+        // UI 요소 업데이트
+        function updateUI() {
+            document.getElementById('gold').innerText = gold;
+            document.getElementById('round').innerText = round;
+
+            // 타워 HP 게이지 & 숫자 표기
+            const hpPercent = Math.max(0, (tower.hp / tower.maxHp) * 100);
+            document.getElementById('towerHpBar').style.width = hpPercent + '%';
+            document.getElementById('towerHpText').innerText = `${Math.ceil(Math.max(0, tower.hp))} / ${tower.maxHp}`;
+        }
 
         // ==========================================
-        // 새로운 조작: 화면 터치 지점으로 이동
+        // 조작 & 스킬
         // ==========================================
         canvas.addEventListener('pointerdown', (e) => {
             if (isGameOver) return;
             const rect = canvas.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-            
-            // 타겟 위치 업데이트
-            player.targetX = x;
-            player.targetY = y;
-
-            // 클릭 이펙트 추가
-            clickEffects.push({ x, y, life: 15, radius: 2 });
+            player.targetX = e.clientX - rect.left;
+            player.targetY = e.clientY - rect.top;
         });
 
-        // ==========================================
-        // 새로운 Q 스킬: 하이퍼 어택 (공속 95%)
-        // ==========================================
         document.getElementById('btnQ').addEventListener('pointerdown', (e) => {
-            e.stopPropagation(); // 캔버스 클릭 이벤트 전파 방지
+            e.stopPropagation();
             if (player.qBuffTimer > 0 || isGameOver) return;
-            
-            player.qBuffTimer = 180; // 약 3초 (60fps 기준)
-            
-            // 시각 효과
-            for (let i = 0; i < 15; i++) {
-                particles.push(new Particle(player.x, player.y, '#f39c12', 4, 30));
-            }
+            player.qBuffTimer = 180; // 3초간 지속
         });
 
         // ==========================================
-        // 유틸리티 클래스 (입자, 이펙트)
+        // 모달 / 스탯 / 상점 로직
         // ==========================================
-        class Particle {
-            constructor(x, y, color, speed, life) {
-                this.x = x; this.y = y; this.color = color;
-                this.vx = (Math.random() - 0.5) * speed;
-                this.vy = (Math.random() - 0.5) * speed;
-                this.life = life; this.maxLife = life;
+        document.getElementById('btnOpenStat').addEventListener('pointerdown', (e) => {
+            e.stopPropagation();
+            const content = `
+                • 공격력: <b>${player.attackPower}</b><br>
+                • 기본 공속: <b>초당 ${(60 / player.attackBaseCooldown).toFixed(1)}회</b><br>
+                • 공격 사거리: <b>${player.attackRange}</b><br>
+                • 이동 속도: <b>${player.moveSpeed}</b>
+            `;
+            document.getElementById('statContent').innerHTML = content;
+            document.getElementById('modalStat').style.display = 'flex';
+        });
+
+        document.getElementById('btnOpenShop').addEventListener('pointerdown', (e) => {
+            e.stopPropagation();
+            document.getElementById('modalShop').style.display = 'flex';
+        });
+
+        function closeModal(id) {
+            document.getElementById(id).style.display = 'none';
+        }
+
+        function buyUpgrade(type) {
+            if (type === 'atk' && gold >= 50) {
+                gold -= 50; player.attackPower += 10;
+            } else if (type === 'spd' && gold >= 70) {
+                gold -= 70; player.attackBaseCooldown = Math.max(3, Math.floor(player.attackBaseCooldown * 0.9));
+            } else if (type === 'heal' && gold >= 40) {
+                gold -= 40; tower.hp = Math.min(tower.maxHp, tower.hp + 300);
+            } else {
+                alert("골드가 부족합니다!");
             }
-            update() { this.x += this.vx; this.y += this.vy; this.life--; }
+            updateUI();
+        }
+
+        // ==========================================
+        // Floating Text (데미지 연출)
+        // ==========================================
+        class FloatingText {
+            constructor(text, x, y, color = '#ffda79') {
+                this.text = text;
+                this.x = x + (Math.random() - 0.5) * 15;
+                this.y = y;
+                this.color = color;
+                this.alpha = 1;
+                this.life = 30; // 30 프레임 동안 서서히 사라짐
+            }
+            update() {
+                this.y -= 1.2; // 위로 떠오름
+                this.alpha -= 1 / 30;
+            }
             draw() {
-                ctx.globalAlpha = this.life / this.maxLife;
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, this.alpha);
+                ctx.font = 'bold 14px Arial';
                 ctx.fillStyle = this.color;
-                ctx.beginPath(); ctx.arc(this.x, this.y, 2, 0, Math.PI * 2); ctx.fill();
-                ctx.globalAlpha = 1;
+                ctx.fillText(this.text, this.x, this.y);
+                ctx.restore();
             }
         }
 
         // ==========================================
-        // 메인 게임 루프 및 스폰
+        // 웨이브 / 보스 라운드 로직
         // ==========================================
-        let spawnTimer = 0;
-        let wave = 1;
+        let isWaveActive = false;
 
-        function spawnMinionWave() {
-            for (let i = 0; i < 3 + wave; i++) {
-                setTimeout(() => {
-                    if (isGameOver) return;
-                    minions.push({
-                        x: Math.random() * (canvasWidth - 80) + 40,
-                        y: -20, radius: 14, speed: 0.9 + wave * 0.1,
-                        hp: 120 + wave * 30, maxHp: 120 + wave * 30,
-                    });
-                }, i * 400);
-            }
-            wave++;
+        function startNextWave() {
+            isWaveActive = true;
+            let enemyCount = 4 + round * 2;
+            let spawned = 0;
+
+            const spawnInterval = setInterval(() => {
+                if (isGameOver) { clearInterval(spawnInterval); return; }
+
+                // 일반 몹 생성
+                minions.push({
+                    x: Math.random() * (canvasWidth - 80) + 40,
+                    y: -20, radius: 13,
+                    speed: 0.8 + round * 0.1,
+                    hp: 100 + round * 40,
+                    maxHp: 100 + round * 40,
+                    isBoss: false
+                });
+                spawned++;
+
+                // 마지막 몹 생성 시 보스 몹도 추가! (라운드마다 점점 강해짐)
+                if (spawned >= enemyCount) {
+                    clearInterval(spawnInterval);
+                    setTimeout(() => {
+                        minions.push({
+                            x: canvasWidth / 2,
+                            y: -30, radius: 24, // 보스 크기
+                            speed: 0.5 + round * 0.05,
+                            hp: 400 + round * 300, // 라운드가 지날수록 비약적 상승
+                            maxHp: 400 + round * 300,
+                            isBoss: true
+                        });
+                    }, 1000);
+                }
+            }, 500);
         }
 
+        // ==========================================
+        // 게임 루프
+        // ==========================================
         function gameLoop() {
             if (isGameOver) return;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // 1. 라인 배경 그리기
+            // 라인 배경
             ctx.strokeStyle = '#1e2836'; ctx.lineWidth = 1;
             for (let i = 0; i < canvasWidth; i += 50) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, canvasHeight); ctx.stroke(); }
-            for (let i = 0; i < canvasHeight; i += 50) { ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(canvasWidth, i); ctx.stroke(); }
 
-            // 2. 미니언 스폰 (15초마다)
-            spawnTimer++;
-            if (spawnTimer % 900 === 0) spawnMinionWave();
-            if (spawnTimer === 1) spawnMinionWave(); // 시작 시 첫 웨이브
+            // 1. 라운드 관리
+            if (!isWaveActive && minions.length === 0) {
+                startNextWave();
+            }
 
-            // 3. 플레이어 이동 로직
+            // 2. 플레이어 이동
             const dx = player.targetX - player.x;
             const dy = player.targetY - player.y;
             const dist = Math.hypot(dx, dy);
-            
-            if (dist > 2) { // 목표 위치 근처까지 이동
-                const speed = player.baseSpeed;
-                player.x += (dx / dist) * speed;
-                player.y += (dy / dist) * speed;
+            if (dist > 2) {
+                player.x += (dx / dist) * player.moveSpeed;
+                player.y += (dy / dist) * player.moveSpeed;
             }
-
-            // 맵 경계 제한
             player.x = Math.max(player.radius, Math.min(canvasWidth - player.radius, player.x));
-            player.y = Math.max(player.radius + 50, Math.min(canvasHeight - player.radius - 50, player.y));
+            player.y = Math.max(player.radius + 40, Math.min(canvasHeight - player.radius - 50, player.y));
 
-            // 4. 플레이어 & Q버프 업데이트
-            let currentAttackCooldown = player.attackBaseCooldown;
+            // 3. Q버프 & 플레이어 그리기
+            let currentCooldown = player.attackBaseCooldown;
             if (player.qBuffTimer > 0) {
-                // Q 하이퍼어택: 풀공속 95% (기존 쿨타임의 5%로 단축)
-                currentAttackCooldown = Math.max(1, Math.floor(player.attackBaseCooldown * 0.05));
+                currentCooldown = Math.max(1, Math.floor(player.attackBaseCooldown * 0.05)); // 95% 공속 적용
                 player.qBuffTimer--;
-                
-                // Q 버프 비주얼 효과 (오라)
                 ctx.strokeStyle = `rgba(243, 156, 18, ${Math.abs(Math.sin(player.qBuffTimer * 0.1))})`;
-                ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(player.x, player.y, player.radius + 5, 0, Math.PI * 2); ctx.stroke();
+                ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(player.x, player.y, player.radius + 6, 0, Math.PI * 2); ctx.stroke();
             }
 
-            // 플레이어 그리기 (블루 챔피언)
             ctx.fillStyle = '#3498db'; ctx.beginPath(); ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2); ctx.fill();
             ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
-            // 사거리 원 표시
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(player.x, player.y, player.attackRange, 0, Math.PI * 2); ctx.stroke();
 
-            // 5. 플레이어 초고속 자동 공격 (사거리 내 가장 가까운 적)
+            // 사거리 가이드
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)'; ctx.beginPath(); ctx.arc(player.x, player.y, player.attackRange, 0, Math.PI * 2); ctx.stroke();
+
+            // 4. 자동 공격 로직
             if (player.attackCooldown > 0) player.attackCooldown--;
-
             if (player.attackCooldown === 0) {
                 let target = null;
                 let minDist = player.attackRange;
@@ -293,77 +468,102 @@
                 });
 
                 if (target) {
-                    // 평타 발사 (랜덤다이스 식)
                     projectiles.push({
-                        x: player.x, y: player.y, target: target, speed: 12, damage: player.qBuffTimer > 0 ? 25 : 30, // Q버프 시 뎀감
-                        color: player.qBuffTimer > 0 ? '#f1c40f' : '#2ecc71', radius: player.qBuffTimer > 0 ? 6 : 5
+                        x: player.x, y: player.y, target: target, speed: 12,
+                        damage: player.attackPower,
+                        color: player.qBuffTimer > 0 ? '#f1c40f' : '#2ecc71',
+                        radius: 5
                     });
-                    player.attackCooldown = currentAttackCooldown; // 0.05x 쿨타임 적용 (초고속)
+                    player.attackCooldown = currentCooldown;
                 }
             }
 
-            // 6. 타워 & 미니언 로직
-            // 타워 (레드 넥서스)
+            // 5. 타워
             ctx.fillStyle = '#e74c3c'; ctx.beginPath(); ctx.arc(tower.x, tower.y, tower.radius, 0, Math.PI * 2); ctx.fill();
-            ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
 
-            // 미니언 업데이트
+            // 6. 몬스터(미니언/보스) 업데이트 및 HP 표기
             for (let i = minions.length - 1; i >= 0; i--) {
                 const m = minions[i];
                 const distToTower = Math.hypot(tower.x - m.x, tower.y - m.y);
 
                 if (distToTower > tower.radius + 8) {
-                    m.y += m.speed; // 타워(아래)를 향해 직선 이동
+                    m.y += m.speed;
                 } else {
-                    tower.hp -= 0.6; // 타워 공격
-                    uiTowerHp.innerText = Math.max(0, Math.floor(tower.hp));
+                    tower.hp -= m.isBoss ? 2 : 0.5; // 보스는 타워에 강한 데미지
+                    updateUI();
                     if (tower.hp <= 0) {
-                        isGameOver = true; uiMsg.style.display = 'block'; return;
+                        isGameOver = true;
+                        document.getElementById('game-msg').style.display = 'block';
+                        return;
                     }
                 }
 
-                // 미니언 그리기
-                ctx.fillStyle = '#e74c3c'; ctx.beginPath(); ctx.arc(m.x, m.y, m.radius, 0, Math.PI * 2); ctx.fill();
-                // 미니언 체력바
-                ctx.fillStyle = '#333'; ctx.fillRect(m.x - 15, m.y - 22, 30, 4);
-                ctx.fillStyle = '#2ecc71'; ctx.fillRect(m.x - 15, m.y - 22, (m.hp / m.maxHp) * 30, 4);
+                // 몬스터 외형
+                ctx.fillStyle = m.isBoss ? '#9b59b6' : '#e74c3c'; // 보스는 보라색
+                ctx.beginPath(); ctx.arc(m.x, m.y, m.radius, 0, Math.PI * 2); ctx.fill();
+                ctx.strokeStyle = m.isBoss ? '#f1c40f' : '#000'; ctx.lineWidth = m.isBoss ? 2 : 1; ctx.stroke();
 
+                // 몬스터 HP 게이지 & 수치 표기
+                const barWidth = m.radius * 2.2;
+                const barHeight = 5;
+                ctx.fillStyle = '#333'; ctx.fillRect(m.x - barWidth/2, m.y - m.radius - 12, barWidth, barHeight);
+                ctx.fillStyle = '#2ecc71'; ctx.fillRect(m.x - barWidth/2, m.y - m.radius - 12, (m.hp / m.maxHp) * barWidth, barHeight);
+                
+                // HP 숫자 표기 (몬스터 위)
+                ctx.fillStyle = '#fff';
+                ctx.font = '9px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(`${Math.ceil(m.hp)}`, m.x, m.y - m.radius - 15);
+
+                // 처치 시
                 if (m.hp <= 0) {
-                    gold += 18; kills++; uiGold.innerText = gold; uiKills.innerText = kills;
-                    for(let j=0; j<5; j++) particles.push(new Particle(m.x, m.y, '#e74c3c', 2, 20));
+                    gold += m.isBoss ? 100 : 15;
+                    updateUI();
                     minions.splice(i, 1);
+
+                    // 해당 라운드의 모든 몹 제거 완료 시 라운드 증가
+                    if (minions.length === 0) {
+                        isWaveActive = false;
+                        round++;
+                        updateUI();
+                    }
                 }
             }
 
-            // 7. 투사체 이동 및 충돌
+            // 7. 투사체 및 데미지 Floating 연출
             for (let i = projectiles.length - 1; i >= 0; i--) {
                 const p = projectiles[i];
                 if (!p.target || p.target.hp <= 0) { projectiles.splice(i, 1); continue; }
 
-                const dx = p.target.x - p.x; const dy = p.target.y - p.y; const dist = Math.hypot(dx, dy);
+                const dx = p.target.x - p.x;
+                const dy = p.target.y - p.y;
+                const dist = Math.hypot(dx, dy);
 
                 if (dist < p.speed) {
-                    p.target.hp -= p.damage; projectiles.splice(i, 1);
+                    p.target.hp -= p.damage;
+                    
+                    // 🔥 몬스터 위에 floating 데미지 텍스트 생성!
+                    floatingTexts.push(new FloatingText(`-${p.damage}`, p.target.x, p.target.y - 10, p.color));
+                    
+                    projectiles.splice(i, 1);
                 } else {
-                    p.x += (dx / dist) * p.speed; p.y += (dy / dist) * p.speed;
+                    p.x += (dx / dist) * p.speed;
+                    p.y += (dy / dist) * p.speed;
                     ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2); ctx.fill();
                 }
             }
 
-            // 8. 파티클 & 클릭 이펙트
-            for (let i = particles.length - 1; i >= 0; i--) {
-                particles[i].update(); particles[i].draw();
-                if (particles[i].life <= 0) particles.splice(i, 1);
-            }
-            for (let i = clickEffects.length - 1; i >= 0; i--) {
-                const ce = clickEffects[i]; ce.life--; ce.radius += 1.5;
-                ctx.strokeStyle = `rgba(52, 152, 219, ${ce.life / 15})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(ce.x, ce.y, ce.radius, 0, Math.PI * 2); ctx.stroke();
-                if (ce.life <= 0) clickEffects.splice(i, 1);
+            // 8. Floating 데미지 텍스트 그리기 및 업데이트
+            for (let i = floatingTexts.length - 1; i >= 0; i--) {
+                floatingTexts[i].update();
+                floatingTexts[i].draw();
+                if (floatingTexts[i].alpha <= 0) floatingTexts.splice(i, 1);
             }
 
             requestAnimationFrame(gameLoop);
         }
 
+        updateUI();
         gameLoop();
     </script>
 </body>
