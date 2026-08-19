@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>모바일 LOL Mini</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            background-color: #0b0e14;
+            color: #fff;
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        #top-ui {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 420px;
+            padding: 8px 12px;
+            background-color: #161a23;
+            font-size: 13px;
+            font-weight: bold;
+            border-bottom: 2px solid #333;
+        }
+        canvas {
+            background-color: #12181b;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.8);
+            touch-action: none;
+        }
+        #controls {
+            position: relative;
+            width: 100%;
+            max-width: 420px;
+            height: 140px;
+            background-color: #161a23;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+        }
+        /* 조이스틱 영역 */
+        #joystick-zone {
+            width: 100px;
+            height: 100px;
+            background: rgba(255,255,255,0.05);
+            border: 2px dashed rgba(255,255,255,0.2);
+            border-radius: 50%;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #joystick-stick {
+            width: 40px;
+            height: 40px;
+            background: #3498db;
+            border-radius: 50%;
+            position: absolute;
+            box-shadow: 0 0 10px rgba(52, 152, 219, 0.5);
+        }
+        /* 스킬 버튼 영역 */
+        .skill-group {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+        .btn-skill {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: 2px solid #f39c12;
+            background: #2c3e50;
+            color: #fff;
+            font-weight: bold;
+            font-size: 14px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        .btn-skill:active {
+            transform: scale(0.92);
+            background: #d35400;
+        }
+        .btn-attack {
+            width: 60px;
+            height: 60px;
+            border-color: #e74c3c;
+            background: #9b59b6;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="top-ui">
+        <div>💰 Gold: <span id="gold">0</span></div>
+        <div>⚔️ CS: <span id="kills">0</span></div>
+        <div>🏰 Tower HP: <span id="towerHp">1000</span></div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="controls">
+        <!-- 가상 조이스틱 -->
+        <div id="joystick-zone">
+            <div id="joystick-stick"></div>
+        </div>
+
+        <!-- 스킬 버튼 -->
+        <div class="skill-group">
+            <button class="btn-skill" id="btnQ">Q<span style="font-size:9px">논타겟</span></button>
+            <button class="btn-skill" id="btnW">W<span style="font-size:9px">이속증가</span></button>
+            <button class="btn-skill btn-attack" id="btnA">평타</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // 반응형 Canvas 크기 (모바일 뷰 최적화)
+        const canvasWidth = Math.min(window.innerWidth, 420);
+        const canvasHeight = Math.min(window.innerHeight - 200, 480);
+        canvas.width = canvasWidth;
+        canvas.height = canvasHeight;
+
+        // 게임 변수
+        let gold = 0;
+        let kills = 0;
+        let moveVec = { x: 0, y: 0 };
+
+        // 플레이어 (챔피언)
+        const player = {
+            x: canvasWidth / 2,
+            y: canvasHeight - 80,
+            radius: 16,
+            speed: 3,
+            hp: 500,
+            maxHp: 500,
+            attackRange: 110,
+            attackCooldown: 0,
+            wBoostTimer: 0
+        };
+
+        // 아군 아군 타워
+        const tower = {
+            x: canvasWidth / 2,
+            y: canvasHeight - 35,
+            radius: 25,
+            hp: 1000,
+            maxHp: 1000,
+            range: 140,
+            cooldown: 0
+        };
+
+        // 객체 배열
+        let minions = [];
+        let projectiles = [];
+        let particles = [];
+
+        // UI 요소
+        const goldEl = document.getElementById('gold');
+        const killsEl = document.getElementById('kills');
+        const towerHpEl = document.getElementById('towerHp');
+
+        // ==========================================
+        // 조이스틱 터치 로직
+        // ==========================================
+        const joystickZone = document.getElementById('joystick-zone');
+        const joystickStick = document.getElementById('joystick-stick');
+        let isJoystickActive = false;
+        let joystickCenter = { x: 0, y: 0 };
+
+        joystickZone.addEventListener('pointerdown', (e) => {
+            isJoystickActive = true;
+            const rect = joystickZone.getBoundingClientRect();
+            joystickCenter = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+            updateJoystick(e);
+        });
+
+        window.addEventListener('pointermove', (e) => {
+            if (isJoystickActive) updateJoystick(e);
+        });
+
+        window.addEventListener('pointerup', () => {
+            isJoystickActive = false;
+            joystickStick.style.transform = `translate(0px, 0px)`;
+            moveVec = { x: 0, y: 0 };
+        });
+
+        function updateJoystick(e) {
+            const dx = e.clientX - joystickCenter.x;
+            const dy = e.clientY - joystickCenter.y;
+            const dist = Math.hypot(dx, dy);
+            const maxDist = 35;
+
+            const angle = Math.atan2(dy, dx);
+            const clampDist = Math.min(dist, maxDist);
+
+            const moveX = Math.cos(angle) * clampDist;
+            const moveY = Math.sin(angle) * clampDist;
+
+            joystickStick.style.transform = `translate(${moveX}px, ${moveY}px)`;
+
+            // 이동 벡터 정규화
+            moveVec.x = Math.cos(angle) * (clampDist / maxDist);
+            moveVec.y = Math.sin(angle) * (clampDist / maxDist);
+        }
+
+        // ==========================================
+        // 버튼 입력 (스킬 & 평타)
+        // ==========================================
+        document.getElementById('btnA').addEventListener('pointerdown', attackNearestMinion);
+        document.getElementById('btnQ').addEventListener('pointerdown', castQSkill);
+        document.getElementById('btnW').addEventListener('pointerdown', castWSkill);
+
+        // 평타 발사
+        function attackNearestMinion() {
+            if (player.attackCooldown > 0) return;
+
+            // 사거리 내 가장 가까운 적 미니언 탐지
+            let target = null;
+            let minDist = player.attackRange;
+
+            minions.forEach(m => {
+                const dist = Math.hypot(m.x - player.x, m.y - player.y);
+                if (dist < minDist) {
+                    minDist = dist;
+                    target = m;
+                }
+            });
+
+            if (target) {
+                projectiles.push({
+                    x: player.x,
+                    y: player.y,
+                    target: target,
+                    speed: 7,
+                    damage: 35,
+                    color: '#2ecc71',
+                    radius: 5
+                });
+                player.attackCooldown = 25; // 쿨타임 프레임
+            }
+        }
+
+        // Q 스킬: 직사 논타겟 투사체
+        function castQSkill() {
+            projectiles.push({
+                x: player.x,
+                y: player.y,
+                vx: 0,
+                vy: -9,
+                speed: 9,
+                damage: 90,
+                color: '#f39c12',
+                radius: 8,
+                isSkillQ: true
+            });
+        }
+
+        // W 스킬: 이동속도 증가
+        function castWSkill() {
+            player.wBoostTimer = 120; // 약 2초간 이동속도 1.8배
+            for (let i = 0; i < 10; i++) {
+                particles.push({
+                    x: player.x, y: player.y,
+                    vx: (Math.random() - 0.5) * 4,
+                    vy: (Math.random() - 0.5) * 4,
+                    life: 20, color: '#3498db'
+                });
+            }
+        }
+
+        // ==========================================
+        // 게임 루프 및 스폰
+        // ==========================================
+        let spawnTimer = 0;
+
+        function spawnMinion() {
+            minions.push({
+                x: Math.random() * (canvasWidth - 60) + 30,
+                y: -10,
+                radius: 12,
+                speed: 1.2,
+                hp: 100,
+                maxHp: 100,
+                attackCooldown: 0
+            });
+        }
+
+        function gameLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 1. 라인 격자 배경
+            ctx.strokeStyle = '#1e2836';
+            ctx.lineWidth = 2;
+            for (let i = 0; i < canvasWidth; i += 40) {
+                ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, canvasHeight); ctx.stroke();
+            }
+
+            // 2. 스폰 체크
+            spawnTimer++;
+            if (spawnTimer % 100 === 0) spawnMinion();
+
+            // 3. 플레이어 이동 & W 이속 버프
+            let currentSpeed = player.speed;
+            if (player.wBoostTimer > 0) {
+                currentSpeed *= 1.7;
+                player.wBoostTimer--;
+            }
+
+            player.x += moveVec.x * currentSpeed;
+            player.y += moveVec.y * currentSpeed;
+
+            // 맵 경계 제한
+            player.x = Math.max(player.radius, Math.min(canvasWidth - player.radius, player.x));
+            player.y = Math.max(player.radius, Math.min(canvasHeight - player.radius, player.y));
+
+            if (player.attackCooldown > 0) player.attackCooldown--;
+
+            // 4. 플레이어 그려주기
+            ctx.fillStyle = player.wBoostTimer > 0 ? '#00d2d3' : '#3498db';
+            ctx.beginPath();
+            ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // 사거리 원 표시
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+            ctx.beginPath();
+            ctx.arc(player.x, player.y, player.attackRange, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // 5. 타워 로직
+            ctx.fillStyle = '#95a5a6';
+            ctx.beginPath();
+            ctx.arc(tower.x, tower.y, tower.radius, 0, Math.PI * 2);
+            ctx.fill();
+
+            if (tower.cooldown > 0) tower.cooldown--;
+            else {
+                // 타워 사거리 내 적 미니언 타격
+                const targetMinion = minions.find(m => Math.hypot(m.x - tower.x, m.y - tower.y) < tower.range);
+                if (targetMinion) {
+                    projectiles.push({
+                        x: tower.x, y: tower.y,
+                        target: targetMinion,
+                        speed: 8, damage: 60,
+                        color: '#e74c3c', radius: 6
+                    });
+                    tower.cooldown = 40;
+                }
+            }
+
+            // 6. 미니언 업데이트 & 타워 공격
+            for (let i = minions.length - 1; i >= 0; i--) {
+                const m = minions[i];
+                const distToTower = Math.hypot(tower.x - m.x, tower.y - m.y);
+
+                if (distToTower > tower.radius + 10) {
+                    // 타워를 향해 이동
+                    const dx = tower.x - m.x;
+                    const dy = tower.y - m.y;
+                    m.x += (dx / distToTower) * m.speed;
+                    m.y += (dy / distToTower) * m.speed;
+                } else {
+                    // 타워 공격
+                    tower.hp -= 0.5;
+                    towerHpEl.innerText = Math.max(0, Math.floor(tower.hp));
+                    if (tower.hp <= 0) {
+                        alert("넥서스(타워)가 파괴되었습니다! 게임 오버!");
+                        document.location.reload();
+                        return;
+                    }
+                }
+
+                // 미니언 그리기
+                ctx.fillStyle = '#e74c3c';
+                ctx.beginPath();
+                ctx.arc(m.x, m.y, m.radius, 0, Math.PI * 2);
+                ctx.fill();
+
+                // 체력바
+                ctx.fillStyle = '#c0392b';
+                ctx.fillRect(m.x - 12, m.y - 18, 24, 4);
+                ctx.fillStyle = '#2ecc71';
+                ctx.fillRect(m.x - 12, m.y - 18, (m.hp / m.maxHp) * 24, 4);
+
+                if (m.hp <= 0) {
+                    gold += 21;
+                    kills++;
+                    goldEl.innerText = gold;
+                    killsEl.innerText = kills;
+                    minions.splice(i, 1);
+                }
+            }
+
+            // 7. 투사체 이동 및 충돌
+            for (let i = projectiles.length - 1; i >= 0; i--) {
+                const p = projectiles[i];
+
+                if (p.isSkillQ) {
+                    // Q 스킬 (논타겟 직선)
+                    p.y += p.vy;
+                    ctx.fillStyle = p.color;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // 미니언 충돌 검사
+                    minions.forEach(m => {
+                        if (Math.hypot(m.x - p.x, m.y - p.y) < m.radius + p.radius) {
+                            m.hp -= p.damage;
+                            p.toDelete = true;
+                        }
+                    });
+
+                    if (p.y < -10 || p.toDelete) projectiles.splice(i, 1);
+                } else {
+                    // 타겟팅 투사체 (평타 / 타워 공격)
+                    if (!p.target || p.target.hp <= 0) {
+                        projectiles.splice(i, 1);
+                        continue;
+                    }
+
+                    const dx = p.target.x - p.x;
+                    const dy = p.target.y - p.y;
+                    const dist = Math.hypot(dx, dy);
+
+                    if (dist < p.speed) {
+                        p.target.hp -= p.damage;
+                        projectiles.splice(i, 1);
+                    } else {
+                        p.x += (dx / dist) * p.speed;
+                        p.y += (dy / dist) * p.speed;
+
+                        ctx.fillStyle = p.color;
+                        ctx.beginPath();
+                        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+            }
+
+            // 8. 파티클 이펙트
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const pt = particles[i];
+                pt.x += pt.vx;
+                pt.y += pt.vy;
+                pt.life--;
+                ctx.fillStyle = pt.color;
+                ctx.beginPath();
+                ctx.arc(pt.x, pt.y, 3, 0, Math.PI * 2);
+                ctx.fill();
+                if (pt.life <= 0) particles.splice(i, 1);
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        gameLoop();
+    </script>
+</body>
+</html>
