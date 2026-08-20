@@ -205,7 +205,9 @@
             qBuffTimer: 0, qCooldown: 0,
             wBuffTimer: 0, wCooldown: 0,
             eCooldown: 0, eEffectTimer: 0,
-            lifesteal: 0 // 흡혈 스탯
+            lifesteal: 0,          // 흡혈 스탯
+            scopeChance: 0.25,      // 🔍 조준경 확률 (25%)
+            explosionChance: 0     // 💥 폭발 탄환 확률 (초기 0%)
         };
 
         // 아군 타워
@@ -235,6 +237,10 @@
                 apply: () => { player.lifesteal += 4; }
             },
             {
+                id: 'expOrb', name: '💥 폭발의 구슬', desc: '30% 확률로 탄환 폭발 (범위 피해)', price: 300, bought: false,
+                apply: () => { player.explosionChance += 0.3; }
+            },
+            {
                 id: 'warmog', name: '🛡️ 워모그의 갑옷', desc: '체력 +150 & 타워 체력 +300 회복', price: 350, bought: false,
                 apply: () => { 
                     player.maxHp += 150; player.hp += 150;
@@ -246,6 +252,7 @@
         let minions = [];
         let projectiles = [];
         let floatingTexts = [];
+        let explosions = []; // 폭발 이펙트 배열
 
         function updateUI() {
             document.getElementById('gold').innerText = gold;
@@ -393,7 +400,7 @@
 
             minions.forEach(m => {
                 const dist = Math.hypot(m.x - player.x, m.y - player.y);
-                if (dist <= 160) { // 범위 내 적 피해
+                if (dist <= 160) {
                     const dmg = player.attackPower * 2.5;
                     m.hp -= dmg;
                     floatingTexts.push(new FloatingText(`-${Math.floor(dmg)}`, m.x, m.y - 15, '#f1c40f'));
@@ -408,7 +415,9 @@
                 • 공격력: <b>${player.attackPower}</b><br>
                 • 기본 공속: <b>초당 ${(60 / player.attackBaseCooldown).toFixed(1)}회</b><br>
                 • 이동 속도: <b>${player.moveSpeed.toFixed(1)}</b><br>
-                • 흡혈 효과: <b>타격당 +${player.lifesteal} HP</b>
+                • 흡혈 효과: <b>타격당 +${player.lifesteal} HP</b><br>
+                • 🔍 조준경 추가탄 확률: <b>${Math.round(player.scopeChance * 100)}%</b><br>
+                • 💥 탄환 폭발 확률: <b>${Math.round(player.explosionChance * 100)}%</b>
             `;
             document.getElementById('modalStat').style.display = 'flex';
         });
@@ -533,23 +542,43 @@
             ctx.beginPath(); ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2); ctx.fill();
             ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
 
-            // 자동 공격
+            // 🏹 자동 공격 & 🔍 조준경 로직
             if (player.attackCooldown > 0) player.attackCooldown--;
             if (player.attackCooldown === 0) {
-                let target = null;
-                let minDist = player.attackRange;
+                let targetsInRange = [];
 
                 minions.forEach(m => {
                     const distToM = Math.hypot(m.x - player.x, m.y - player.y);
-                    if (distToM < minDist) { minDist = distToM; target = m; }
+                    if (distToM <= player.attackRange) {
+                        targetsInRange.push({ minion: m, dist: distToM });
+                    }
                 });
 
-                if (target) {
+                targetsInRange.sort((a, b) => a.dist - b.dist);
+
+                if (targetsInRange.length > 0) {
+                    const primaryTarget = targetsInRange[0].minion;
+
+                    // 메인 탄환 발사
                     projectiles.push({
-                        x: player.x, y: player.y, target: target, speed: 12,
+                        x: player.x, y: player.y, target: primaryTarget, speed: 12,
                         damage: player.attackPower,
-                        color: player.qBuffTimer > 0 ? '#f1c40f' : '#2ecc71', radius: 5
+                        color: player.qBuffTimer > 0 ? '#f1c40f' : '#2ecc71', radius: 5,
+                        isScope: false
                     });
+
+                    // 🔍 조준경 효과 발동 (확률적으로 2번째 대상에게 추가 탄환 발사)
+                    if (Math.random() < player.scopeChance) {
+                        const scopeTarget = targetsInRange.length > 1 ? targetsInRange[1].minion : primaryTarget;
+                        projectiles.push({
+                            x: player.x, y: player.y, target: scopeTarget, speed: 14,
+                            damage: Math.floor(player.attackPower * 0.8),
+                            color: '#a55eea', radius: 4, // 보라색 조준경 탄환
+                            isScope: true
+                        });
+                        floatingTexts.push(new FloatingText('🔍조준경!', player.x, player.y - 20, '#a55eea'));
+                    }
+
                     player.attackCooldown = currentCooldown;
                 }
             }
@@ -630,7 +659,7 @@
                 }
             }
 
-            // 투사체 및 흡혈 연출
+            // 투사체, 흡혈, 💥 폭발 탄환 처리
             for (let i = projectiles.length - 1; i >= 0; i--) {
                 const p = projectiles[i];
                 if (!p.target || p.target.hp <= 0) { projectiles.splice(i, 1); continue; }
@@ -642,6 +671,25 @@
                 if (dist < p.speed) {
                     p.target.hp -= p.damage;
                     floatingTexts.push(new FloatingText(`-${p.damage}`, p.target.x, p.target.y - 10, p.color));
+
+                    // 💥 폭발 탄환 로직 (확률 발동)
+                    if (player.explosionChance > 0 && Math.random() < player.explosionChance) {
+                        const expRadius = 80;
+                        const expDmg = Math.floor(p.damage * 0.7);
+
+                        explosions.push({ x: p.target.x, y: p.target.y, radius: expRadius, timer: 12 });
+                        floatingTexts.push(new FloatingText('💥폭발!', p.target.x, p.target.y - 25, '#e67e22'));
+
+                        minions.forEach(nearM => {
+                            if (nearM !== p.target) {
+                                const dNear = Math.hypot(nearM.x - p.target.x, nearM.y - p.target.y);
+                                if (dNear <= expRadius) {
+                                    nearM.hp -= expDmg;
+                                    floatingTexts.push(new FloatingText(`-${expDmg}`, nearM.x, nearM.y - 10, '#e67e22'));
+                                }
+                            }
+                        });
+                    }
 
                     // 🩸 흡혈 효과 적용
                     if (player.lifesteal > 0 && player.hp < player.maxHp) {
@@ -656,6 +704,17 @@
                     p.y += (dy / dist) * p.speed;
                     ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2); ctx.fill();
                 }
+            }
+
+            // 💥 폭발 애니메이션 그리기
+            for (let i = explosions.length - 1; i >= 0; i--) {
+                const exp = explosions[i];
+                ctx.fillStyle = `rgba(230, 126, 34, ${exp.timer / 12 * 0.5})`;
+                ctx.beginPath();
+                ctx.arc(exp.x, exp.y, exp.radius, 0, Math.PI * 2);
+                ctx.fill();
+                exp.timer--;
+                if (exp.timer <= 0) explosions.splice(i, 1);
             }
 
             for (let i = floatingTexts.length - 1; i >= 0; i--) {
