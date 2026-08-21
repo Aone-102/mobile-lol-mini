@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="ko">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
@@ -12,149 +13,414 @@
             user-select: none;
             -webkit-user-select: none;
             touch-action: none;
-            margin: 0; padding: 0;
+            margin: 0;
+            padding: 0;
         }
+
         body {
             background-color: #0b0e14;
             color: #fff;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            display: flex; flex-direction: column;
-            align-items: center; justify-content: center;
-            min-height: 100vh; overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
         }
 
         /* 메인 로비 화면 */
         #main-lobby {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
             background: linear-gradient(135deg, #0b0e14 0%, #1a2332 100%);
-            display: flex; flex-direction: column; align-items: center; justify-content: space-between;
-            padding: 40px 20px; z-index: 500;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            padding: 40px 20px;
+            z-index: 500;
         }
-        .lobby-title { font-size: 26px; font-weight: bold; color: #f39c12; text-shadow: 0 0 10px rgba(243, 156, 18, 0.5); text-align: center; }
-        .lobby-menu { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 280px; }
+
+        .lobby-title {
+            font-size: 26px;
+            font-weight: bold;
+            color: #f39c12;
+            text-shadow: 0 0 10px rgba(243, 156, 18, 0.5);
+            text-align: center;
+        }
+
+        .lobby-menu {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            width: 100%;
+            max-width: 280px;
+        }
+
         .btn-lobby {
-            padding: 14px; border-radius: 8px; border: 2px solid #f39c12;
-            background: rgba(44, 62, 80, 0.9); color: #fff; font-size: 15px; font-weight: bold;
-            cursor: pointer; text-align: center; transition: all 0.2s;
+            padding: 14px;
+            border-radius: 8px;
+            border: 2px solid #f39c12;
+            background: rgba(44, 62, 80, 0.9);
+            color: #fff;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s;
         }
-        .btn-lobby:active { transform: scale(0.96); background: #f39c12; color: #111; }
-        .btn-start { background: #27ae60; border-color: #2ecc71; font-size: 18px; }
+
+        .btn-lobby:active {
+            transform: scale(0.96);
+            background: #f39c12;
+            color: #111;
+        }
+
+        .btn-start {
+            background: #27ae60;
+            border-color: #2ecc71;
+            font-size: 18px;
+        }
+
+        .btn-sub-action {
+            background: #2980b9;
+            border-color: #3498db;
+            margin-top: 6px;
+            padding: 10px;
+            font-size: 13px;
+        }
 
         /* 탑 UI 및 인게임 */
         #top-ui {
-            display: flex; justify-content: space-between; align-items: center;
-            width: 100%; max-width: 480px; padding: 8px 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            max-width: 480px;
+            padding: 8px 12px;
             background-color: rgba(22, 26, 35, 0.95);
-            backdrop-filter: blur(5px); font-size: 12px; font-weight: bold;
-            border-bottom: 2px solid #333; position: fixed; top: 0; z-index: 10;
+            backdrop-filter: blur(5px);
+            font-size: 12px;
+            font-weight: bold;
+            border-bottom: 2px solid #333;
+            position: fixed;
+            top: 0;
+            z-index: 10;
         }
-        .ui-group { display: flex; gap: 8px; align-items: center; }
+
+        .ui-group {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
         .hp-bar-container {
-            width: 70px; height: 14px; background-color: #333;
-            border: 1px solid #555; border-radius: 7px;
-            overflow: hidden; position: relative;
+            width: 70px;
+            height: 14px;
+            background-color: #333;
+            border: 1px solid #555;
+            border-radius: 7px;
+            overflow: hidden;
+            position: relative;
         }
-        .hp-bar-fill { height: 100%; transition: width 0.1s linear; }
-        .hp-player { background-color: #3498db; width: 100%; }
-        .hp-tower { background-color: #e74c3c; width: 100%; }
+
+        .hp-bar-fill {
+            height: 100%;
+            transition: width 0.1s linear;
+        }
+
+        .hp-player {
+            background-color: #3498db;
+            width: 100%;
+        }
+
+        .hp-tower {
+            background-color: #e74c3c;
+            width: 100%;
+        }
+
         .hp-bar-text {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            font-size: 9px; text-align: center; line-height: 14px;
-            color: #fff; font-weight: bold; text-shadow: 0 0 2px #000;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            font-size: 9px;
+            text-align: center;
+            line-height: 14px;
+            color: #fff;
+            font-weight: bold;
+            text-shadow: 0 0 2px #000;
         }
 
         #dev-panel {
-            display: none; position: fixed; top: 38px; z-index: 15;
-            background: rgba(142, 68, 173, 0.9); padding: 4px 8px;
-            border-radius: 0 0 8px 8px; gap: 6px; align-items: center;
+            display: none;
+            position: fixed;
+            top: 38px;
+            z-index: 15;
+            background: rgba(142, 68, 173, 0.9);
+            padding: 4px 8px;
+            border-radius: 0 0 8px 8px;
+            gap: 6px;
+            align-items: center;
         }
+
         .btn-dev {
-            background: #27ae60; color: #fff; border: none; padding: 3px 8px;
-            border-radius: 4px; font-weight: bold; font-size: 11px; cursor: pointer;
+            background: #27ae60;
+            color: #fff;
+            border: none;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 11px;
+            cursor: pointer;
         }
 
         canvas {
             background-color: #12181b;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.8);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
             margin-top: 36px;
         }
 
         #chat-container {
-            position: absolute; bottom: 80px; left: 10px; width: 220px;
-            background: rgba(0, 0, 0, 0.6); border-radius: 6px;
-            padding: 6px; display: flex; flex-direction: column; gap: 4px; z-index: 20;
+            position: absolute;
+            bottom: 80px;
+            left: 10px;
+            width: 220px;
+            background: rgba(0, 0, 0, 0.6);
+            border-radius: 6px;
+            padding: 6px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            z-index: 20;
         }
+
         #chat-logs {
-            height: 70px; overflow-y: auto; font-size: 11px;
-            display: flex; flex-direction: column; gap: 2px;
+            height: 70px;
+            overflow-y: auto;
+            font-size: 11px;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
         }
-        .chat-msg { color: #ddd; word-break: break-all; }
-        .chat-sys { color: #f1c40f; font-weight: bold; }
-        #chat-input-box { display: flex; gap: 4px; }
+
+        .chat-msg {
+            color: #ddd;
+            word-break: break-all;
+        }
+
+        .chat-sys {
+            color: #f1c40f;
+            font-weight: bold;
+        }
+
+        #chat-input-box {
+            display: flex;
+            gap: 4px;
+        }
+
         #chat-input {
-            flex: 1; background: rgba(255,255,255,0.1); border: 1px solid #555;
-            color: #fff; border-radius: 3px; padding: 2px 5px; font-size: 11px;
+            flex: 1;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid #555;
+            color: #fff;
+            border-radius: 3px;
+            padding: 2px 5px;
+            font-size: 11px;
         }
 
         #controls-overlay {
-            position: absolute; bottom: 15px; right: 10px;
-            display: flex; gap: 6px; z-index: 10;
+            position: absolute;
+            bottom: 15px;
+            right: 10px;
+            display: flex;
+            gap: 6px;
+            z-index: 10;
         }
+
         #menu-overlay {
-            position: absolute; bottom: 15px; left: 240px;
-            display: flex; gap: 6px; z-index: 10;
+            position: absolute;
+            bottom: 15px;
+            left: 10px;
+            display: flex;
+            gap: 6px;
+            z-index: 10;
         }
+
         .btn-ui {
-            width: 46px; height: 46px; border-radius: 50%;
-            border: 2px solid #f39c12; background: rgba(44, 62, 80, 0.9);
-            color: #fff; font-weight: bold; font-size: 11px;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            width: 46px;
+            height: 46px;
+            border-radius: 50%;
+            border: 2px solid #f39c12;
+            background: rgba(44, 62, 80, 0.9);
+            color: #fff;
+            font-weight: bold;
+            font-size: 11px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
             cursor: pointer;
         }
-        .btn-ui:active { transform: scale(0.92); }
-        .btn-stat { border-color: #3498db; }
-        .btn-shop { border-color: #2ecc71; }
-        .btn-multi { border-color: #9b59b6; }
-        .btn-skill-cd { font-size: 8px; color: #f1c40f; margin-top: 2px; }
+
+        .btn-ui:active {
+            transform: scale(0.92);
+        }
+
+        .btn-stat {
+            border-color: #3498db;
+        }
+
+        .btn-shop {
+            border-color: #2ecc71;
+        }
+
+        .btn-multi {
+            border-color: #9b59b6;
+        }
+
+        .btn-exit {
+            border-color: #e74c3c;
+            background: rgba(192, 57, 43, 0.9);
+        }
+
+        .btn-skill-cd {
+            font-size: 8px;
+            color: #f1c40f;
+            margin-top: 2px;
+        }
 
         .modal {
-            position: absolute; top: 50%; left: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
             transform: translate(-50%, -50%);
-            width: 90%; max-width: 400px; max-height: 85vh;
-            overflow-y: auto; background: rgba(22, 26, 35, 0.98);
-            border: 2px solid #f39c12; border-radius: 12px; padding: 16px;
-            display: none; flex-direction: column; gap: 10px; z-index: 600;
-        }
-        .modal-title { font-size: 16px; font-weight: bold; text-align: center; color: #f39c12; border-bottom: 1px solid #444; padding-bottom: 6px; }
-        .modal-content { font-size: 12px; line-height: 1.5; }
-        .shop-section-title { font-size: 12px; color: #f1c40f; font-weight: bold; margin: 8px 0 4px 0; border-left: 3px solid #f1c40f; padding-left: 6px; }
-        .shop-item { display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.05); padding: 6px 8px; border-radius: 6px; margin-bottom: 4px; }
-        .btn-buy { background: #2ecc71; color: #fff; border: none; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 10px; cursor: pointer; }
-        .btn-bought { background: #7f8c8d !important; cursor: not-allowed; }
-        .btn-close { background: #e74c3c; color: #fff; border: none; padding: 6px; border-radius: 6px; font-weight: bold; margin-top: 5px; cursor: pointer; }
-        
-        #game-msg {
-            position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%);
-            background: rgba(0,0,0,0.85); padding: 20px; border-radius: 10px;
-            font-size: 22px; font-weight: bold; color: #e74c3c; display: none; z-index: 200; text-align: center;
+            width: 90%;
+            max-width: 400px;
+            max-height: 85vh;
+            overflow-y: auto;
+            background: rgba(22, 26, 35, 0.98);
+            border: 2px solid #f39c12;
+            border-radius: 12px;
+            padding: 16px;
+            display: none;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 600;
         }
 
-        .setting-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .modal-title {
+            font-size: 16px;
+            font-weight: bold;
+            text-align: center;
+            color: #f39c12;
+            border-bottom: 1px solid #444;
+            padding-bottom: 6px;
+        }
+
+        .modal-content {
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        .shop-section-title {
+            font-size: 12px;
+            color: #f1c40f;
+            font-weight: bold;
+            margin: 8px 0 4px 0;
+            border-left: 3px solid #f1c40f;
+            padding-left: 6px;
+        }
+
+        .shop-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 6px 8px;
+            border-radius: 6px;
+            margin-bottom: 4px;
+        }
+
+        .btn-buy {
+            background: #2ecc71;
+            color: #fff;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 10px;
+            cursor: pointer;
+        }
+
+        .btn-bought {
+            background: #7f8c8d !important;
+            cursor: not-allowed;
+        }
+
+        .btn-close {
+            background: #e74c3c;
+            color: #fff;
+            border: none;
+            padding: 6px;
+            border-radius: 6px;
+            font-weight: bold;
+            margin-top: 5px;
+            cursor: pointer;
+        }
+
+        #game-msg {
+            position: absolute;
+            top: 40%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.85);
+            padding: 20px;
+            border-radius: 10px;
+            font-size: 22px;
+            font-weight: bold;
+            color: #e74c3c;
+            display: none;
+            z-index: 200;
+            text-align: center;
+        }
+
+        .setting-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .mode-desc {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            font-size: 12px;
+            color: #ddd;
+        }
     </style>
 </head>
+
 <body>
 
     <!-- 메인 로비 화면 -->
     <div id="main-lobby">
         <div class="lobby-title">⚔️ 하이퍼 어택 Ultra</div>
         <div class="lobby-menu">
-            <button class="btn-lobby btn-start" onclick="startGameDirectly()">솔로 플레이</button>
-            <button class="btn-lobby" onclick="openModal('modalMatch')">🔍 무작위 매칭</button>
-            <button class="btn-lobby" onclick="openModal('modalMulti')">👥 친구랑 하기</button>
+            <button class="btn-lobby btn-start" onclick="startSoloPlay()">👤 솔로 플레이</button>
+            <button class="btn-lobby" onclick="openModal('modalPvpSelect')">⚔️ 대전 모드</button>
+            <button class="btn-lobby" onclick="openModal('modalCoopSelect')">🤝 협동 모드</button>
             <button class="btn-lobby" onclick="openModal('modalNotice')">📢 공지사항</button>
             <button class="btn-lobby" onclick="openModal('modalSettings')">⚙️ 설정</button>
         </div>
-        <div style="font-size: 11px; color: #7f8c8d;">v1.0.4 Ultra Edition</div>
+        <div style="font-size: 11px; color: #7f8c8d;">v1.0.5 Ultra Edition</div>
     </div>
 
     <!-- 인게임 Top UI -->
@@ -198,12 +464,76 @@
         <button class="btn-ui btn-stat" id="btnOpenStat">스탯</button>
         <button class="btn-ui btn-shop" id="btnOpenShop">상점</button>
         <button class="btn-ui btn-multi" id="btnOpenMulti">멀티</button>
+        <button class="btn-ui btn-exit" onclick="returnToLobby()">나가기</button>
     </div>
 
     <div id="controls-overlay">
         <button class="btn-ui" id="btnQ">Q<span class="btn-skill-cd" id="cdQ">READY</span></button>
         <button class="btn-ui" id="btnW">W<span class="btn-skill-cd" id="cdW">READY</span></button>
         <button class="btn-ui" id="btnE">E<span class="btn-skill-cd" id="cdE">READY</span></button>
+    </div>
+
+    <!-- 대전 모드 선택 모달 -->
+    <div class="modal" id="modalPvpSelect">
+        <div class="modal-title">⚔️ 대전 모드 (1v1 PVP)</div>
+        <div class="modal-content">
+            <div class="mode-desc">
+                상대 플레이어와 실시간 1대1 대결을 펼칩니다!<br>
+                라인을 밀고 상대를 제압하여 상대 넥서스를 먼저 파괴하는 쪽이 승리합니다.
+            </div>
+            <button class="btn-lobby btn-sub-action"
+                onclick="closeModal('modalPvpSelect'); startRandomMatching('PVP');">🔍 무작위 매칭</button>
+            <button class="btn-lobby btn-sub-action"
+                onclick="closeModal('modalPvpSelect'); openFriendRoomModal('PVP');">👥 친구랑 하기</button>
+        </div>
+        <button class="btn-close" onclick="closeModal('modalPvpSelect')">닫기</button>
+    </div>
+
+    <!-- 협동 모드 선택 모달 -->
+    <div class="modal" id="modalCoopSelect">
+        <div class="modal-title">🤝 협동 모드 (CO-OP)</div>
+        <div class="modal-content">
+            <div class="mode-desc">
+                다른 플레이어와 함께 팀을 이루어 몰려오는 적 웨이브를 막아냅니다!<br>
+                서로의 스킬과 아이템 빌드를 조합하여 최대로 많은 라운드를 생존하세요.
+            </div>
+            <button class="btn-lobby btn-sub-action"
+                onclick="closeModal('modalCoopSelect'); startRandomMatching('COOP');">🔍 무작위 매칭</button>
+            <button class="btn-lobby btn-sub-action"
+                onclick="closeModal('modalCoopSelect'); openFriendRoomModal('COOP');">👥 친구랑 하기</button>
+        </div>
+        <button class="btn-close" onclick="closeModal('modalCoopSelect')">닫기</button>
+    </div>
+
+    <!-- 친구랑 하기 (방 생성/참가) 모달 -->
+    <div class="modal" id="modalMulti">
+        <div class="modal-title">👥 친구와 함께하기</div>
+        <div class="modal-content">
+            <p style="margin-bottom:8px; color:#aaa;">P2P 서버에 등록된 접속 코드를 생성하거나 입력하세요.</p>
+            <div style="background: rgba(0,0,0,0.3); padding:8px; border-radius:6px; margin-bottom:8px;">
+                <span>내 접속 ID: </span><b id="myPeerId" style="color:#2ecc71;">생성 중...</b>
+            </div>
+            <button class="btn-buy" style="width:100%; margin-bottom:8px; padding: 8px;" onclick="createHostRoom()">방 생성
+                (Host)</button>
+            <div style="display:flex; gap:4px;">
+                <input type="text" id="roomCodeInput" placeholder="상대 ID 코드 입력"
+                    style="flex:1; background:#222; border:1px solid #555; color:#fff; padding:6px; border-radius:4px;">
+                <button class="btn-buy" onclick="connectToPeer()">참가</button>
+            </div>
+            <p id="multiStatus" style="color:#f1c40f; margin-top:8px; word-break:break-all; font-weight:bold;"></p>
+        </div>
+        <button class="btn-close" onclick="closeModal('modalMulti')">닫기</button>
+    </div>
+
+    <!-- 빠른 매칭 모달 -->
+    <div class="modal" id="modalMatch">
+        <div class="modal-title">무작위 대전 매칭</div>
+        <div class="modal-content" style="text-align: center; padding: 10px 0;">
+            <p id="matchText">상대 플레이어를 검색하는 중입니다...</p>
+            <div id="matchSpinner" style="margin: 15px 0; font-size: 24px;">⏳</div>
+            <button class="btn-buy" id="btnStartMatch" onclick="confirmMatching()">매칭 시작</button>
+        </div>
+        <button class="btn-close" onclick="cancelMatching()">취소</button>
     </div>
 
     <!-- 스탯 모달 -->
@@ -220,44 +550,18 @@
         <button class="btn-close" onclick="closeModal('modalShop')">닫기</button>
     </div>
 
-    <!-- 멀티 (친구랑 하기) 모달 -->
-    <div class="modal" id="modalMulti">
-        <div class="modal-title">친구와 함께하기 (P2P)</div>
-        <div class="modal-content">
-            <p style="margin-bottom:8px; color:#aaa;">같은 코드 또는 주소로 공유하여 접속하세요.</p>
-            <button class="btn-buy" style="width:100%; margin-bottom:8px; padding: 8px;" onclick="createMultiRoom()">방 생성 (Host)</button>
-            <div style="display:flex; gap:4px;">
-                <input type="text" id="roomCodeInput" placeholder="4자리 방 코드 입력" style="flex:1; background:#222; border:1px solid #555; color:#fff; padding:6px; border-radius:4px;">
-                <button class="btn-buy" onclick="joinMultiRoom()">참가</button>
-            </div>
-            <p id="multiStatus" style="color:#f1c40f; margin-top:8px; word-break:break-all; font-weight:bold;"></p>
-        </div>
-        <button class="btn-close" onclick="closeModal('modalMulti')">닫기</button>
-    </div>
-
-    <!-- 빠른 매칭 모달 -->
-    <div class="modal" id="modalMatch">
-        <div class="modal-title">무작위 대전 매칭</div>
-        <div class="modal-content" style="text-align: center; padding: 10px 0;">
-            <p id="matchText">상대 플레이어를 검색하는 중입니다...</p>
-            <div id="matchSpinner" style="margin: 15px 0; font-size: 24px;">⏳</div>
-            <button class="btn-buy" id="btnStartMatch" onclick="startRandomMatching()">매칭 시작</button>
-        </div>
-        <button class="btn-close" onclick="cancelMatching()">취소</button>
-    </div>
-
     <!-- 공지사항 모달 -->
     <div class="modal" id="modalNotice">
         <div class="modal-title">📢 시스템 공지사항</div>
         <div class="modal-content">
             <div style="margin-bottom: 8px; border-bottom: 1px solid #333; padding-bottom: 4px;">
-                <b style="color: #f39c12;">[업데이트] Ultra 패치안내</b><br>
-                - 실시간 P2P 멀티플레이어 통신 최적화<br>
-                - 조준경 이펙트 및 모바일 오버레이 UI 다듬기
+                <b style="color: #f39c12;">[업데이트] 모드 구분 및 P2P 통신 강화</b><br>
+                - 대전 모드 및 협동 모드 메뉴 신설<br>
+                - PeerJS 기반 WebRTC 실시간 네트워킹 서버 연결 로직 수정
             </div>
             <div>
-                <b style="color: #2ecc71;">[이벤트] 개발자 모드 오픈</b><br>
-                채팅창에 특정 키워드를 입력하면 테스트용 특수 보너스를 받을 수 있습니다.
+                <b style="color: #2ecc71;">[안내] 솔로 플레이 UI 최적화</b><br>
+                솔로 모드 플레이 시 불필요한 멀티 버튼이 숨겨지며 빠른 메인 로비 나가기 버튼이 추가되었습니다.
             </div>
         </div>
         <button class="btn-close" onclick="closeModal('modalNotice')">닫기</button>
@@ -277,12 +581,14 @@
             </div>
             <div class="setting-row">
                 <span>그래픽 품질</span>
-                <select id="setQuality" style="background: #222; color: #fff; border: 1px solid #555; padding: 2px 4px;">
+                <select id="setQuality"
+                    style="background: #222; color: #fff; border: 1px solid #555; padding: 2px 4px;">
                     <option value="high">최상</option>
                     <option value="mid">보통</option>
                 </select>
             </div>
-            <button class="btn-lobby" style="width:100%; margin-top:10px; background:#e74c3c; border-color:#c0392b;" onclick="returnToLobby()">로비로 나가는 버튼</button>
+            <button class="btn-lobby" style="width:100%; margin-top:10px; background:#e74c3c; border-color:#c0392b;"
+                onclick="returnToLobby()">로비로 나가는 버튼</button>
         </div>
         <button class="btn-close" onclick="closeModal('modalSettings')">저장 및 닫기</button>
     </div>
@@ -307,9 +613,11 @@
         let roundBannerTimer = 0;
         let roundBannerText = "";
 
-        // 멀티플레이 관련 정보
+        // 멀티플레이 및 게임 모드 관련 변수
+        let currentGameMode = 'SOLO'; // 'SOLO', 'PVP', 'COOP'
         let isMulti = false;
-        let isHost = false;
+        let peer = null;
+        let conn = null;
         let peerPlayer = null;
         let matchTimer = null;
 
@@ -353,38 +661,102 @@
         let scopeEffects = [];
         let shockwaves = [];
 
-        // UI 모달 핸들러
+        // PeerJS 네트워킹 초기화
+        function initPeer() {
+            if (peer) return;
+            peer = new Peer();
+            peer.on('open', (id) => {
+                document.getElementById('myPeerId').innerText = id;
+            });
+            peer.on('connection', (c) => {
+                conn = c;
+                setupConnection();
+            });
+            peer.on('error', (err) => {
+                console.error("Peer Error:", err);
+                document.getElementById('multiStatus').innerText = "연결 오류가 발생했습니다.";
+            });
+        }
+
+        function setupConnection() {
+            document.getElementById('multiStatus').innerText = "상대방과 연결되었습니다!";
+            addChatLog("[멀티] 통신 연결 완료!", true);
+            isMulti = true;
+            peerPlayer = { x: canvasWidth / 2 + 40, y: canvasHeight - 120, hp: 200, maxHp: 200 };
+
+            conn.on('data', (data) => {
+                if (data.type === 'pos') {
+                    if (peerPlayer) {
+                        peerPlayer.x = data.x;
+                        peerPlayer.y = data.y;
+                    }
+                }
+            });
+        }
+
+        function connectToPeer() {
+            const destId = document.getElementById('roomCodeInput').value.trim();
+            if (!destId) return;
+            document.getElementById('multiStatus').innerText = "연결 시도 중...";
+            conn = peer.connect(destId);
+            setupConnection();
+        }
+
+        function createHostRoom() {
+            if (!peer || !peer.id) {
+                initPeer();
+            }
+            document.getElementById('multiStatus').innerText = "방이 생성되었습니다. 상대에게 내 ID를 공유하세요.";
+        }
+
+        // 모달 관리
         function openModal(id) {
             document.getElementById(id).style.display = 'flex';
+            if (id === 'modalMulti') initPeer();
         }
 
         function closeModal(id) {
             document.getElementById(id).style.display = 'none';
         }
 
-        function startGameDirectly() {
+        // 모드 선택 및 매칭 처리
+        function startSoloPlay() {
+            currentGameMode = 'SOLO';
+            isMulti = false;
+            document.getElementById('btnOpenMulti').style.display = 'none'; // 솔로 시 멀티 버튼 숨김
             document.getElementById('main-lobby').style.display = 'none';
+            resetGameState();
             addChatLog("[시스템] 솔로 매치가 시작되었습니다.", true);
         }
 
-        function returnToLobby() {
-            closeModal('modalSettings');
-            document.getElementById('main-lobby').style.display = 'flex';
+        function openFriendRoomModal(mode) {
+            currentGameMode = mode;
+            openModal('modalMulti');
         }
 
-        function startRandomMatching() {
+        function startRandomMatching(mode) {
+            currentGameMode = mode;
+            openModal('modalMatch');
+        }
+
+        function confirmMatching() {
             const btn = document.getElementById('btnStartMatch');
             btn.style.display = 'none';
             document.getElementById('matchText').innerText = "적절한 상대를 검색 중...";
-            
+
             matchTimer = setTimeout(() => {
                 document.getElementById('matchText').innerText = "상대를 찾았습니다! 게임으로 이동합니다.";
                 setTimeout(() => {
                     closeModal('modalMatch');
-                    startGameDirectly();
-                    createMultiRoom();
+                    document.getElementById('btnStartMatch').style.display = 'inline-block';
+                    document.getElementById('matchText').innerText = "상대 플레이어를 검색하는 중입니다...";
+
+                    document.getElementById('btnOpenMulti').style.display = 'flex';
+                    document.getElementById('main-lobby').style.display = 'none';
+                    resetGameState();
+                    addChatLog(`[시스템] ${currentGameMode} 매치가 시작되었습니다!`, true);
                 }, 1000);
-            }, 2500);
+            }, 2000);
         }
 
         function cancelMatching() {
@@ -392,6 +764,32 @@
             document.getElementById('btnStartMatch').style.display = 'inline-block';
             document.getElementById('matchText').innerText = "상대 플레이어를 검색하는 중입니다...";
             closeModal('modalMatch');
+        }
+
+        function returnToLobby() {
+            closeModal('modalSettings');
+            document.getElementById('main-lobby').style.display = 'flex';
+        }
+
+        function resetGameState() {
+            player.hp = player.maxHp;
+            tower.hp = tower.maxHp;
+            player.x = canvasWidth / 2;
+            player.y = canvasHeight - 120;
+            player.targetX = player.x;
+            player.targetY = player.y;
+            minions = [];
+            projectiles = [];
+            floatingTexts = [];
+            explosions = [];
+            scopeEffects = [];
+            shockwaves = [];
+            gold = 0;
+            round = 1;
+            isWaveActive = false;
+            isGameOver = false;
+            document.getElementById('game-msg').style.display = 'none';
+            updateUI();
         }
 
         function handleChatKey(e) {
@@ -529,25 +927,6 @@
         document.getElementById('btnOpenShop').addEventListener('pointerdown', (e) => { e.stopPropagation(); renderShop(); openModal('modalShop'); });
         document.getElementById('btnOpenMulti').addEventListener('pointerdown', (e) => { e.stopPropagation(); openModal('modalMulti'); });
 
-        // 멀티플레이 방 생성/참가
-        function createMultiRoom() {
-            const roomCode = Math.floor(1000 + Math.random() * 9000);
-            document.getElementById('multiStatus').innerText = `방 생성 완료! 코드: ${roomCode}`;
-            isMulti = true; isHost = true;
-            peerPlayer = { x: canvasWidth / 2 - 40, y: canvasHeight - 120, hp: 200, maxHp: 200 };
-            addChatLog(`[멀티] 방 생성 완료 (코드: ${roomCode})`, true);
-        }
-
-        function joinMultiRoom() {
-            const code = document.getElementById('roomCodeInput').value;
-            if (code) {
-                document.getElementById('multiStatus').innerText = `방(${code})에 연결되었습니다!`;
-                isMulti = true; isHost = false;
-                peerPlayer = { x: canvasWidth / 2 + 40, y: canvasHeight - 120, hp: 200, maxHp: 200 };
-                addChatLog(`[멀티] ${code}번 방에 연동되었습니다.`, true);
-            }
-        }
-
         class FloatingText {
             constructor(text, x, y, color = '#ffda79') { this.text = text; this.x = x; this.y = y; this.color = color; this.alpha = 1; }
             update() { this.y -= 1.2; this.alpha -= 0.03; }
@@ -621,6 +1000,11 @@
                 if (dist > 2) {
                     player.x += (dx / dist) * currentSpeed;
                     player.y += (dy / dist) * currentSpeed;
+
+                    // 내 좌표 전송
+                    if (conn && conn.open) {
+                        conn.send({ type: 'pos', x: player.x, y: player.y });
+                    }
                 }
 
                 let currentCooldown = player.attackBaseCooldown;
@@ -632,7 +1016,7 @@
                 if (player.attackCooldown > 0) player.attackCooldown--;
                 if (player.attackCooldown === 0) {
                     let targets = minions.filter(m => Math.hypot(m.x - player.x, m.y - player.y) <= player.attackRange)
-                                         .sort((a, b) => Math.hypot(a.x - player.x, a.y - player.y) - Math.hypot(b.x - player.x, b.y - player.y));
+                        .sort((a, b) => Math.hypot(a.x - player.x, a.y - player.y) - Math.hypot(b.x - player.x, b.y - player.y));
 
                     if (targets.length > 0) {
                         projectiles.push({
@@ -670,7 +1054,7 @@
                 ctx.fillStyle = '#3498db'; ctx.beginPath(); ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2); ctx.fill();
                 ctx.restore();
 
-                // 멀티 동료
+                // 멀티 동료 연출
                 if (isMulti && peerPlayer) {
                     ctx.fillStyle = '#9b59b6';
                     ctx.beginPath(); ctx.arc(peerPlayer.x, peerPlayer.y, player.radius, 0, Math.PI * 2); ctx.fill();
@@ -833,6 +1217,12 @@
                 roundBannerTimer--;
             }
 
+            // 게임 오버 체크
+            if (player.hp <= 0 || tower.hp <= 0) {
+                isGameOver = true;
+                document.getElementById('game-msg').style.display = 'block';
+            }
+
             updateUI();
             requestAnimationFrame(gameLoop);
         }
@@ -841,4 +1231,5 @@
         gameLoop();
     </script>
 </body>
+
 </html>
