@@ -4,8 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
     <title>⚔️ 하이퍼 어택 Ultra — LOL × 랜덤다이스</title>
-    <!-- WebRTC P2P 엔진 -->
+    <!-- WebRTC P2P 엔진 & 분산 실시간 네트워크 (GunDB) -->
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;700;900&display=swap');
 
@@ -289,7 +290,7 @@
             <span id="lobby-my-name">용사</span>
         </div>
         <div class="my-info-id" onclick="copyMyId()" title="클릭 시 내 접속 ID 복사">
-            ID: <b id="my-peer-short" style="color:var(--green);">생성중...</b> 📋
+            ID: <b id="my-peer-short" style="color:var(--green);">연결중...</b> 📋
         </div>
     </div>
 
@@ -311,7 +312,7 @@
         <button class="btn-lobby" onclick="openModal('modalNotice')">📢 공지사항</button>
         <button class="btn-lobby" onclick="openModal('modalSettings')">⚙️ 설정</button>
     </div>
-    <div style="font-size:10px;color:#555;">v4.0 — P2P 다이렉트 매칭 & 실시간 접속 감지</div>
+    <div style="font-size:10px;color:#555;">v4.5 — GunDB 글로벌 분산 실시간 동기화</div>
 </div>
 
 <!-- ══════════════════ IN-GAME UI ══════════════════ -->
@@ -410,9 +411,9 @@
 <div class="modal" id="modalMulti">
     <div class="modal-title">👥 친구와 함께하기</div>
     <div class="modal-content">
-        <p style="color:#aaa;font-size:12px;margin-bottom:10px;">내 코드를 친구에게 전달하거나, 친구의 코드를 입력하세요.</p>
+        <p style="color:#aaa;font-size:12px;margin-bottom:10px;">내 접속 코드를 친구에게 전달하거나, 친구의 코드를 입력하세요.</p>
         <div style="background:rgba(0,0,0,.4);padding:10px;border-radius:8px;margin-bottom:10px;">
-            <div style="font-size:11px;color:#aaa;margin-bottom:4px;">내 접속 코드</div>
+            <div style="font-size:11px;color:#aaa;margin-bottom:4px;">내 접속 코드 (클릭 시 복사)</div>
             <div style="display:flex;align-items:center;gap:6px;">
                 <b id="myPeerId" style="color:var(--green);font-size:12px;word-break:break-all;flex:1;">생성 중...</b>
                 <button class="btn-dev" onclick="copyMyId()" style="padding:4px 8px;font-size:10px;">복사</button>
@@ -458,16 +459,11 @@
     <div class="modal-title">📢 공지사항</div>
     <div class="modal-content">
         <div style="margin-bottom:10px;border-bottom:1px solid #333;padding-bottom:8px;">
-            <b style="color:var(--gold);">[v4.0] LOL × 랜덤다이스 하이퍼 어택!</b><br>
-            - ⚡ <b>WebRTC 실시간 동기화</b> (모바일/PC 어디서든 완벽 작동)<br>
-            - 🎲 <b>10종 랜덤다이스 시스템</b> (라운드마다 무료 다이스 지급!)<br>
-            - 👥 <b>실시간 접속자 감지 & 원클릭 대결 신청</b><br>
+            <b style="color:var(--gold);">[v4.5] LOL × 랜덤다이스 하이퍼 어택!</b><br>
+            - 🌐 <b>글로벌 분산 실시간 네트워크 (GunDB)</b> 연동<br>
+            - ⚡ <b>WebRTC 실시간 동기화</b> (모바일/PC 완벽 지원)<br>
+            - 🎲 <b>10종 랜덤다이스 시스템</b><br>
             - ⏱️ <b>Delta-Time 물리 엔진</b> 탑재
-        </div>
-        <div>
-            <b style="color:var(--green);">[게임 팁]</b><br>
-            - 주사위를 뽑아 원하는 타이밍에 클릭하면 즉시 강력한 버프가 발동됩니다.<br>
-            - 상점에서 공격력, 공속, 치명타, 멀티샷을 강화하세요!
         </div>
     </div>
     <button class="btn-close" onclick="closeModal('modalNotice')">닫기</button>
@@ -522,24 +518,20 @@ let peerPlayer = null;
 let netSendInterval = null;
 let currentPing = 0;
 
-// ─── 실시간 접속자 및 매칭 ───
-const localOnlineMap = new Map(); // id -> { nickname, peerId, status, mode, lastSeen }
+// ─── 실시간 분산 네트워크 (GunDB + Local Broadcast) ───
+const localOnlineMap = new Map();
 const myUniqueId = 'u_' + Math.random().toString(36).substring(2, 9);
 let myPeerIdStr = '';
 let isMatchingActive = false;
 let matchSearchSeconds = 0;
 let matchTimerInterval = null;
 
-// 로컬 탭 브로드캐스트 채널
-let localChannel = null;
-try { localChannel = new BroadcastChannel('minilol_channel_v4'); } catch(e) {}
+let gun = null;
+let gunLobby = null;
 
-// 무료 실시간 웹소켓 브로드캐스트 릴레이 풀
-let relayWs = null;
-const RELAY_WS_URLS = [
-    'wss://socketsbay.com/wss/v2/1/demo/',
-    'wss://echo.websocket.events/.ws'
-];
+// 로컬 탭 브로드캐스트
+let localChannel = null;
+try { localChannel = new BroadcastChannel('minilol_global_channel_v45'); } catch(e) {}
 
 // ─── 랜덤다이스 ───
 const DICE_TYPES = [
@@ -606,53 +598,53 @@ let minions=[], projectiles=[], floatingTexts=[], explosions=[], scopeEffects=[]
 let isWaveActive=false;
 
 // ╔══════════════════════════════════════════════════════════╗
-// ║              LOBBY PRESENCE & WEBSOCKET RELAY            ║
+// ║              GUNDB DISTRIBUTED REALTIME LOBBY            ║
 // ╚══════════════════════════════════════════════════════════╝
-function initPresenceSystem() {
-    renderLobbyPlayerList(); // 즉시 내 캐릭터부터 목록에 표시!
+function initGunNetwork() {
+    renderLobbyPlayerList();
 
-    // 1. Local BroadcastChannel 수신
+    try {
+        if (typeof Gun !== 'undefined') {
+            gun = Gun({
+                peers: [
+                    'https://gun-manhattan.herokuapp.com/gun',
+                    'https://peer.wallie.io/gun',
+                    'https://relay.peer.ooo/gun'
+                ],
+                localStorage: false
+            });
+            gunLobby = gun.get('minilol_lobby_live_v45');
+
+            // 실시간 접속자 동기화 수신
+            gunLobby.map().on((data, key) => {
+                if (!data || key === myUniqueId) return;
+                try {
+                    const parsed = typeof data === 'string' ? JSON.parse(data) : data;
+                    if (parsed && parsed.uid) {
+                        handleIncomingPresence(parsed);
+                    }
+                } catch(e){}
+            });
+        }
+    } catch(e) {
+        console.warn('[GunDB Init]', e);
+    }
+
+    // 로컬 브로드캐스트 채널
     if (localChannel) {
         localChannel.onmessage = (e) => {
             handleIncomingPresence(e.data);
         };
     }
 
-    // 2. WebSocket 릴레이 연결
-    connectRelayWs();
-
-    // 3. 2초마다 내 존재 브로드캐스트
+    // 2초마다 하트비트 전송
     setInterval(broadcastMyPresence, 2000);
-    // 4. 5초마다 오래된 접속자 정리
+    // 3초마다 오프라인 유저 정리
     setInterval(cleanupOldPresence, 3000);
-}
-
-function connectRelayWs() {
-    const url = RELAY_WS_URLS[0];
-    try {
-        relayWs = new WebSocket(url);
-        relayWs.onopen = () => {
-            console.log('[Relay WS] Connected');
-            broadcastMyPresence();
-        };
-        relayWs.onmessage = (e) => {
-            try {
-                const data = JSON.parse(e.data);
-                if (data && data._app === 'minilol') {
-                    handleIncomingPresence(data);
-                }
-            } catch (err) {}
-        };
-        relayWs.onclose = () => {
-            setTimeout(connectRelayWs, 4000);
-        };
-        relayWs.onerror = () => {};
-    } catch(e) {}
 }
 
 function broadcastMyPresence() {
     const payload = {
-        _app: 'minilol',
         uid: myUniqueId,
         nickname: myNickname,
         peerId: myPeerIdStr,
@@ -662,21 +654,23 @@ function broadcastMyPresence() {
         ts: Date.now()
     };
 
-    // 로컬 탭 전송
-    if (localChannel) {
-        try { localChannel.postMessage(payload); } catch(e) {}
+    // 1. GunDB에 내 상태 저장
+    if (gunLobby) {
+        try {
+            gunLobby.get(myUniqueId).put(JSON.stringify(payload));
+        } catch(e){}
     }
 
-    // 웹소켓 릴레이 전송
-    if (relayWs && relayWs.readyState === WebSocket.OPEN) {
-        try { relayWs.send(JSON.stringify(payload)); } catch(e) {}
+    // 2. LocalChannel 브로드캐스트
+    if (localChannel) {
+        try { localChannel.postMessage(payload); } catch(e){}
     }
 
     renderLobbyPlayerList();
 }
 
 function handleIncomingPresence(data) {
-    if (!data || data.uid === myUniqueId) return;
+    if (!data || !data.uid || data.uid === myUniqueId) return;
 
     localOnlineMap.set(data.uid, {
         uid: data.uid,
@@ -688,7 +682,7 @@ function handleIncomingPresence(data) {
         lastSeen: Date.now()
     });
 
-    // 매칭 중이고 상대방도 같은 모드로 매칭 중인 경우 자동 매칭 연결!
+    // 실시간 매칭 감지
     if (isMatchingActive && data.matching && data.mode === currentGameMode && data.peerId && myPeerIdStr) {
         attemptAutoMatch(data);
     }
@@ -711,7 +705,6 @@ function renderLobbyPlayerList() {
     const countEl = document.getElementById('online-count');
     const colors = ['#3498db','#e74c3c','#2ecc71','#f39c12','#9b59b6','#1abc9c'];
 
-    // 내 정보 (항상 맨 위)
     const myEntry = {
         uid: myUniqueId,
         nickname: myNickname + ' (나)',
@@ -760,7 +753,7 @@ function startMatchmaking(mode) {
 
     openModal('modalMatch');
     document.getElementById('matchModalTitle').innerText = `🔍 ${mode} 실시간 무작위 매칭`;
-    document.getElementById('matchText').innerText = '상대 플레이어를 검색하는 중...';
+    document.getElementById('matchText').innerText = '상대 플레이어를 찾는 중입니다...';
     document.getElementById('matchBotOption').style.display = 'none';
 
     ensurePeerInitialized((myId) => {
@@ -781,10 +774,9 @@ function startMatchmaking(mode) {
 function attemptAutoMatch(opponent) {
     if (!isMatchingActive || !myPeerIdStr || !opponent.peerId) return;
 
-    // UID 사전순으로 앞선 쪽이 Host로 P2P 연결 시작
     if (myUniqueId < opponent.uid) {
-        console.log('[Match] I am connecting to opponent:', opponent.peerId);
-        document.getElementById('matchText').innerText = `${opponent.nickname}님과 매칭 성사! 연결 중...`;
+        console.log('[Match] Connecting to opponent:', opponent.peerId);
+        document.getElementById('matchText').innerText = `${opponent.nickname}님과 매칭되었습니다! 연결 중...`;
         isMatchingActive = false;
         
         setTimeout(() => {
@@ -1686,7 +1678,7 @@ function gameLoop(timestamp) {
 updateUI();
 renderDicePanel();
 ensurePeerInitialized();
-initPresenceSystem();
+initGunNetwork();
 </script>
 </body>
 </html>
