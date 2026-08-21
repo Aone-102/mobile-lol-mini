@@ -4,9 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
     <title>⚔️ 하이퍼 어택 Ultra — LOL × 랜덤다이스</title>
-    <!-- WebRTC P2P 엔진 & 분산 실시간 네트워크 (GunDB) -->
+    <!-- WebRTC P2P 엔진 (PeerJS 공식 글로벌 서버) -->
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;700;900&display=swap');
 
@@ -290,7 +289,7 @@
             <span id="lobby-my-name">용사</span>
         </div>
         <div class="my-info-id" onclick="copyMyId()" title="클릭 시 내 접속 ID 복사">
-            ID: <b id="my-peer-short" style="color:var(--green);">연결중...</b> 📋
+            ID: <b id="my-peer-short" style="color:var(--green);">생성중...</b> 📋
         </div>
     </div>
 
@@ -300,7 +299,7 @@
             <div class="live-tag">
                 <span class="live-dot"></span>실시간 접속자
             </div>
-            <span id="online-count" style="color:#7f8c8d;font-weight:400;font-size:10px;">(1명)</span>
+            <span id="online-count" style="color:#7f8c8d;font-weight:400;font-size:10px;">(1명 접속 중)</span>
         </div>
         <div id="player-list"></div>
     </div>
@@ -312,7 +311,7 @@
         <button class="btn-lobby" onclick="openModal('modalNotice')">📢 공지사항</button>
         <button class="btn-lobby" onclick="openModal('modalSettings')">⚙️ 설정</button>
     </div>
-    <div style="font-size:10px;color:#555;">v4.5 — GunDB 글로벌 분산 실시간 동기화</div>
+    <div style="font-size:10px;color:#555;">v5.0 — P2P Mesh 로비 허브 & 실시간 자동 매칭</div>
 </div>
 
 <!-- ══════════════════ IN-GAME UI ══════════════════ -->
@@ -411,7 +410,7 @@
 <div class="modal" id="modalMulti">
     <div class="modal-title">👥 친구와 함께하기</div>
     <div class="modal-content">
-        <p style="color:#aaa;font-size:12px;margin-bottom:10px;">내 접속 코드를 친구에게 전달하거나, 친구의 코드를 입력하세요.</p>
+        <p style="color:#aaa;font-size:12px;margin-bottom:10px;">내 코드를 친구에게 전달하거나, 친구의 코드를 입력하세요.</p>
         <div style="background:rgba(0,0,0,.4);padding:10px;border-radius:8px;margin-bottom:10px;">
             <div style="font-size:11px;color:#aaa;margin-bottom:4px;">내 접속 코드 (클릭 시 복사)</div>
             <div style="display:flex;align-items:center;gap:6px;">
@@ -459,11 +458,11 @@
     <div class="modal-title">📢 공지사항</div>
     <div class="modal-content">
         <div style="margin-bottom:10px;border-bottom:1px solid #333;padding-bottom:8px;">
-            <b style="color:var(--gold);">[v4.5] LOL × 랜덤다이스 하이퍼 어택!</b><br>
-            - 🌐 <b>글로벌 분산 실시간 네트워크 (GunDB)</b> 연동<br>
-            - ⚡ <b>WebRTC 실시간 동기화</b> (모바일/PC 완벽 지원)<br>
+            <b style="color:var(--gold);">[v5.0] 실시간 P2P 로비 & 자동 매칭 엔진!</b><br>
+            - 🌐 <b>P2P Mesh 로비 허브</b>: 서버 없이도 접속자 실시간 목록 & 자동 동기화<br>
+            - ⚡ <b>WebRTC 실시간 동기화</b>: 모바일/PC 어디서든 0ms 연결<br>
             - 🎲 <b>10종 랜덤다이스 시스템</b><br>
-            - ⏱️ <b>Delta-Time 물리 엔진</b> 탑재
+            - ⏱️ <b>Delta-Time 물리 엔진</b>
         </div>
     </div>
     <button class="btn-close" onclick="closeModal('modalNotice')">닫기</button>
@@ -518,20 +517,23 @@ let peerPlayer = null;
 let netSendInterval = null;
 let currentPing = 0;
 
-// ─── 실시간 분산 네트워크 (GunDB + Local Broadcast) ───
-const localOnlineMap = new Map();
+// ─── 실시간 P2P 로비 네트워크 ───
+const lobbyPeersMap = new Map(); // peerId -> { nickname, peerId, status, mode, lastSeen }
 const myUniqueId = 'u_' + Math.random().toString(36).substring(2, 9);
 let myPeerIdStr = '';
 let isMatchingActive = false;
 let matchSearchSeconds = 0;
 let matchTimerInterval = null;
 
-let gun = null;
-let gunLobby = null;
+// P2P 로비 허브 연결 관리
+const LOBBY_HUB_BASE_ID = 'minilol_global_hub_v5';
+let hubConn = null;
+let isLobbyHub = false;
+const clientConns = new Set();
 
 // 로컬 탭 브로드캐스트
 let localChannel = null;
-try { localChannel = new BroadcastChannel('minilol_global_channel_v45'); } catch(e) {}
+try { localChannel = new BroadcastChannel('minilol_local_bc_v5'); } catch(e) {}
 
 // ─── 랜덤다이스 ───
 const DICE_TYPES = [
@@ -598,53 +600,169 @@ let minions=[], projectiles=[], floatingTexts=[], explosions=[], scopeEffects=[]
 let isWaveActive=false;
 
 // ╔══════════════════════════════════════════════════════════╗
-// ║              GUNDB DISTRIBUTED REALTIME LOBBY            ║
+// ║              P2P MESH LOBBY HUB ENGINE                   ║
 // ╚══════════════════════════════════════════════════════════╝
-function initGunNetwork() {
+function initP2PLobbySystem() {
     renderLobbyPlayerList();
 
-    try {
-        if (typeof Gun !== 'undefined') {
-            gun = Gun({
-                peers: [
-                    'https://gun-manhattan.herokuapp.com/gun',
-                    'https://peer.wallie.io/gun',
-                    'https://relay.peer.ooo/gun'
-                ],
-                localStorage: false
-            });
-            gunLobby = gun.get('minilol_lobby_live_v45');
+    // 1. PeerJS 생성 시도: 먼저 로비 허브 ID 선점 시도
+    attemptBeHubOrClient();
 
-            // 실시간 접속자 동기화 수신
-            gunLobby.map().on((data, key) => {
-                if (!data || key === myUniqueId) return;
-                try {
-                    const parsed = typeof data === 'string' ? JSON.parse(data) : data;
-                    if (parsed && parsed.uid) {
-                        handleIncomingPresence(parsed);
-                    }
-                } catch(e){}
-            });
-        }
-    } catch(e) {
-        console.warn('[GunDB Init]', e);
-    }
-
-    // 로컬 브로드캐스트 채널
+    // 2. 로컬 브로드캐스트 채널 수신
     if (localChannel) {
         localChannel.onmessage = (e) => {
-            handleIncomingPresence(e.data);
+            handleLobbyMsg(e.data);
         };
     }
 
-    // 2초마다 하트비트 전송
-    setInterval(broadcastMyPresence, 2000);
-    // 3초마다 오프라인 유저 정리
-    setInterval(cleanupOldPresence, 3000);
+    // 3. 주기적 하트비트 & 오프라인 정리
+    setInterval(sendHeartbeatToHubOrClients, 2000);
+    setInterval(cleanupStaleLobbyPeers, 3000);
+}
+
+function attemptBeHubOrClient() {
+    // 1단계: 내가 허브가 될 수 있는지 시도
+    const testPeer = new Peer(LOBBY_HUB_BASE_ID, {
+        config: {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun.cloudflare.com:3478' }
+            ]
+        }
+    });
+
+    testPeer.on('open', (id) => {
+        // 내가 허브(방장 서버)로 등록 성공!
+        peer = testPeer;
+        isLobbyHub = true;
+        myPeerIdStr = id;
+        setupPeerListeners(peer);
+        console.log('[Lobby Hub] I am the Hub Host!');
+        document.getElementById('myPeerId').innerText = id;
+        document.getElementById('my-peer-short').innerText = '방장_HUB';
+        broadcastMyPresence();
+    });
+
+    testPeer.on('error', (err) => {
+        // 이미 다른 사람이 허브를 선점함 -> 나는 클라이언트로 생성 후 허브에 연결
+        testPeer.destroy();
+        isLobbyHub = false;
+        createClientPeerAndConnectHub();
+    });
+}
+
+function createClientPeerAndConnectHub() {
+    peer = new Peer(undefined, {
+        config: {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun.cloudflare.com:3478' }
+            ]
+        }
+    });
+
+    peer.on('open', (id) => {
+        myPeerIdStr = id;
+        setupPeerListeners(peer);
+        document.getElementById('myPeerId').innerText = id;
+        document.getElementById('my-peer-short').innerText = id.substring(0, 6) + '...';
+        
+        // 허브에 연결
+        connectToLobbyHub();
+        broadcastMyPresence();
+    });
+
+    peer.on('error', (err) => {
+        console.warn('[Client Peer]', err);
+    });
+}
+
+function connectToLobbyHub() {
+    if (!peer || isLobbyHub) return;
+    try {
+        hubConn = peer.connect(LOBBY_HUB_BASE_ID, { reliable: true });
+        
+        hubConn.on('open', () => {
+            console.log('[Lobby] Connected to Hub!');
+            sendHeartbeatToHub();
+        });
+
+        hubConn.on('data', (data) => {
+            handleLobbyMsg(data);
+        });
+
+        hubConn.on('close', () => {
+            console.log('[Lobby] Hub disconnected, attempting to become Hub...');
+            hubConn = null;
+            // 허브가 나갔으면 다시 허브 선점 시도
+            setTimeout(attemptBeHubOrClient, 1000);
+        });
+
+        hubConn.on('error', () => {});
+    } catch(e) {}
+}
+
+function setupPeerListeners(targetPeer) {
+    targetPeer.on('connection', (c) => {
+        c.on('open', () => {
+            if (isLobbyHub) {
+                // 허브는 새로운 접속자 추가
+                clientConns.add(c);
+                // 현재 전체 접속자 목록을 새 접속자에게 즉시 전송
+                broadcastFullLobbyList();
+            }
+        });
+
+        c.on('data', (data) => {
+            if (data && data._lobby) {
+                handleLobbyMsg(data);
+                // 허브는 이 메시지를 다른 모든 클라이언트에게 중계!
+                if (isLobbyHub) {
+                    for (const cl of clientConns) {
+                        if (cl !== c && cl.open) {
+                            try { cl.send(data); } catch(e){}
+                        }
+                    }
+                }
+            } else {
+                // 인게임 P2P 데이터 처리
+                handleNetworkData(data);
+            }
+        });
+
+        c.on('close', () => {
+            if (isLobbyHub) clientConns.delete(c);
+        });
+    });
+}
+
+function sendHeartbeatToHubOrClients() {
+    broadcastMyPresence();
+}
+
+function sendHeartbeatToHub() {
+    if (hubConn && hubConn.open) {
+        const payload = {
+            _lobby: true,
+            type: 'heartbeat',
+            uid: myUniqueId,
+            nickname: myNickname,
+            peerId: myPeerIdStr,
+            status: gameRunning ? 'playing' : (isMatchingActive ? 'matching' : 'lobby'),
+            mode: currentGameMode,
+            matching: isMatchingActive,
+            ts: Date.now()
+        };
+        try { hubConn.send(payload); } catch(e){}
+    }
 }
 
 function broadcastMyPresence() {
     const payload = {
+        _lobby: true,
+        type: 'heartbeat',
         uid: myUniqueId,
         nickname: myNickname,
         peerId: myPeerIdStr,
@@ -654,47 +772,96 @@ function broadcastMyPresence() {
         ts: Date.now()
     };
 
-    // 1. GunDB에 내 상태 저장
-    if (gunLobby) {
-        try {
-            gunLobby.get(myUniqueId).put(JSON.stringify(payload));
-        } catch(e){}
-    }
-
-    // 2. LocalChannel 브로드캐스트
+    // 1. LocalChannel
     if (localChannel) {
         try { localChannel.postMessage(payload); } catch(e){}
     }
 
-    renderLobbyPlayerList();
-}
-
-function handleIncomingPresence(data) {
-    if (!data || !data.uid || data.uid === myUniqueId) return;
-
-    localOnlineMap.set(data.uid, {
-        uid: data.uid,
-        nickname: data.nickname || '소환사',
-        peerId: data.peerId || '',
-        status: data.status || 'lobby',
-        mode: data.mode || '',
-        matching: !!data.matching,
-        lastSeen: Date.now()
-    });
-
-    // 실시간 매칭 감지
-    if (isMatchingActive && data.matching && data.mode === currentGameMode && data.peerId && myPeerIdStr) {
-        attemptAutoMatch(data);
+    // 2. Hub 또는 Clients 전송
+    if (isLobbyHub) {
+        for (const cl of clientConns) {
+            if (cl.open) {
+                try { cl.send(payload); } catch(e){}
+            }
+        }
+    } else {
+        sendHeartbeatToHub();
     }
 
     renderLobbyPlayerList();
 }
 
-function cleanupOldPresence() {
+function broadcastFullLobbyList() {
+    if (!isLobbyHub) return;
+    const list = Array.from(lobbyPeersMap.values());
+    list.push({
+        uid: myUniqueId,
+        nickname: myNickname,
+        peerId: myPeerIdStr,
+        status: gameRunning ? 'playing' : (isMatchingActive ? 'matching' : 'lobby'),
+        mode: currentGameMode,
+        matching: isMatchingActive,
+        ts: Date.now()
+    });
+
+    const payload = {
+        _lobby: true,
+        type: 'full_list',
+        list: list
+    };
+
+    for (const cl of clientConns) {
+        if (cl.open) {
+            try { cl.send(payload); } catch(e){}
+        }
+    }
+}
+
+function handleLobbyMsg(data) {
+    if (!data) return;
+
+    if (data.type === 'heartbeat' && data.uid !== myUniqueId) {
+        lobbyPeersMap.set(data.uid, {
+            uid: data.uid,
+            nickname: data.nickname || '소환사',
+            peerId: data.peerId || '',
+            status: data.status || 'lobby',
+            mode: data.mode || '',
+            matching: !!data.matching,
+            lastSeen: Date.now()
+        });
+
+        // 실시간 매칭 체크
+        if (isMatchingActive && data.matching && data.mode === currentGameMode && data.peerId && myPeerIdStr) {
+            attemptAutoMatch(data);
+        }
+    } else if (data.type === 'full_list' && Array.isArray(data.list)) {
+        for (const p of data.list) {
+            if (p.uid !== myUniqueId) {
+                lobbyPeersMap.set(p.uid, {
+                    ...p,
+                    lastSeen: Date.now()
+                });
+            }
+        }
+    } else if (data.type === 'challenge' && data.targetPeerId === myPeerIdStr) {
+        // 누군가 나에게 직접 도전함!
+        if (confirm(`${data.fromName}님이 PVP 대결을 신청했습니다! 수락하시겠습니까?`)) {
+            currentGameMode = 'PVP';
+            conn = peer.connect(data.fromPeerId, { reliable: true });
+            isHost = false;
+            setupConnection('GUEST');
+        }
+    }
+
+    renderLobbyPlayerList();
+}
+
+function cleanupStaleLobbyPeers() {
     const now = Date.now();
-    for (const [uid, p] of localOnlineMap.entries()) {
+    for (const [uid, p] of lobbyPeersMap.entries()) {
         if (now - p.lastSeen > 6000) {
-            localOnlineMap.delete(uid);
+            lobbyPeersMap.delete(uid);
         }
     }
     renderLobbyPlayerList();
@@ -713,7 +880,7 @@ function renderLobbyPlayerList() {
         isSelf: true
     };
 
-    const others = Array.from(localOnlineMap.values());
+    const others = Array.from(lobbyPeersMap.values());
     const all = [myEntry, ...others];
 
     countEl.innerText = `(${all.length}명 접속 중)`;
@@ -728,7 +895,7 @@ function renderLobbyPlayerList() {
 
         let actionBtn = '';
         if (!p.isSelf && p.peerId && !isPlay) {
-            actionBtn = `<button class="pli-connect" onclick="challengePlayer('${p.peerId}')">도전</button>`;
+            actionBtn = `<button class="pli-connect" onclick="challengePlayer('${p.peerId}', '${p.nickname}')">도전</button>`;
         }
 
         return `
@@ -756,9 +923,7 @@ function startMatchmaking(mode) {
     document.getElementById('matchText').innerText = '상대 플레이어를 찾는 중입니다...';
     document.getElementById('matchBotOption').style.display = 'none';
 
-    ensurePeerInitialized((myId) => {
-        broadcastMyPresence();
-    });
+    broadcastMyPresence();
 
     if (matchTimerInterval) clearInterval(matchTimerInterval);
     matchTimerInterval = setInterval(() => {
@@ -807,57 +972,37 @@ function cancelMatchmaking() {
     broadcastMyPresence();
 }
 
-function challengePlayer(targetPeerId) {
+function challengePlayer(targetPeerId, targetName) {
     if (!targetPeerId) return;
     currentGameMode = 'PVP';
-    ensurePeerInitialized(() => {
-        conn = peer.connect(targetPeerId, { reliable: true });
-        isHost = false;
-        setupConnection('GUEST');
-    });
+    
+    // 상대에게 도전 신호 전송
+    const challengePayload = {
+        _lobby: true,
+        type: 'challenge',
+        fromName: myNickname,
+        fromPeerId: myPeerIdStr,
+        targetPeerId: targetPeerId
+    };
+
+    if (isLobbyHub) {
+        for (const cl of clientConns) {
+            if (cl.open) { try { cl.send(challengePayload); } catch(e){} }
+        }
+    } else if (hubConn && hubConn.open) {
+        try { hubConn.send(challengePayload); } catch(e){}
+    }
+
+    // 직접 연결 시도
+    conn = peer.connect(targetPeerId, { reliable: true });
+    isHost = true;
+    setupConnection('HOST');
+    addChatLog(`[멀티] ${targetName}님에게 대결을 신청했습니다...`, true);
 }
 
 // ╔══════════════════════════════════════════════════════════╗
-// ║              PEERJS WEBRTC SETUP                         ║
+// ║              PEERJS IN-GAME WEBRTC P2P                   ║
 // ╚══════════════════════════════════════════════════════════╝
-function ensurePeerInitialized(callback) {
-    if (peer && peer.id && !peer.destroyed) {
-        myPeerIdStr = peer.id;
-        if (callback) callback(peer.id);
-        return;
-    }
-    if (peer && !peer.destroyed) peer.destroy();
-
-    peer = new Peer(undefined, {
-        config: {
-            iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' },
-                { urls: 'stun:stun.cloudflare.com:3478' }
-            ]
-        }
-    });
-
-    peer.on('open', (id) => {
-        myPeerIdStr = id;
-        document.getElementById('myPeerId').innerText = id;
-        document.getElementById('my-peer-short').innerText = id.substring(0, 6) + '...';
-        broadcastMyPresence();
-        if (callback) callback(id);
-    });
-
-    peer.on('connection', (c) => {
-        conn = c;
-        isHost = true;
-        setupConnection('HOST');
-    });
-
-    peer.on('error', (err) => {
-        console.warn('[PeerJS]', err);
-        setMultiStatus('⚠️ 연결 상태: ' + (err.type || '오류'));
-    });
-}
-
 function setupConnection(role) {
     isHost = (role === 'HOST');
     isBotMatch = false;
@@ -1005,27 +1150,20 @@ function updateEnemyPanel() {
 function openFriendRoomModal(mode) {
     currentGameMode = mode;
     openModal('modalMulti');
-    ensurePeerInitialized((id) => {
-        document.getElementById('myPeerId').innerText = id;
-    });
+    document.getElementById('myPeerId').innerText = myPeerIdStr || '생성 중...';
 }
 
 function createHostRoom() {
-    ensurePeerInitialized((id) => {
-        document.getElementById('myPeerId').innerText = id;
-        setMultiStatus(`✅ 방 생성 완료! 친구에게 이 코드를 알려주세요:\n${id}`);
-    });
+    setMultiStatus(`✅ 방 생성 완료! 친구에게 이 코드를 알려주세요:\n${myPeerIdStr}`);
 }
 
 function connectToPeer() {
     const destId = document.getElementById('roomCodeInput').value.trim();
     if (!destId) { setMultiStatus('친구 접속 코드를 입력하세요.'); return; }
     setMultiStatus('연결 시도 중...');
-    ensurePeerInitialized(() => {
-        conn = peer.connect(destId, { reliable: true });
-        isHost = false;
-        setupConnection('GUEST');
-    });
+    conn = peer.connect(destId, { reliable: true });
+    isHost = false;
+    setupConnection('GUEST');
 }
 
 function copyMyId() {
@@ -1340,7 +1478,7 @@ document.getElementById('btnOpenShop').addEventListener('pointerdown', (e) => {
 });
 document.getElementById('btnOpenMulti').addEventListener('pointerdown', (e) => {
     e.stopPropagation();
-    ensurePeerInitialized((id) => { document.getElementById('myPeerId').innerText = id; });
+    document.getElementById('myPeerId').innerText = myPeerIdStr || '생성 중...';
     openModal('modalMulti');
 });
 
@@ -1677,8 +1815,7 @@ function gameLoop(timestamp) {
 // ╚══════════════════════════════════════════════════════════╝
 updateUI();
 renderDicePanel();
-ensurePeerInitialized();
-initGunNetwork();
+initP2PLobbySystem();
 </script>
 </body>
 </html>
