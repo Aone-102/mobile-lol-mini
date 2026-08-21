@@ -4,7 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
     <title>⚔️ 하이퍼 어택 Ultra — LOL × 랜덤다이스</title>
+    <!-- PeerJS & MQTT.js CDN (글로벌 실시간 브로커 & P2P) -->
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;700;900&display=swap');
 
@@ -33,21 +35,34 @@
             position:fixed; inset:0;
             background:linear-gradient(160deg,#0a0d13 0%,#0d1f35 55%,#0a0d13 100%);
             display:flex; flex-direction:column; align-items:center;
-            justify-content:space-between; padding:32px 20px 20px;
-            z-index:500; overflow-y:auto; gap:16px;
+            justify-content:space-between; padding:24px 16px 16px;
+            z-index:500; overflow-y:auto; gap:12px;
         }
 
         .lobby-header { text-align:center; }
         .lobby-title {
-            font-size:26px; font-weight:900; color:var(--gold);
+            font-size:24px; font-weight:900; color:var(--gold);
             text-shadow:0 0 20px rgba(243,156,18,.7), 0 2px 4px #000;
         }
         .lobby-badge {
-            display:inline-block; margin-top:4px;
+            display:inline-block; margin-top:3px;
             font-size:10px; font-weight:700; letter-spacing:1px;
             background:linear-gradient(90deg,#8e44ad,#3498db);
             padding:2px 10px; border-radius:20px; color:#fff;
         }
+
+        /* 내 정보 바 */
+        .my-info-bar {
+            width:100%; max-width:320px;
+            background:rgba(0,0,0,0.4);
+            border:1px solid rgba(243,156,18,0.3);
+            border-radius:10px; padding:8px 12px;
+            display:flex; justify-content:space-between; align-items:center;
+            font-size:11px;
+        }
+        .my-info-name { font-weight:700; color:var(--gold); display:flex; align-items:center; gap:6px; }
+        .my-info-id { color:#888; font-size:10px; cursor:pointer; }
+        .my-info-id:hover { color:#fff; text-decoration:underline; }
 
         /* 온라인 패널 */
         .lobby-panel {
@@ -59,21 +74,22 @@
         .panel-title {
             font-size:11px; font-weight:700; color:var(--gold);
             text-transform:uppercase; letter-spacing:1px;
-            margin-bottom:8px; display:flex; align-items:center; gap:6px;
+            margin-bottom:8px; display:flex; align-items:center; justify-content:space-between;
         }
+        .live-tag { display:flex; align-items:center; gap:5px; }
         .live-dot { width:7px; height:7px; border-radius:50%;
             background:var(--green); animation:blink 1.2s infinite; }
         @keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
 
         #player-list { display:flex; flex-direction:column; gap:5px;
-            max-height:140px; overflow-y:auto; }
+            max-height:130px; overflow-y:auto; }
         .pli { display:flex; align-items:center; gap:8px;
             padding:6px 8px; background:rgba(255,255,255,0.04);
             border-radius:8px; font-size:12px; }
         .pli-avatar { width:26px; height:26px; border-radius:50%;
             display:flex; align-items:center; justify-content:center;
             font-size:13px; flex-shrink:0; }
-        .pli-name { flex:1; font-weight:700; }
+        .pli-name { flex:1; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
         .pli-status { font-size:10px; padding:2px 7px;
             border-radius:20px; font-weight:700; }
         .st-wait { background:rgba(52,152,219,.2); color:var(--blue); }
@@ -83,16 +99,16 @@
             cursor:pointer; font-weight:700; }
 
         /* 메뉴 버튼 */
-        .lobby-menu { display:flex; flex-direction:column; gap:10px;
+        .lobby-menu { display:flex; flex-direction:column; gap:8px;
             width:100%; max-width:320px; }
-        .btn-lobby { padding:13px; border-radius:10px;
+        .btn-lobby { padding:12px; border-radius:10px;
             border:1.5px solid rgba(243,156,18,0.4);
             background:rgba(44,62,80,0.6); backdrop-filter:blur(8px);
-            color:#fff; font-size:15px; font-weight:700;
+            color:#fff; font-size:14px; font-weight:700;
             cursor:pointer; text-align:center; transition:all .18s; }
         .btn-lobby:active { transform:scale(.96); background:rgba(243,156,18,.2); }
         .btn-start { background:linear-gradient(135deg,#27ae60,#1e8449);
-            border-color:var(--green); font-size:16px;
+            border-color:var(--green); font-size:15px;
             box-shadow:0 4px 18px rgba(46,204,113,.3); }
         .btn-dice { background:linear-gradient(135deg,#8e44ad,#6c3483);
             border-color:var(--purple); }
@@ -257,7 +273,6 @@
 
         @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
         @keyframes dicePop{0%{transform:scale(1)}50%{transform:scale(1.4)}100%{transform:scale(1)}}
-        .dice-pop { animation:dicePop .3s ease; }
 
         /* 다이스 결과 오버레이 */
         #dice-result-overlay {
@@ -279,14 +294,27 @@
         <span class="lobby-badge">LOL × 랜덤다이스 Fusion</span>
     </div>
 
+    <!-- 내 프로필 정보 -->
+    <div class="my-info-bar">
+        <div class="my-info-name">
+            <span class="live-dot" id="server-status-dot" style="background:#f1c40f;" title="서버 연결 중..."></span>
+            <span id="lobby-my-name">용사</span>
+        </div>
+        <div class="my-info-id" onclick="copyMyId()" title="클릭 시 내 접속 ID 복사">
+            ID: <b id="my-peer-short" style="color:var(--green);">접속중...</b> 📋
+        </div>
+    </div>
+
     <!-- 온라인 플레이어 목록 -->
     <div class="lobby-panel">
         <div class="panel-title">
-            <span class="live-dot"></span>온라인 플레이어
-            <span id="online-count" style="color:#7f8c8d;font-weight:400;">(연결 중...)</span>
+            <div class="live-tag">
+                <span class="live-dot"></span>실시간 접속자
+            </div>
+            <span id="online-count" style="color:#7f8c8d;font-weight:400;font-size:10px;">(연결 중...)</span>
         </div>
         <div id="player-list">
-            <div style="font-size:11px;color:#555;text-align:center;padding:10px;">대기 중인 플레이어를 찾는 중...</div>
+            <div style="font-size:11px;color:#777;text-align:center;padding:10px;">서버에 접속하는 중...</div>
         </div>
     </div>
 
@@ -297,7 +325,7 @@
         <button class="btn-lobby" onclick="openModal('modalNotice')">📢 공지사항</button>
         <button class="btn-lobby" onclick="openModal('modalSettings')">⚙️ 설정</button>
     </div>
-    <div style="font-size:10px;color:#555;">v3.0 — Delta Time · PeerJS P2P · 랜덤다이스</div>
+    <div style="font-size:10px;color:#555;">v3.5 — 글로벌 브로커 & 실시간 매칭 지원</div>
 </div>
 
 <!-- ══════════════════ IN-GAME UI ══════════════════ -->
@@ -339,7 +367,7 @@
 <div id="dice-panel">
     <div class="dice-title">🎲 내 다이스</div>
     <div class="dice-slots" id="dice-slots-container"></div>
-    <button id="btn-roll-dice" onclick="rollDice()">굴리기</button>
+    <button id="btn-roll-dice" onclick="rollDice()">주사위 뽑기</button>
     <div id="dice-cost">비용: <span id="dice-roll-cost">50</span>G</div>
 </div>
 
@@ -376,9 +404,9 @@
 <div class="modal" id="modalPvpSelect">
     <div class="modal-title">⚔️ PVP 대전 모드</div>
     <div class="modal-content">
-        <div class="mode-desc">1대1 실시간 PVP! 상대의 타워를 먼저 파괴하면 승리.</div>
-        <button class="btn-lobby btn-sub-action" onclick="closeModal('modalPvpSelect');startRandomMatching('PVP');">🔍 무작위 매칭</button>
-        <button class="btn-lobby btn-sub-action" onclick="closeModal('modalPvpSelect');openFriendRoomModal('PVP');">👥 친구랑 하기</button>
+        <div class="mode-desc">1대1 실시간 PVP! 상대의 타워를 먼저 파괴하면 승리합니다.</div>
+        <button class="btn-lobby btn-sub-action" onclick="closeModal('modalPvpSelect');startRandomMatching('PVP');">🔍 글로벌 무작위 매칭</button>
+        <button class="btn-lobby btn-sub-action" onclick="closeModal('modalPvpSelect');openFriendRoomModal('PVP');">👥 친구랑 하기 (방 만들기/입력)</button>
     </div>
     <button class="btn-close" onclick="closeModal('modalPvpSelect')">닫기</button>
 </div>
@@ -386,9 +414,9 @@
 <div class="modal" id="modalCoopSelect">
     <div class="modal-title">🤝 협동 모드</div>
     <div class="modal-content">
-        <div class="mode-desc">2인 협동으로 몬스터 웨이브를 막아내세요!</div>
-        <button class="btn-lobby btn-sub-action" onclick="closeModal('modalCoopSelect');startRandomMatching('COOP');">🔍 무작위 매칭</button>
-        <button class="btn-lobby btn-sub-action" onclick="closeModal('modalCoopSelect');openFriendRoomModal('COOP');">👥 친구랑 하기</button>
+        <div class="mode-desc">2인 협동으로 몰려오는 몬스터 웨이브를 막아내세요!</div>
+        <button class="btn-lobby btn-sub-action" onclick="closeModal('modalCoopSelect');startRandomMatching('COOP');">🔍 글로벌 무작위 매칭</button>
+        <button class="btn-lobby btn-sub-action" onclick="closeModal('modalCoopSelect');openFriendRoomModal('COOP');">👥 친구랑 하기 (방 만들기/입력)</button>
     </div>
     <button class="btn-close" onclick="closeModal('modalCoopSelect')">닫기</button>
 </div>
@@ -396,17 +424,17 @@
 <div class="modal" id="modalMulti">
     <div class="modal-title">👥 친구와 함께하기</div>
     <div class="modal-content">
-        <p style="color:#aaa;font-size:12px;margin-bottom:10px;">내 ID를 친구에게 공유하거나, 친구 ID를 입력해 참가하세요.</p>
+        <p style="color:#aaa;font-size:12px;margin-bottom:10px;">내 접속 코드를 친구에게 보내거나, 친구 코드를 입력해 참가하세요.</p>
         <div style="background:rgba(0,0,0,.4);padding:10px;border-radius:8px;margin-bottom:10px;">
-            <div style="font-size:11px;color:#aaa;margin-bottom:4px;">내 접속 ID (PeerJS)</div>
+            <div style="font-size:11px;color:#aaa;margin-bottom:4px;">내 접속 ID (클릭 시 복사)</div>
             <div style="display:flex;align-items:center;gap:6px;">
                 <b id="myPeerId" style="color:var(--green);font-size:12px;word-break:break-all;flex:1;">생성 중...</b>
                 <button class="btn-dev" onclick="copyMyId()" style="padding:4px 8px;font-size:10px;">복사</button>
             </div>
         </div>
-        <button class="btn-buy" style="width:100%;margin-bottom:10px;padding:10px;font-size:13px;" onclick="createHostRoom()">🏠 방 생성 (Host)</button>
+        <button class="btn-buy" style="width:100%;margin-bottom:10px;padding:10px;font-size:13px;" onclick="createHostRoom()">🏠 방 생성 및 대기 (Host)</button>
         <div style="display:flex;gap:6px;">
-            <input type="text" id="roomCodeInput" placeholder="친구 ID 입력"
+            <input type="text" id="roomCodeInput" placeholder="친구 접속 ID 입력"
                 style="flex:1;background:rgba(255,255,255,.07);border:1px solid var(--border);color:#fff;padding:8px;border-radius:6px;font-size:12px;">
             <button class="btn-buy" onclick="connectToPeer()" style="padding:8px 12px;">참가</button>
         </div>
@@ -416,15 +444,15 @@
 </div>
 
 <div class="modal" id="modalMatch">
-    <div class="modal-title" id="matchModalTitle">🔍 무작위 매칭</div>
+    <div class="modal-title" id="matchModalTitle">🔍 실시간 무작위 매칭</div>
     <div class="modal-content" style="text-align:center;padding:8px 0;">
-        <p id="matchText" style="color:#aaa;margin-bottom:8px;font-size:13px;">대기 중인 플레이어를 찾고 있습니다...</p>
-        <div style="font-size:26px;margin:8px 0;display:inline-block;animation:spin 2s linear infinite;">⏳</div>
+        <p id="matchText" style="color:#aaa;margin-bottom:8px;font-size:13px;">글로벌 매칭 대기열에 등록 중...</p>
+        <div style="font-size:28px;margin:10px 0;display:inline-block;animation:spin 2s linear infinite;">⏳</div>
         <div id="match-queue-list"></div>
-        <p id="matchMyId" style="font-size:10px;color:#555;margin-top:6px;word-break:break-all;"></p>
-        <p style="font-size:10px;color:#666;margin-top:6px;">💡 같은 탭이나 친구에게 ID를 공유해도 연결할 수 있어요</p>
+        <p id="matchMyId" style="font-size:10px;color:#777;margin-top:6px;word-break:break-all;"></p>
+        <p style="font-size:10px;color:#888;margin-top:6px;">✨ 전세계 접속자들과 자동으로 매칭됩니다!</p>
     </div>
-    <button class="btn-close" onclick="cancelMatching()">취소</button>
+    <button class="btn-close" onclick="cancelMatching()">매칭 취소</button>
 </div>
 
 <div class="modal" id="modalStat">
@@ -443,19 +471,16 @@
     <div class="modal-title">📢 공지사항</div>
     <div class="modal-content">
         <div style="margin-bottom:10px;border-bottom:1px solid #333;padding-bottom:8px;">
-            <b style="color:var(--gold);">[v3.0] LOL × 랜덤다이스 Fusion 업데이트</b><br>
-            - 🎲 랜덤다이스 시스템 추가 (라운드마다 무료 다이스 지급!)<br>
-            - ⚡ Delta Time 엔진 (기기별 속도 차이 완전 해결)<br>
-            - 🌐 PeerJS P2P 멀티플레이 대폭 개선<br>
-            - 👥 실시간 로비 플레이어 목록 (BroadcastChannel)<br>
-            - 🔍 무작위 매칭 대기열 시스템<br>
-            - 📊 인게임 상대방 HP/핑 패널
+            <b style="color:var(--gold);">[v3.5] 글로벌 실시간 매칭 & 동기화 완료!</b><br>
+            - 🌐 글로벌 실시간 브로커 연동 (어디서든 접속자 실시간 표시)<br>
+            - ⚡ 무작위 매칭 시 실시간 자동 매칭 & P2P 게임 시작<br>
+            - 🎲 랜덤다이스 시스템 & 10종 다이스 합체<br>
+            - ⏱️ Delta Time 물리 엔진으로 모바일/PC 속도 완전 통일!
         </div>
         <div>
-            <b style="color:var(--green);">[멀티 연결 방법]</b><br>
-            1. 친구랑 하기: 내 ID 복사 → 친구에게 공유<br>
-            2. 무작위 매칭: 같은 브라우저 탭이나 ID 공유로 연결<br>
-            3. 연결 후 Host가 게임을 시작합니다
+            <b style="color:var(--green);">[플레이 방법]</b><br>
+            - <b>무작위 매칭</b>: 버튼 하나로 다른 플레이어와 즉시 대결/협동<br>
+            - <b>친구랑 하기</b>: 내 ID를 친구에게 전달하여 바로 접속 가능!
         </div>
     </div>
     <button class="btn-close" onclick="closeModal('modalNotice')">닫기</button>
@@ -478,7 +503,7 @@
 
 <script>
 // ╔══════════════════════════════════════════════════════════╗
-// ║              CORE SETUP                                  ║
+// ║              CORE VARIABLES & ENGINE                     ║
 // ╚══════════════════════════════════════════════════════════╝
 const canvas = document.getElementById('gameCanvas');
 const ctx    = canvas.getContext('2d');
@@ -492,6 +517,7 @@ const MID_Y = CH * 0.45;
 // ─── 닉네임 ───
 let myNickname = localStorage.getItem('nickname') || ('용사' + Math.floor(Math.random()*9000+1000));
 document.getElementById('setNickname').value = myNickname;
+document.getElementById('lobby-my-name').innerText = myNickname;
 
 // ─── 게임 상태 ───
 let gold = 0, round = 1;
@@ -507,8 +533,17 @@ let isMulti = false, isHost = false;
 let peer = null, conn = null;
 let peerPlayer = null;
 let netSendInterval = null;
-let matchingMode = null, myMatchingKey = null;
+let matchingMode = null;
 let currentPing = 0;
+
+// ─── 글로벌 브로커 & 플레이어 관리 ───
+let mqttClient = null;
+const MQTT_TOPIC_LOBBY = 'minilol/global/lobby/v1';
+const MQTT_TOPIC_MATCH = 'minilol/global/match/v1';
+const onlinePlayersMap = new Map(); // peerId -> { nickname, peerId, status, mode, lastSeen }
+const myUniqueId = 'p_' + Math.random().toString(36).substring(2, 9);
+let myPeerIdStr = '';
+let isSearchingMatch = false;
 
 // ─── 랜덤다이스 ───
 const DICE_TYPES = [
@@ -525,11 +560,11 @@ const DICE_TYPES = [
 ];
 const DICE_RARITY_WEIGHT = { common:50, rare:30, epic:15, legendary:5 };
 
-let myDice = [];          // 현재 보유 다이스 슬롯 (최대 6개)
+let myDice = [];
 let diceRollCost = 50;
 let freeDiceThisRound = false;
 
-// ─── 플레이어 ───
+// ─── 플레이어 스탯 ───
 const player = {
     x: CW/2, y: CH-120,
     targetX: CW/2, targetY: CH-120,
@@ -567,7 +602,7 @@ const equipmentItems = [
       apply:()=>{ player.maxHp+=150; player.hp+=150; tower.maxHp+=300; tower.hp=Math.min(tower.maxHp,tower.hp+300); } },
     { id:'ie',     name:'♾️ 무한의 대검',      desc:'치명타확률+25%',        price:400, bought:false,
       apply:()=>{ player.critChance=Math.min(0.8,(player.critChance||0)+0.25); } },
-    { id:'guinsoo',name:'🌀 귀뚜라미 망령검',  desc:'멀티샷+1발',            price:450, bought:false,
+    { id:'guinsoo',name:'🌀 구인수의 격노검',  desc:'멀티샷+1발 추가',       price:450, bought:false,
       apply:()=>{ player.multiShot=(player.multiShot||1)+1; } },
 ];
 
@@ -575,115 +610,241 @@ let minions=[], projectiles=[], floatingTexts=[], explosions=[], scopeEffects=[]
 let isWaveActive=false;
 
 // ╔══════════════════════════════════════════════════════════╗
-// ║              PEERJS & LOBBY                              ║
+// ║              GLOBAL MQTT & MATCHMAKING                   ║
 // ╚══════════════════════════════════════════════════════════╝
+function initMqtt() {
+    try {
+        // 공개 WebSocket MQTT 브로커
+        const brokers = [
+            'wss://broker.emqx.io:8084/mqtt',
+            'wss://broker.hivemq.com:8884/mqtt'
+        ];
+        const brokerUrl = brokers[Math.floor(Math.random() * brokers.length)];
+        
+        mqttClient = mqtt.connect(brokerUrl, {
+            clientId: 'lol_' + myUniqueId,
+            clean: true,
+            connectTimeout: 5000,
+            reconnectPeriod: 3000
+        });
 
-// BroadcastChannel (같은 기기 탭들 간 통신)
-let bc = null;
-try { bc = new BroadcastChannel('hyper_attack_v3'); } catch(e) {}
+        mqttClient.on('connect', () => {
+            console.log('[MQTT] Connected to global broker');
+            const dot = document.getElementById('server-status-dot');
+            if (dot) { dot.style.background = 'var(--green)'; dot.title = '서버 연결됨 (온라인)'; }
+            
+            mqttClient.subscribe(MQTT_TOPIC_LOBBY);
+            mqttClient.subscribe(MQTT_TOPIC_MATCH);
+            
+            // 즉시 Heartbeat 발행
+            broadcastPresence();
+        });
 
-const bcPlayers = {}; // { id: { nickname, peerId, status, mode, ts } }
-let myBcId = 'bc_' + Math.random().toString(36).slice(2,8);
-let bcMatchQueue = {}; // { id: { nickname, peerId, mode } }
-
-function initBroadcastChannel() {
-    if (!bc) { renderLobbyList([]); return; }
-    // 자신 등록
-    bcPlayers[myBcId] = { nickname: myNickname, peerId:'', status:'lobby', mode:'', ts: Date.now() };
-    bc.postMessage({ type:'join', id:myBcId, nickname:myNickname, peerId:'' });
-
-    bc.onmessage = (e) => {
-        const d = e.data;
-        if (!d || !d.type) return;
-
-        if (d.type === 'join') {
-            bcPlayers[d.id] = { nickname:d.nickname, peerId:d.peerId||'', status:'lobby', mode:'', ts:Date.now() };
-            // 응답: 내 정보 알려주기
-            bc.postMessage({ type:'here', id:myBcId, nickname:myNickname, peerId: peer?.id||'' });
-            renderLobbyList(Object.values(bcPlayers));
-        } else if (d.type === 'here') {
-            bcPlayers[d.id] = { nickname:d.nickname, peerId:d.peerId||'', status:'lobby', mode:'', ts:Date.now() };
-            renderLobbyList(Object.values(bcPlayers));
-        } else if (d.type === 'leave') {
-            delete bcPlayers[d.id];
-            delete bcMatchQueue[d.id];
-            renderLobbyList(Object.values(bcPlayers));
-        } else if (d.type === 'status_update') {
-            if (bcPlayers[d.id]) {
-                bcPlayers[d.id].status = d.status;
-                bcPlayers[d.id].mode = d.mode||'';
-                if (d.peerId) bcPlayers[d.id].peerId = d.peerId;
-                renderLobbyList(Object.values(bcPlayers));
+        mqttClient.on('message', (topic, message) => {
+            try {
+                const data = JSON.parse(message.toString());
+                if (topic === MQTT_TOPIC_LOBBY) {
+                    handleLobbyPresence(data);
+                } else if (topic === MQTT_TOPIC_MATCH) {
+                    handleMatchmakingEvent(data);
+                }
+            } catch (e) {
+                console.error('[MQTT Message Error]', e);
             }
-        } else if (d.type === 'match_seek') {
-            if (d.id !== myBcId) {
-                bcMatchQueue[d.id] = { nickname:d.nickname, peerId:d.peerId, mode:d.mode, id:d.id };
-                renderMatchQueue(Object.values(bcMatchQueue).filter(p => p.mode === matchingMode));
-            }
-        } else if (d.type === 'match_cancel') {
-            delete bcMatchQueue[d.id];
-            renderMatchQueue(Object.values(bcMatchQueue).filter(p => p.mode === matchingMode));
+        });
+
+        mqttClient.on('error', (err) => {
+            console.warn('[MQTT Error]', err);
+            const dot = document.getElementById('server-status-dot');
+            if (dot) { dot.style.background = 'var(--red)'; dot.title = '서버 연결 재시도 중'; }
+        });
+
+        // 3초마다 내 상태 알림 (Heartbeat)
+        setInterval(broadcastPresence, 3000);
+        // 5초마다 오래된 접속자 정리
+        setInterval(cleanupStalePlayers, 5000);
+
+    } catch (e) {
+        console.error('[MQTT Init Failed]', e);
+    }
+}
+
+function broadcastPresence() {
+    if (!mqttClient || !mqttClient.connected) return;
+    const payload = {
+        uid: myUniqueId,
+        nickname: myNickname,
+        peerId: myPeerIdStr,
+        status: gameRunning ? 'playing' : (isSearchingMatch ? 'matching' : 'lobby'),
+        mode: currentGameMode,
+        ts: Date.now()
+    };
+    mqttClient.publish(MQTT_TOPIC_LOBBY, JSON.stringify(payload));
+}
+
+function handleLobbyPresence(data) {
+    if (!data || !data.uid) return;
+    onlinePlayersMap.set(data.uid, {
+        uid: data.uid,
+        nickname: data.nickname || '익명',
+        peerId: data.peerId || '',
+        status: data.status || 'lobby',
+        mode: data.mode || '',
+        lastSeen: Date.now()
+    });
+    renderLobbyPlayerList();
+}
+
+function cleanupStalePlayers() {
+    const now = Date.now();
+    for (const [uid, player] of onlinePlayersMap.entries()) {
+        if (now - player.lastSeen > 8000 && uid !== myUniqueId) {
+            onlinePlayersMap.delete(uid);
         }
+    }
+    renderLobbyPlayerList();
+}
+
+function renderLobbyPlayerList() {
+    const listEl = document.getElementById('player-list');
+    const countEl = document.getElementById('online-count');
+    const colors = ['#3498db','#e74c3c','#2ecc71','#f39c12','#9b59b6','#1abc9c'];
+
+    // 나 자신 포함
+    const myEntry = {
+        uid: myUniqueId,
+        nickname: myNickname + ' (나)',
+        peerId: myPeerIdStr,
+        status: gameRunning ? 'playing' : 'lobby',
+        isSelf: true
     };
 
-    renderLobbyList([{ nickname: myNickname+' (나)', status:'lobby' }]);
-}
+    const others = Array.from(onlinePlayersMap.values()).filter(p => p.uid !== myUniqueId);
+    const all = [myEntry, ...others];
 
-function bcUpdateStatus(status, mode) {
-    if (!bc) return;
-    if (bcPlayers[myBcId]) { bcPlayers[myBcId].status = status; bcPlayers[myBcId].mode = mode||''; }
-    bc.postMessage({ type:'status_update', id:myBcId, status, mode: mode||'', peerId: peer?.id||'' });
-}
+    countEl.innerText = `(${all.length}명 접속 중)`;
 
-function renderLobbyList(players) {
-    const list  = document.getElementById('player-list');
-    const count = document.getElementById('online-count');
-    const cols  = ['#3498db','#e74c3c','#2ecc71','#f39c12','#9b59b6','#1abc9c'];
+    listEl.innerHTML = all.map((p, i) => {
+        const c = colors[i % colors.length];
+        const isPlay = p.status === 'playing';
+        const isMatch = p.status === 'matching';
+        const em = isPlay ? '🎮' : (isMatch ? '⏳' : '🕹️');
+        const stClass = isPlay ? 'st-play' : 'st-wait';
+        const stText = isPlay ? '게임중' : (isMatch ? '매칭중' : '대기중');
 
-    // 나 자신도 항상 포함
-    const selfEntry = { nickname: myNickname + ' (나)', status: 'lobby', isSelf: true };
-    const others = players.filter(p => p.nickname !== myNickname + ' (나)' && !p.isSelf);
-    const all = [selfEntry, ...others];
+        let actionBtn = '';
+        if (!p.isSelf && p.peerId && !isPlay) {
+            actionBtn = `<button class="pli-connect" onclick="quickChallenge('${p.peerId}')">도전</button>`;
+        }
 
-    count.textContent = `(${all.length}명)`;
-
-    if (all.length === 0) {
-        list.innerHTML = '<div style="font-size:11px;color:#555;text-align:center;padding:10px;">아직 아무도 없어요 👻</div>';
-        return;
-    }
-
-    list.innerHTML = all.map((p, i) => {
-        const c = cols[i % cols.length];
-        const em = p.status === 'playing' ? '🎮' : '🕹️';
-        const sc = p.status === 'playing' ? 'st-play' : 'st-wait';
-        const st = p.status === 'playing' ? '게임중' : '대기중';
-        // 연결 버튼: 상대방이 대기 중이고 PeerID가 있을 때
-        const connectBtn = (!p.isSelf && p.peerId && p.status === 'lobby')
-            ? `<button class="pli-connect" onclick="connectToBcPlayer('${p.peerId}')">연결</button>`
-            : '';
-        return `<div class="pli">
-            <div class="pli-avatar" style="background:${c}22;border:1px solid ${c};">${em}</div>
-            <div class="pli-name">${p.nickname||'익명'}</div>
-            <div class="pli-status ${sc}">${st}</div>
-            ${connectBtn}
-        </div>`;
+        return `
+            <div class="pli">
+                <div class="pli-avatar" style="background:${c}22;border:1px solid ${c};">${em}</div>
+                <div class="pli-name">${p.nickname}</div>
+                <div class="pli-status ${stClass}">${stText}</div>
+                ${actionBtn}
+            </div>
+        `;
     }).join('');
 }
 
-// 로비에서 직접 연결
-function connectToBcPlayer(targetPeerId) {
+// ─── 무작위 매칭 브로커 로직 ───
+function startRandomMatching(mode) {
+    matchingMode = mode;
+    isSearchingMatch = true;
+    openModal('modalMatch');
+    document.getElementById('matchModalTitle').innerText = `🔍 ${mode} 실시간 무작위 매칭`;
+    document.getElementById('matchText').innerText = '상대 플레이어 검색 중...';
+    document.getElementById('match-queue-list').innerHTML = '';
+
+    ensurePeerInitialized((id) => {
+        document.getElementById('matchMyId').innerText = `내 고유 ID: ${id}`;
+        // 매칭 요청 브로드캐스트
+        publishMatchSeek();
+    });
+}
+
+function publishMatchSeek() {
+    if (!mqttClient || !mqttClient.connected || !isSearchingMatch) return;
+    const seekPayload = {
+        type: 'match_seek',
+        uid: myUniqueId,
+        nickname: myNickname,
+        peerId: myPeerIdStr,
+        mode: matchingMode,
+        ts: Date.now()
+    };
+    mqttClient.publish(MQTT_TOPIC_MATCH, JSON.stringify(seekPayload));
+}
+
+// 주기적으로 매칭 시도 발행
+let matchSearchTimer = setInterval(() => {
+    if (isSearchingMatch) publishMatchSeek();
+}, 2000);
+
+function handleMatchmakingEvent(data) {
+    if (!isSearchingMatch || !data || data.uid === myUniqueId) return;
+
+    if (data.type === 'match_seek' && data.mode === matchingMode && data.peerId) {
+        // 상대방 발견! 두 플레이어 중 UID가 사전순으로 앞선 쪽이 Host가 되어 연결 시작
+        if (myUniqueId < data.uid) {
+            // 내가 Host 역할: 상대에게 연결 수락 전송 & PeerJS 연결 시도
+            console.log('[Matchmaker] I am Host, connecting to:', data.peerId);
+            document.getElementById('matchText').innerText = `${data.nickname}님과 매칭되었습니다! 연결 중...`;
+            
+            // 상대에게 알림
+            mqttClient.publish(MQTT_TOPIC_MATCH, JSON.stringify({
+                type: 'match_accept',
+                fromUid: myUniqueId,
+                targetUid: data.uid,
+                hostPeerId: myPeerIdStr,
+                mode: matchingMode
+            }));
+
+            // 연결 시도
+            setTimeout(() => {
+                connectToMatchPeer(data.peerId, true);
+            }, 300);
+        }
+    } else if (data.type === 'match_accept' && data.targetUid === myUniqueId) {
+        // 상대방이 Host로 나를 초대함 -> Guest로 대기
+        console.log('[Matchmaker] Received accept from Host:', data.hostPeerId);
+        document.getElementById('matchText').innerText = `매칭 성공! 게임에 참가합니다...`;
+        isSearchingMatch = false;
+    }
+}
+
+function connectToMatchPeer(targetPeerId, asHost = false) {
+    if (!peer || !targetPeerId) return;
+    isSearchingMatch = false;
+    
+    conn = peer.connect(targetPeerId, { reliable: true });
+    isHost = asHost;
+    setupConnection(asHost ? 'HOST' : 'GUEST');
+}
+
+function cancelMatching() {
+    isSearchingMatch = false;
+    closeModal('modalMatch');
+    broadcastPresence();
+}
+
+function quickChallenge(targetPeerId) {
     if (!targetPeerId) return;
     currentGameMode = 'PVP';
-    initPeer((myId) => {
+    ensurePeerInitialized(() => {
         conn = peer.connect(targetPeerId, { reliable: true });
         isHost = false;
         setupConnection('GUEST');
     });
 }
 
-// ─── PeerJS 초기화 ───
-function initPeer(callback) {
+// ╔══════════════════════════════════════════════════════════╗
+// ║              PEERJS WEBRTC CONNECTION                    ║
+// ╚══════════════════════════════════════════════════════════╝
+function ensurePeerInitialized(callback) {
     if (peer && peer.id && !peer.destroyed) {
+        myPeerIdStr = peer.id;
         if (callback) callback(peer.id);
         return;
     }
@@ -700,14 +861,13 @@ function initPeer(callback) {
     });
 
     peer.on('open', (id) => {
+        myPeerIdStr = id;
         document.getElementById('myPeerId').innerText = id;
-        // BroadcastChannel에 peerId 업데이트
-        if (bcPlayers[myBcId]) bcPlayers[myBcId].peerId = id;
-        if (bc) bc.postMessage({ type:'here', id:myBcId, nickname:myNickname, peerId:id });
+        document.getElementById('my-peer-short').innerText = id.substring(0, 6) + '...';
+        broadcastPresence();
         if (callback) callback(id);
     });
 
-    // HOST 수신
     peer.on('connection', (c) => {
         conn = c;
         isHost = true;
@@ -715,46 +875,35 @@ function initPeer(callback) {
     });
 
     peer.on('error', (err) => {
-        console.error('[Peer Error]', err.type, err);
-        const msg = {
-            'peer-unavailable': '상대방을 찾을 수 없습니다. ID를 다시 확인하세요.',
-            'network':          '네트워크 오류가 발생했습니다.',
-            'unavailable-id':   '이미 사용 중인 ID입니다. 새로고침 해보세요.',
-        }[err.type] || '연결 오류: ' + err.type;
-        setMultiStatus('⚠️ ' + msg);
-        if (document.getElementById('matchText')) {
-            document.getElementById('matchText').textContent = '⚠️ ' + msg;
-        }
+        console.error('[PeerJS Error]', err);
+        setMultiStatus('⚠️ 연결 오류: ' + (err.type || err));
     });
 }
 
-// ─── 연결 셋업 ───
 function setupConnection(role) {
     isHost = (role === 'HOST');
-    console.log('[Multi] setupConnection as', role, conn);
+    console.log('[P2P] setupConnection as:', role);
 
-    // peerPlayer 초기화
     peerPlayer = { x: CW/2+40, y: CH-120, hp:200, maxHp:200, nickname:'상대방', round:1 };
 
     conn.on('open', () => {
-        console.log('[Multi] Connection open, role:', role);
-        setMultiStatus('✅ 상대방과 연결되었습니다!');
-        addChatLog(`[멀티] ${isHost ? 'HOST' : 'GUEST'} 연결 완료!`, true);
+        console.log('[P2P] Connection fully open!');
+        setMultiStatus('✅ 상대방과 실시간 P2P 연결 성공!');
+        addChatLog(`[멀티] ${isHost ? 'HOST' : 'GUEST'}로 연결되었습니다!`, true);
         isMulti = true;
+        isSearchingMatch = false;
 
-        // HOST가 게임 시작 신호
         if (isHost) {
             setTimeout(() => {
                 if (conn && conn.open) {
                     conn.send({ type:'start_game', mode: currentGameMode });
-                    // HOST도 게임 시작
                     closeAllModals();
                     document.getElementById('main-lobby').style.display = 'none';
                     document.getElementById('btnOpenMulti').style.display = 'flex';
                     startGame();
                     addChatLog(`[시스템] ${currentGameMode} 멀티 게임 시작! (HOST)`, true);
                 }
-            }, 600);
+            }, 500);
         }
         startNetSync();
     });
@@ -768,17 +917,13 @@ function setupConnection(role) {
         updateEnemyPanel();
         if (netSendInterval) { clearInterval(netSendInterval); netSendInterval = null; }
     });
-
-    conn.on('error', (err) => { console.error('[Conn Error]', err); });
 }
 
-// ─── 네트워크 데이터 처리 ───
 function handleNetworkData(data) {
     if (!data || !data.type) return;
 
     switch (data.type) {
         case 'start_game':
-            // GUEST가 받으면 게임 시작
             if (!isHost) {
                 currentGameMode = data.mode;
                 closeAllModals();
@@ -838,7 +983,6 @@ function handleNetworkData(data) {
     }
 }
 
-// ─── 상태 전송 ───
 function startNetSync() {
     if (netSendInterval) clearInterval(netSendInterval);
     netSendInterval = setInterval(() => {
@@ -848,12 +992,11 @@ function startNetSync() {
             hp:player.hp, maxHp:player.maxHp,
             round:round, nickname:myNickname
         });
-    }, 80);
+    }, 60);
 
-    // 핑 측정 (5초마다)
     setInterval(() => {
         if (conn && conn.open) conn.send({ type:'ping', ts: Date.now() });
-    }, 5000);
+    }, 4000);
 }
 
 function sendMinionHit(idx, dmg) {
@@ -871,106 +1014,39 @@ function updateEnemyPanel() {
 }
 
 // ╔══════════════════════════════════════════════════════════╗
-// ║              MATCHING SYSTEM                             ║
-// ╚══════════════════════════════════════════════════════════╝
-function startRandomMatching(mode) {
-    matchingMode = mode;
-    openModal('modalMatch');
-    document.getElementById('matchModalTitle').textContent = `🔍 ${mode} 무작위 매칭`;
-    document.getElementById('matchText').textContent = 'PeerJS ID 생성 중...';
-    document.getElementById('match-queue-list').innerHTML = '';
-
-    initPeer((myId) => {
-        document.getElementById('matchMyId').textContent = `내 ID: ${myId}`;
-        document.getElementById('matchText').textContent = '대기열에 등록 중...';
-
-        // BroadcastChannel로 매칭 공고
-        if (bc) {
-            bcMatchQueue[myBcId] = { nickname:myNickname, peerId:myId, mode, id:myBcId };
-            bc.postMessage({ type:'match_seek', id:myBcId, nickname:myNickname, peerId:myId, mode });
-        }
-
-        // 자기 자신 제외한 같은 모드 대기열 표시
-        const queue = Object.values(bcMatchQueue).filter(p => p.id !== myBcId && p.mode === mode);
-        renderMatchQueue(queue);
-
-        if (queue.length === 0) {
-            document.getElementById('matchText').textContent = `대기 중... (ID를 친구에게 공유해도 됩니다)`;
-        }
-    });
-}
-
-function renderMatchQueue(queue) {
-    const c = document.getElementById('match-queue-list');
-    if (queue.length === 0) {
-        c.innerHTML = '<div style="font-size:11px;color:#555;text-align:center;padding:8px;">대기 중인 플레이어 없음.<br>잠시 기다리거나 ID를 공유하세요.</div>';
-        return;
-    }
-    document.getElementById('matchText').textContent = `${queue.length}명 대기 중! 클릭하여 연결`;
-    c.innerHTML = queue.map(p => `
-        <div class="mqi" onclick="connectToMatchPlayer('${p.peerId}')">
-            <span style="font-size:18px;">🎮</span>
-            <span class="mqi-name">${p.nickname||'익명'}</span>
-            <span class="mqi-mode">${p.mode}</span>
-            <button class="btn-connect">연결</button>
-        </div>`).join('');
-}
-
-function connectToMatchPlayer(targetPeerId) {
-    if (!peer || !targetPeerId) return;
-    document.getElementById('matchText').textContent = '연결 시도 중...';
-    removeFromMatchQueue();
-    conn = peer.connect(targetPeerId, { reliable:true });
-    isHost = false;
-    setupConnection('GUEST');
-}
-
-function cancelMatching() {
-    removeFromMatchQueue();
-    closeModal('modalMatch');
-}
-
-function removeFromMatchQueue() {
-    if (bc && bcMatchQueue[myBcId]) {
-        delete bcMatchQueue[myBcId];
-        bc.postMessage({ type:'match_cancel', id:myBcId });
-    }
-}
-
-// ╔══════════════════════════════════════════════════════════╗
-// ║              FRIEND ROOM                                 ║
+// ║              FRIEND ROOM MODAL LOGIC                     ║
 // ╚══════════════════════════════════════════════════════════╝
 function openFriendRoomModal(mode) {
     currentGameMode = mode;
     openModal('modalMulti');
-    initPeer((id) => {
+    ensurePeerInitialized((id) => {
         document.getElementById('myPeerId').innerText = id;
     });
 }
 
 function createHostRoom() {
-    initPeer((id) => {
+    ensurePeerInitialized((id) => {
         document.getElementById('myPeerId').innerText = id;
-        setMultiStatus(`✅ 방 생성 완료!\nID를 친구에게 공유하세요:\n${id}`);
+        setMultiStatus(`✅ 방 대기 중! 친구에게 이 ID를 전달하세요:\n${id}`);
     });
 }
 
 function connectToPeer() {
     const destId = document.getElementById('roomCodeInput').value.trim();
-    if (!destId) { setMultiStatus('ID를 입력하세요.'); return; }
+    if (!destId) { setMultiStatus('친구의 접속 ID를 입력하세요.'); return; }
     setMultiStatus('연결 시도 중...');
-    initPeer(() => {
-        conn = peer.connect(destId, { reliable:true });
+    ensurePeerInitialized(() => {
+        conn = peer.connect(destId, { reliable: true });
         isHost = false;
         setupConnection('GUEST');
     });
 }
 
 function copyMyId() {
-    const id = document.getElementById('myPeerId').innerText;
+    const id = myPeerIdStr || document.getElementById('myPeerId').innerText;
     if (!id || id === '생성 중...') { setMultiStatus('ID 생성 중입니다. 잠시 후 시도하세요.'); return; }
     if (navigator.clipboard) {
-        navigator.clipboard.writeText(id).then(() => setMultiStatus('✅ ID가 클립보드에 복사되었습니다!'));
+        navigator.clipboard.writeText(id).then(() => setMultiStatus('✅ 내 ID가 클립보드에 복사되었습니다!'));
     } else {
         const el = document.createElement('textarea');
         el.value = id; document.body.appendChild(el);
@@ -983,7 +1059,7 @@ function copyMyId() {
 function setMultiStatus(msg) { document.getElementById('multiStatus').innerText = msg; }
 
 // ╔══════════════════════════════════════════════════════════╗
-// ║              DICE SYSTEM (랜덤다이스)                    ║
+// ║              RANDOM DICE SYSTEM                          ║
 // ╚══════════════════════════════════════════════════════════╝
 function rollRandomDice() {
     const total = Object.values(DICE_RARITY_WEIGHT).reduce((a,b) => a+b, 0);
@@ -998,8 +1074,8 @@ function rollRandomDice() {
 }
 
 function rollDice() {
-    if (myDice.length >= 6) { addChatLog('[시스템] 다이스 슬롯이 가득 찼습니다.', true); return; }
-    if (gold < diceRollCost) { addChatLog(`[시스템] 골드가 부족합니다 (필요: ${diceRollCost}G)`, true); return; }
+    if (myDice.length >= 6) { addChatLog('[시스템] 주사위 슬롯(6개)이 가득 찼습니다.', true); return; }
+    if (gold < diceRollCost) { addChatLog(`[시스템] 골드가 부족합니다 (${diceRollCost}G 필요)`, true); return; }
     gold -= diceRollCost;
     diceRollCost = Math.floor(diceRollCost * 1.3);
 
@@ -1030,7 +1106,7 @@ function renderDicePanel() {
     for (let i = 0; i < 6; i++) {
         const d = myDice[i];
         if (d) {
-            slots.push(`<div class="dice-slot" style="border-color:${d.color};" onclick="useDice(${i})" title="${d.name}">${d.emoji}</div>`);
+            slots.push(`<div class="dice-slot" style="border-color:${d.color};" onclick="useDice(${i})" title="${d.name} (${d.rarity})">${d.emoji}</div>`);
         } else {
             slots.push(`<div class="dice-slot empty" title="빈 슬롯">·</div>`);
         }
@@ -1058,7 +1134,7 @@ function addDevDice() {
 }
 
 // ╔══════════════════════════════════════════════════════════╗
-// ║              MODAL & UI UTILS                            ║
+// ║              MODALS & UTILITIES                          ║
 // ╚══════════════════════════════════════════════════════════╝
 function openModal(id) { document.getElementById(id).style.display = 'flex'; }
 function closeModal(id) { document.getElementById(id).style.display = 'none'; }
@@ -1116,7 +1192,7 @@ function toggleGameSpeed() {
 }
 
 // ╔══════════════════════════════════════════════════════════╗
-// ║              SHOP                                        ║
+// ║              SHOP SYSTEM                                 ║
 // ╚══════════════════════════════════════════════════════════╝
 function renderShop() {
     const atkP = Math.floor(statUpgrades.atk.basePrice * Math.pow(statUpgrades.atk.priceMult, statUpgrades.atk.level));
@@ -1125,7 +1201,7 @@ function renderShop() {
         <div class="shop-section-title">⚡ 스탯 강화</div>
         <div class="shop-item"><div><b>공격력 +10</b> (Lv.${statUpgrades.atk.level})<br><small style="color:#aaa">${atkP}G</small></div><button class="btn-buy" onclick="buyStatUpgrade('atk')">구매</button></div>
         <div class="shop-item"><div><b>공속 +10%</b> (Lv.${statUpgrades.spd.level})<br><small style="color:#aaa">${spdP}G</small></div><button class="btn-buy" onclick="buyStatUpgrade('spd')">구매</button></div>
-        <div class="shop-section-title">🗡️ 장비</div>`;
+        <div class="shop-section-title">🗡️ 장비 아이템</div>`;
     equipmentItems.forEach((it, i) => {
         html += `<div class="shop-item"><div><b>${it.name}</b><br><small style="color:#aaa">${it.desc} / ${it.price}G</small></div>
             ${it.bought ? '<button class="btn-buy btn-bought" disabled>완료</button>' : `<button class="btn-buy" onclick="buyEquipment(${i})">구매</button>`}</div>`;
@@ -1153,14 +1229,13 @@ function buyEquipment(idx) {
 }
 
 // ╔══════════════════════════════════════════════════════════╗
-// ║              GAME START / RESET                          ║
+// ║              GAME FLOW (START / RESET)                   ║
 // ╚══════════════════════════════════════════════════════════╝
 function startSoloPlay() {
     currentGameMode = 'SOLO';
     isMulti = false;
     document.getElementById('btnOpenMulti').style.display = 'none';
     document.getElementById('main-lobby').style.display = 'none';
-    bcUpdateStatus('playing', 'SOLO');
     startGame();
     addChatLog('[시스템] 솔로 플레이 시작!', true);
 }
@@ -1169,11 +1244,11 @@ function startGame() {
     resetGameState();
     gameRunning = true;
     lastTimestamp = 0;
+    broadcastPresence();
     requestAnimationFrame(gameLoop);
 }
 
 function resetGameState() {
-    // 플레이어 리셋 (아이템/스탯은 유지하지 않고 초기화)
     player.x = CW/2; player.y = CH-120;
     player.targetX = player.x; player.targetY = player.y;
     player.hp = player.maxHp;
@@ -1195,7 +1270,6 @@ function resetGameState() {
 
     renderDicePanel();
     updateUI();
-    bcUpdateStatus('playing', currentGameMode);
 }
 
 function returnToLobby() {
@@ -1204,22 +1278,26 @@ function returnToLobby() {
     gameRunning = false;
     if (netSendInterval) { clearInterval(netSendInterval); netSendInterval = null; }
     updateEnemyPanel();
-    bcUpdateStatus('lobby', '');
     document.getElementById('main-lobby').style.display = 'flex';
     document.getElementById('dice-panel').style.display = 'none';
     document.getElementById('enemy-ui-panel').style.display = 'none';
     document.getElementById('game-msg').style.display = 'none';
+    broadcastPresence();
 }
 
 function saveSettings() {
     const val = document.getElementById('setNickname').value.trim();
-    if (val) { myNickname = val; localStorage.setItem('nickname', myNickname); }
+    if (val) {
+        myNickname = val;
+        localStorage.setItem('nickname', myNickname);
+        document.getElementById('lobby-my-name').innerText = myNickname;
+    }
     closeModal('modalSettings');
-    bcUpdateStatus('lobby', '');
+    broadcastPresence();
 }
 
 // ╔══════════════════════════════════════════════════════════╗
-// ║              INPUT                                       ║
+// ║              CONTROLS & SKILLS                           ║
 // ╚══════════════════════════════════════════════════════════╝
 canvas.addEventListener('pointerdown', (e) => {
     if (isGameOver) return;
@@ -1264,7 +1342,7 @@ document.getElementById('btnOpenStat').addEventListener('pointerdown', (e) => {
         • 폭발 확률: <b>${Math.round((player.explosionChance||0)*100)}%</b><br>
         • 흡혈: <b>${player.lifesteal}</b><br>
         • 멀티샷: <b>${player.multiShot||1}발</b><br>
-        • 다이스 보유: <b>${myDice.length}/6</b>
+        • 주사위 보유: <b>${myDice.length}/6</b>
     `;
     openModal('modalStat');
 });
@@ -1274,7 +1352,7 @@ document.getElementById('btnOpenShop').addEventListener('pointerdown', (e) => {
 });
 document.getElementById('btnOpenMulti').addEventListener('pointerdown', (e) => {
     e.stopPropagation();
-    initPeer((id) => { document.getElementById('myPeerId').innerText = id; });
+    ensurePeerInitialized((id) => { document.getElementById('myPeerId').innerText = id; });
     openModal('modalMulti');
 });
 
@@ -1298,7 +1376,7 @@ function startNextWave() {
     triggerRoundBanner(round);
     addChatLog(`[라운드] ROUND ${round} 시작!`, true);
 
-    // 라운드마다 무료 다이스 지급
+    // 라운드마다 무료 주사위 1개 지급!
     if (!freeDiceThisRound && myDice.length < 6) {
         freeDiceThisRound = true;
         setTimeout(() => {
@@ -1306,7 +1384,7 @@ function startNextWave() {
                 const dice = rollRandomDice();
                 myDice.push({ ...dice, id: dice.id + '_' + Date.now() });
                 renderDicePanel();
-                showDiceResult(`🎁 무료 다이스: ${dice.emoji} ${dice.name}`);
+                showDiceResult(`🎁 라운드 무료 다이스: ${dice.emoji} ${dice.name}`);
                 addChatLog(`[다이스] 라운드 보상: ${dice.emoji} ${dice.name} 획득!`, true);
             }
         }, 500);
@@ -1345,39 +1423,38 @@ function startNextWave() {
 }
 
 // ╔══════════════════════════════════════════════════════════╗
-// ║              GAME LOOP (DELTA TIME)                      ║
+// ║              DELTA-TIME GAME LOOP                        ║
 // ╚══════════════════════════════════════════════════════════╝
 function gameLoop(timestamp) {
     if (!gameRunning || isGameOver) return;
 
-    // Delta Time 계산
     if (!lastTimestamp) lastTimestamp = timestamp;
     let dt = (timestamp - lastTimestamp) / 1000;
-    dt = Math.min(dt, 0.05); // 최대 50ms 클램프
+    dt = Math.min(dt, 0.05); // 최대 50ms 클램프 (기기간 속도 통일)
     dt *= gameSpeed;
     lastTimestamp = timestamp;
 
     ctx.clearRect(0, 0, CW, CH);
 
-    // 가이드 라인
+    // 라인 표시
     ctx.strokeStyle = 'rgba(255,255,255,0.05)';
     ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(0, MID_Y); ctx.lineTo(CW, MID_Y); ctx.stroke();
 
-    // 웨이브 시작
+    // 웨이브 체크
     if (!isWaveActive && minions.length === 0) {
         freeDiceThisRound = false;
         startNextWave();
     }
 
-    // ─── 쿨다운 ───
+    // ─── 쿨다운 업데이트 ───
     if (player.qCooldown > 0) player.qCooldown = Math.max(0, player.qCooldown - dt);
     if (player.wCooldown > 0) player.wCooldown = Math.max(0, player.wCooldown - dt);
     if (player.eCooldown > 0) player.eCooldown = Math.max(0, player.eCooldown - dt);
     if (player.qBuffTimer > 0) player.qBuffTimer = Math.max(0, player.qBuffTimer - dt);
     if (player.wBuffTimer > 0) player.wBuffTimer = Math.max(0, player.wBuffTimer - dt);
 
-    // ─── 이동 ───
+    // ─── 이동 (초당 픽셀 기반) ───
     const spd = player.moveSpeed * (player.wBuffTimer > 0 ? 1.8 : 1);
     const dx = player.targetX - player.x, dy = player.targetY - player.y;
     const dist = Math.hypot(dx, dy);
@@ -1402,7 +1479,6 @@ function gameLoop(timestamp) {
             for (let s = 0; s < shots; s++) {
                 let dmg = player.attackPower;
                 let color = '#2ecc71';
-                // 치명타
                 if ((player.critChance || 0) > 0 && Math.random() < player.critChance) {
                     dmg = Math.floor(dmg * 2.2);
                     color = '#f1c40f';
@@ -1410,7 +1486,7 @@ function gameLoop(timestamp) {
                 projectiles.push({ x:player.x, y:player.y, target:targets[s], speed:720, damage:dmg, color, radius:5 });
             }
 
-            // 조준경 추가 탄
+            // 조준경 탄
             if (Math.random() < player.scopeChance) {
                 const st = targets.length > shots ? targets[shots] : targets[0];
                 projectiles.push({ x:player.x, y:player.y, target:st, speed:900,
@@ -1449,7 +1525,6 @@ function gameLoop(timestamp) {
 
     // ─── 타워 렌더 ───
     ctx.save();
-    // 타워 HP에 따른 색상
     const tHpRatio = tower.hp / tower.maxHp;
     ctx.fillStyle = tHpRatio > 0.5 ? '#e74c3c' : tHpRatio > 0.25 ? '#e67e22' : '#c0392b';
     ctx.beginPath(); ctx.arc(tower.x,tower.y,tower.radius,0,Math.PI*2); ctx.fill();
@@ -1520,7 +1595,6 @@ function gameLoop(timestamp) {
             }
         }
 
-        // 미니언 그리기
         ctx.fillStyle = m.isBoss ? '#8e44ad' : m.isChaser ? '#e67e22' : '#e74c3c';
         ctx.beginPath(); ctx.arc(m.x,m.y,m.radius,0,Math.PI*2); ctx.fill();
         if (m.isBoss) {
@@ -1528,7 +1602,6 @@ function gameLoop(timestamp) {
             ctx.stroke();
         }
 
-        // HP 바
         const bw=38, bh=5, bx=m.x-bw/2, by=m.y-m.radius-14;
         ctx.fillStyle='rgba(0,0,0,.6)'; ctx.fillRect(bx,by,bw,bh);
         ctx.fillStyle = m.isBoss ? '#9b59b6' : '#2ecc71';
@@ -1570,7 +1643,7 @@ function gameLoop(timestamp) {
         }
     }
 
-    // ─── 폭발 ───
+    // ─── 폭발 & 플로팅 텍스트 ───
     for (let i = explosions.length-1; i >= 0; i--) {
         const ex = explosions[i];
         ctx.fillStyle=`rgba(230,126,34,${(ex.timer/0.22)*0.55})`;
@@ -1579,7 +1652,6 @@ function gameLoop(timestamp) {
         if (ex.timer <= 0) explosions.splice(i,1);
     }
 
-    // ─── 플로팅 텍스트 ───
     for (let i = floatingTexts.length-1; i >= 0; i--) {
         floatingTexts[i].update(dt); floatingTexts[i].draw();
         if (floatingTexts[i].alpha <= 0) floatingTexts.splice(i,1);
@@ -1602,7 +1674,7 @@ function gameLoop(timestamp) {
         isGameOver = true;
         gameRunning = false;
         document.getElementById('game-msg').style.display = 'block';
-        bcUpdateStatus('lobby', '');
+        broadcastPresence();
         if (conn && conn.open) conn.send({ type:'game_over' });
         return;
     }
@@ -1613,17 +1685,12 @@ function gameLoop(timestamp) {
 }
 
 // ╔══════════════════════════════════════════════════════════╗
-// ║              INIT                                        ║
+// ║              INITIALIZATION                              ║
 // ╚══════════════════════════════════════════════════════════╝
 updateUI();
 renderDicePanel();
-initBroadcastChannel();
-// PeerJS 미리 초기화 (로비에서 ID 확보)
-initPeer((id) => {
-    document.getElementById('myPeerId').innerText = id;
-    if (bcPlayers[myBcId]) bcPlayers[myBcId].peerId = id;
-    if (bc) bc.postMessage({ type:'here', id:myBcId, nickname:myNickname, peerId:id });
-});
+ensurePeerInitialized();
+initMqtt();
 </script>
 </body>
 </html>
