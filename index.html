@@ -141,8 +141,8 @@
         /* 인게임 상대 패널 */
         #enemy-ui-panel {
             display:none; position:fixed; top:34px; right:6px;
-            background:rgba(142,68,173,.18);
-            border:1px solid rgba(155,89,182,.5);
+            background:rgba(142,68,173,.22);
+            border:1.5px solid rgba(155,89,182,.7);
             border-radius:8px; padding:6px 10px;
             font-size:10px; z-index:12; gap:3px; flex-direction:column; min-width:120px;
         }
@@ -311,7 +311,7 @@
         <button class="btn-lobby" onclick="openModal('modalNotice')">📢 공지사항</button>
         <button class="btn-lobby" onclick="openModal('modalSettings')">⚙️ 설정</button>
     </div>
-    <div style="font-size:10px;color:#555;">v5.0 — P2P Mesh 로비 허브 & 실시간 자동 매칭</div>
+    <div style="font-size:10px;color:#555;">v5.2 — 실시간 P2P 동기화 & 캐릭터 렌더링 완벽 지원</div>
 </div>
 
 <!-- ══════════════════ IN-GAME UI ══════════════════ -->
@@ -458,11 +458,11 @@
     <div class="modal-title">📢 공지사항</div>
     <div class="modal-content">
         <div style="margin-bottom:10px;border-bottom:1px solid #333;padding-bottom:8px;">
-            <b style="color:var(--gold);">[v5.0] 실시간 P2P 로비 & 자동 매칭 엔진!</b><br>
-            - 🌐 <b>P2P Mesh 로비 허브</b>: 서버 없이도 접속자 실시간 목록 & 자동 동기화<br>
-            - ⚡ <b>WebRTC 실시간 동기화</b>: 모바일/PC 어디서든 0ms 연결<br>
-            - 🎲 <b>10종 랜덤다이스 시스템</b><br>
-            - ⏱️ <b>Delta-Time 물리 엔진</b>
+            <b style="color:var(--gold);">[v5.2] 실시간 멀티플레이 렌더링 & 동기화 완료!</b><br>
+            - 🌐 <b>P2P 실시간 상대방 캐릭터 렌더링</b><br>
+            - ⚔️ <b>PVP 대전 모드</b>: 상대방 진영 및 적 타워 실시간 파괴전<br>
+            - 🤝 <b>협동 모드</b>: 두 플레이어가 함께 나란히 서서 웨이브 방어<br>
+            - 🎲 <b>10종 랜덤다이스 시스템</b>
         </div>
     </div>
     <button class="btn-close" onclick="closeModal('modalNotice')">닫기</button>
@@ -514,11 +514,13 @@ let currentGameMode = 'SOLO';
 let isMulti = false, isHost = false, isBotMatch = false;
 let peer = null, conn = null;
 let peerPlayer = null;
+let enemyTower = { x: CW/2, y: 50, radius: 28, hp: 1500, maxHp: 1500 };
+let enemyProjectiles = [];
 let netSendInterval = null;
 let currentPing = 0;
 
 // ─── 실시간 P2P 로비 네트워크 ───
-const lobbyPeersMap = new Map(); // peerId -> { nickname, peerId, status, mode, lastSeen }
+const lobbyPeersMap = new Map();
 const myUniqueId = 'u_' + Math.random().toString(36).substring(2, 9);
 let myPeerIdStr = '';
 let isMatchingActive = false;
@@ -604,24 +606,19 @@ let isWaveActive=false;
 // ╚══════════════════════════════════════════════════════════╝
 function initP2PLobbySystem() {
     renderLobbyPlayerList();
-
-    // 1. PeerJS 생성 시도: 먼저 로비 허브 ID 선점 시도
     attemptBeHubOrClient();
 
-    // 2. 로컬 브로드캐스트 채널 수신
     if (localChannel) {
         localChannel.onmessage = (e) => {
             handleLobbyMsg(e.data);
         };
     }
 
-    // 3. 주기적 하트비트 & 오프라인 정리
-    setInterval(sendHeartbeatToHubOrClients, 2000);
+    setInterval(sendHeartbeatToHubOrClients, 1500);
     setInterval(cleanupStaleLobbyPeers, 3000);
 }
 
 function attemptBeHubOrClient() {
-    // 1단계: 내가 허브가 될 수 있는지 시도
     const testPeer = new Peer(LOBBY_HUB_BASE_ID, {
         config: {
             iceServers: [
@@ -633,19 +630,16 @@ function attemptBeHubOrClient() {
     });
 
     testPeer.on('open', (id) => {
-        // 내가 허브(방장 서버)로 등록 성공!
         peer = testPeer;
         isLobbyHub = true;
         myPeerIdStr = id;
         setupPeerListeners(peer);
-        console.log('[Lobby Hub] I am the Hub Host!');
         document.getElementById('myPeerId').innerText = id;
         document.getElementById('my-peer-short').innerText = '방장_HUB';
         broadcastMyPresence();
     });
 
     testPeer.on('error', (err) => {
-        // 이미 다른 사람이 허브를 선점함 -> 나는 클라이언트로 생성 후 허브에 연결
         testPeer.destroy();
         isLobbyHub = false;
         createClientPeerAndConnectHub();
@@ -668,8 +662,6 @@ function createClientPeerAndConnectHub() {
         setupPeerListeners(peer);
         document.getElementById('myPeerId').innerText = id;
         document.getElementById('my-peer-short').innerText = id.substring(0, 6) + '...';
-        
-        // 허브에 연결
         connectToLobbyHub();
         broadcastMyPresence();
     });
@@ -685,7 +677,6 @@ function connectToLobbyHub() {
         hubConn = peer.connect(LOBBY_HUB_BASE_ID, { reliable: true });
         
         hubConn.on('open', () => {
-            console.log('[Lobby] Connected to Hub!');
             sendHeartbeatToHub();
         });
 
@@ -694,9 +685,7 @@ function connectToLobbyHub() {
         });
 
         hubConn.on('close', () => {
-            console.log('[Lobby] Hub disconnected, attempting to become Hub...');
             hubConn = null;
-            // 허브가 나갔으면 다시 허브 선점 시도
             setTimeout(attemptBeHubOrClient, 1000);
         });
 
@@ -706,11 +695,10 @@ function connectToLobbyHub() {
 
 function setupPeerListeners(targetPeer) {
     targetPeer.on('connection', (c) => {
+        // 인게임 대결/협동용 연결인지 확인하여 conn에 저장!
         c.on('open', () => {
             if (isLobbyHub) {
-                // 허브는 새로운 접속자 추가
                 clientConns.add(c);
-                // 현재 전체 접속자 목록을 새 접속자에게 즉시 전송
                 broadcastFullLobbyList();
             }
         });
@@ -718,7 +706,6 @@ function setupPeerListeners(targetPeer) {
         c.on('data', (data) => {
             if (data && data._lobby) {
                 handleLobbyMsg(data);
-                // 허브는 이 메시지를 다른 모든 클라이언트에게 중계!
                 if (isLobbyHub) {
                     for (const cl of clientConns) {
                         if (cl !== c && cl.open) {
@@ -727,13 +714,23 @@ function setupPeerListeners(targetPeer) {
                     }
                 }
             } else {
-                // 인게임 P2P 데이터 처리
+                // 인게임 데이터가 들어오면 이 연결을 인게임 conn으로 지정!
+                if (!conn || conn !== c) {
+                    conn = c;
+                    isHost = false;
+                    isMulti = true;
+                }
                 handleNetworkData(data);
             }
         });
 
         c.on('close', () => {
             if (isLobbyHub) clientConns.delete(c);
+            if (conn === c) {
+                isMulti = false;
+                peerPlayer = null;
+                updateEnemyPanel();
+            }
         });
     });
 }
@@ -772,12 +769,10 @@ function broadcastMyPresence() {
         ts: Date.now()
     };
 
-    // 1. LocalChannel
     if (localChannel) {
         try { localChannel.postMessage(payload); } catch(e){}
     }
 
-    // 2. Hub 또는 Clients 전송
     if (isLobbyHub) {
         for (const cl of clientConns) {
             if (cl.open) {
@@ -831,7 +826,6 @@ function handleLobbyMsg(data) {
             lastSeen: Date.now()
         });
 
-        // 실시간 매칭 체크
         if (isMatchingActive && data.matching && data.mode === currentGameMode && data.peerId && myPeerIdStr) {
             attemptAutoMatch(data);
         }
@@ -845,7 +839,6 @@ function handleLobbyMsg(data) {
             }
         }
     } else if (data.type === 'challenge' && data.targetPeerId === myPeerIdStr) {
-        // 누군가 나에게 직접 도전함!
         if (confirm(`${data.fromName}님이 PVP 대결을 신청했습니다! 수락하시겠습니까?`)) {
             currentGameMode = 'PVP';
             conn = peer.connect(data.fromPeerId, { reliable: true });
@@ -860,7 +853,7 @@ function handleLobbyMsg(data) {
 function cleanupStaleLobbyPeers() {
     const now = Date.now();
     for (const [uid, p] of lobbyPeersMap.entries()) {
-        if (now - p.lastSeen > 6000) {
+        if (now - p.lastSeen > 5000) {
             lobbyPeersMap.delete(uid);
         }
     }
@@ -940,7 +933,6 @@ function attemptAutoMatch(opponent) {
     if (!isMatchingActive || !myPeerIdStr || !opponent.peerId) return;
 
     if (myUniqueId < opponent.uid) {
-        console.log('[Match] Connecting to opponent:', opponent.peerId);
         document.getElementById('matchText').innerText = `${opponent.nickname}님과 매칭되었습니다! 연결 중...`;
         isMatchingActive = false;
         
@@ -975,25 +967,7 @@ function cancelMatchmaking() {
 function challengePlayer(targetPeerId, targetName) {
     if (!targetPeerId) return;
     currentGameMode = 'PVP';
-    
-    // 상대에게 도전 신호 전송
-    const challengePayload = {
-        _lobby: true,
-        type: 'challenge',
-        fromName: myNickname,
-        fromPeerId: myPeerIdStr,
-        targetPeerId: targetPeerId
-    };
 
-    if (isLobbyHub) {
-        for (const cl of clientConns) {
-            if (cl.open) { try { cl.send(challengePayload); } catch(e){} }
-        }
-    } else if (hubConn && hubConn.open) {
-        try { hubConn.send(challengePayload); } catch(e){}
-    }
-
-    // 직접 연결 시도
     conn = peer.connect(targetPeerId, { reliable: true });
     isHost = true;
     setupConnection('HOST');
@@ -1006,12 +980,22 @@ function challengePlayer(targetPeerId, targetName) {
 function setupConnection(role) {
     isHost = (role === 'HOST');
     isBotMatch = false;
+    isMulti = true;
 
-    peerPlayer = { x: CW/2+40, y: CH-120, hp:200, maxHp:200, nickname:'상대방', round:1 };
+    // 상대방 초기 위치 생성
+    peerPlayer = {
+        x: CW / 2,
+        y: currentGameMode === 'PVP' ? 120 : CH - 120,
+        hp: 200, maxHp: 200,
+        nickname: '상대방',
+        round: 1,
+        qBuffTimer: 0,
+        wBuffTimer: 0
+    };
 
     conn.on('open', () => {
         setMultiStatus('✅ 상대방과 실시간 P2P 연결 성공!');
-        addChatLog(`[멀티] ${isHost ? 'HOST' : 'GUEST'}로 접속 완료!`, true);
+        addChatLog(`[멀티] ${isHost ? 'HOST' : 'GUEST'}로 게임에 참가했습니다!`, true);
         isMulti = true;
         isMatchingActive = false;
 
@@ -1025,7 +1009,7 @@ function setupConnection(role) {
                     startGame();
                     addChatLog(`[시스템] ${currentGameMode} 멀티 게임 시작!`, true);
                 }
-            }, 400);
+            }, 300);
         }
         startNetSync();
     });
@@ -1053,18 +1037,57 @@ function handleNetworkData(data) {
                 document.getElementById('btnOpenMulti').style.display = 'flex';
                 startGame();
                 addChatLog(`[시스템] ${currentGameMode} 멀티 게임 시작!`, true);
+                startNetSync();
             }
             break;
 
         case 'state':
+            if (!peerPlayer) {
+                peerPlayer = { x: CW/2, y: CH/2, hp: 200, maxHp: 200, nickname: '상대방', round: 1 };
+            }
             if (peerPlayer) {
-                peerPlayer.x        = data.x ?? peerPlayer.x;
-                peerPlayer.y        = data.y ?? peerPlayer.y;
-                peerPlayer.hp       = data.hp ?? peerPlayer.hp;
-                peerPlayer.maxHp    = data.maxHp ?? peerPlayer.maxHp;
-                peerPlayer.round    = data.round ?? peerPlayer.round;
-                peerPlayer.nickname = data.nickname || peerPlayer.nickname;
+                // PVP 모드에서는 상대방 좌표를 화면 상단 반전 좌표로 매핑!
+                if (currentGameMode === 'PVP') {
+                    peerPlayer.x = CW - data.x;
+                    peerPlayer.y = (CH - data.y) * 0.45 + 30; // 상단 진영에 배치
+                } else {
+                    // 협동 모드에서는 실제 위치 그대로
+                    peerPlayer.x = data.x;
+                    peerPlayer.y = data.y;
+                }
+                peerPlayer.hp = data.hp;
+                peerPlayer.maxHp = data.maxHp;
+                peerPlayer.round = data.round;
+                peerPlayer.nickname = data.nickname || '상대방';
+                peerPlayer.qBuffTimer = data.qBuffTimer || 0;
+                peerPlayer.wBuffTimer = data.wBuffTimer || 0;
+
+                // 적 타워 상태 (PVP)
+                if (data.towerHp !== undefined) {
+                    enemyTower.hp = data.towerHp;
+                    enemyTower.maxHp = data.towerMaxHp || 1500;
+                }
                 updateEnemyPanel();
+            }
+            break;
+
+        case 'shoot':
+            // 상대방이 발사한 투사체 렌더링
+            if (peerPlayer) {
+                const sx = currentGameMode === 'PVP' ? CW - data.x : data.x;
+                const sy = currentGameMode === 'PVP' ? (CH - data.y) * 0.45 + 30 : data.y;
+                let targetObj = { x: player.x, y: player.y };
+                if (currentGameMode === 'PVP') {
+                    targetObj = { x: player.x, y: player.y };
+                }
+                enemyProjectiles.push({
+                    x: sx, y: sy,
+                    target: targetObj,
+                    damage: data.damage || 20,
+                    speed: 680,
+                    color: '#9b59b6',
+                    radius: 5
+                });
             }
             break;
 
@@ -1110,15 +1133,29 @@ function startNetSync() {
     netSendInterval = setInterval(() => {
         if (!conn || !conn.open) return;
         conn.send({
-            type:'state', x:player.x, y:player.y,
-            hp:player.hp, maxHp:player.maxHp,
-            round:round, nickname:myNickname
+            type: 'state',
+            x: player.x,
+            y: player.y,
+            hp: player.hp,
+            maxHp: player.maxHp,
+            round: round,
+            nickname: myNickname,
+            qBuffTimer: player.qBuffTimer,
+            wBuffTimer: player.wBuffTimer,
+            towerHp: tower.hp,
+            towerMaxHp: tower.maxHp
         });
-    }, 60);
+    }, 45); // 45ms마다 초고속 위치 동기화
 
     setInterval(() => {
         if (conn && conn.open) conn.send({ type:'ping', ts: Date.now() });
-    }, 4000);
+    }, 3000);
+}
+
+function sendShootEvent(x, y, damage) {
+    if (conn && conn.open) {
+        conn.send({ type: 'shoot', x, y, damage });
+    }
 }
 
 function sendMinionHit(idx, dmg) {
@@ -1359,6 +1396,7 @@ function startSoloPlay() {
     currentGameMode = 'SOLO';
     isMulti = false;
     isBotMatch = false;
+    peerPlayer = null;
     document.getElementById('btnOpenMulti').style.display = 'none';
     document.getElementById('main-lobby').style.display = 'none';
     startGame();
@@ -1383,7 +1421,8 @@ function resetGameState() {
     player.eCooldown = 0;
 
     tower.hp = tower.maxHp;
-    minions=[]; projectiles=[]; floatingTexts=[]; explosions=[]; scopeEffects=[]; shockwaves=[];
+    enemyTower.hp = enemyTower.maxHp;
+    minions=[]; projectiles=[]; enemyProjectiles=[]; floatingTexts=[]; explosions=[]; scopeEffects=[]; shockwaves=[];
     gold = 0; round = 1;
     isWaveActive = false; isGameOver = false;
     myDice = []; diceRollCost = 50; freeDiceThisRound = false;
@@ -1445,6 +1484,8 @@ document.getElementById('btnE').addEventListener('pointerdown', (e) => {
     if (player.eCooldown <= 0) {
         player.eCooldown = 8;
         shockwaves.push({ x:player.x, y:player.y, radius:10, alpha:1 });
+        
+        // 몬스터 데미지
         for (let i = minions.length-1; i >= 0; i--) {
             const m = minions[i];
             if (Math.hypot(m.x-player.x, m.y-player.y) <= 160) {
@@ -1452,6 +1493,15 @@ document.getElementById('btnE').addEventListener('pointerdown', (e) => {
                 m.hp -= dmg;
                 floatingTexts.push(new FloatingText(`-${dmg}`, m.x, m.y-15, '#f1c40f'));
                 sendMinionHit(i, dmg);
+            }
+        }
+
+        // PVP 적 챔피언 데미지
+        if (isMulti && currentGameMode === 'PVP' && peerPlayer) {
+            if (Math.hypot(peerPlayer.x - player.x, peerPlayer.y - player.y) <= 160) {
+                const dmg = Math.floor(player.attackPower * 2);
+                floatingTexts.push(new FloatingText(`-${dmg}`, peerPlayer.x, peerPlayer.y-15, '#e74c3c'));
+                if (conn && conn.open) conn.send({ type:'minion_hit', idx: -1, dmg });
             }
         }
     }
@@ -1502,7 +1552,6 @@ function startNextWave() {
     triggerRoundBanner(round);
     addChatLog(`[라운드] ROUND ${round} 시작!`, true);
 
-    // 라운드마다 무료 주사위 1개 지급!
     if (!freeDiceThisRound && myDice.length < 6) {
         freeDiceThisRound = true;
         setTimeout(() => {
@@ -1563,11 +1612,11 @@ function gameLoop(timestamp) {
     ctx.clearRect(0, 0, CW, CH);
 
     // 라인 표시
-    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
     ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(0, MID_Y); ctx.lineTo(CW, MID_Y); ctx.stroke();
 
-    // 웨이브 체크
+    // 웨이브 체크 (솔로 및 협동 모드)
     if (!isWaveActive && minions.length === 0) {
         freeDiceThisRound = false;
         startNextWave();
@@ -1580,7 +1629,7 @@ function gameLoop(timestamp) {
     if (player.qBuffTimer > 0) player.qBuffTimer = Math.max(0, player.qBuffTimer - dt);
     if (player.wBuffTimer > 0) player.wBuffTimer = Math.max(0, player.wBuffTimer - dt);
 
-    // ─── 이동 (초당 픽셀 기반) ───
+    // ─── 플레이어 이동 ───
     const spd = player.moveSpeed * (player.wBuffTimer > 0 ? 1.8 : 1);
     const dx = player.targetX - player.x, dy = player.targetY - player.y;
     const dist = Math.hypot(dx, dy);
@@ -1596,9 +1645,18 @@ function gameLoop(timestamp) {
     if (player.attackCooldown > 0) player.attackCooldown = Math.max(0, player.attackCooldown - dt);
 
     if (player.attackCooldown <= 0) {
-        const targets = minions
+        // 타겟팅 리스트
+        let targets = minions
             .filter(m => Math.hypot(m.x-player.x, m.y-player.y) <= player.attackRange)
             .sort((a,b) => Math.hypot(a.x-player.x,a.y-player.y) - Math.hypot(b.x-player.x,b.y-player.y));
+
+        // PVP 모드: 상대 플레이어가 사거리 내에 있으면 타겟팅 추가!
+        if (isMulti && currentGameMode === 'PVP' && peerPlayer) {
+            const distToEnemy = Math.hypot(peerPlayer.x - player.x, peerPlayer.y - player.y);
+            if (distToEnemy <= player.attackRange) {
+                targets.unshift({ x: peerPlayer.x, y: peerPlayer.y, isEnemyPlayer: true });
+            }
+        }
 
         if (targets.length > 0) {
             const shots = Math.min(player.multiShot || 1, targets.length);
@@ -1610,6 +1668,7 @@ function gameLoop(timestamp) {
                     color = '#f1c40f';
                 }
                 projectiles.push({ x:player.x, y:player.y, target:targets[s], speed:720, damage:dmg, color, radius:5 });
+                sendShootEvent(player.x, player.y, dmg);
             }
 
             // 조준경 탄
@@ -1623,7 +1682,51 @@ function gameLoop(timestamp) {
         }
     }
 
-    // ─── 플레이어 렌더 ───
+    // ─── [PVP] 적 타워 렌더 (상단) ───
+    if (isMulti && currentGameMode === 'PVP') {
+        ctx.save();
+        ctx.fillStyle = '#9b59b6';
+        ctx.beginPath(); ctx.arc(enemyTower.x, enemyTower.y, enemyTower.radius, 0, Math.PI*2); ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,0.4)'; ctx.lineWidth = 2; ctx.stroke();
+        ctx.fillStyle = '#fff'; ctx.font = 'bold 8px Arial'; ctx.textAlign = 'center';
+        ctx.fillText(`적 타워 ${Math.ceil(enemyTower.hp)}`, enemyTower.x, enemyTower.y - enemyTower.radius - 4);
+        ctx.restore();
+    }
+
+    // ─── [멀티] 상대방 플레이어 렌더링 ───
+    if (isMulti && peerPlayer) {
+        ctx.save();
+        // 상대방 Q 버프 오라
+        if (peerPlayer.qBuffTimer > 0) {
+            ctx.strokeStyle = '#f1c40f'; ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.arc(peerPlayer.x, peerPlayer.y, player.radius + 4, 0, Math.PI * 2); ctx.stroke();
+        }
+        // 상대방 W 버프 오라
+        if (peerPlayer.wBuffTimer > 0) {
+            ctx.strokeStyle = '#e74c3c'; ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.arc(peerPlayer.x, peerPlayer.y, player.radius + 7, 0, Math.PI * 2); ctx.stroke();
+        }
+
+        // 상대방 본체 원
+        ctx.fillStyle = currentGameMode === 'PVP' ? '#e74c3c' : '#9b59b6';
+        ctx.beginPath(); ctx.arc(peerPlayer.x, peerPlayer.y, player.radius, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+
+        // 닉네임 및 HP 텍스트
+        ctx.fillStyle = '#fff'; ctx.font = 'bold 10px Outfit,Arial'; ctx.textAlign = 'center';
+        ctx.fillText(peerPlayer.nickname || '상대방', peerPlayer.x, peerPlayer.y - player.radius - 8);
+
+        // 상대방 머리 위 HP 바
+        const ehpW = 40, ehpH = 4;
+        ctx.fillStyle = 'rgba(0,0,0,0.6)';
+        ctx.fillRect(peerPlayer.x - ehpW/2, peerPlayer.y - player.radius - 6, ehpW, ehpH);
+        ctx.fillStyle = '#e74c3c';
+        ctx.fillRect(peerPlayer.x - ehpW/2, peerPlayer.y - player.radius - 6, Math.max(0, (peerPlayer.hp / peerPlayer.maxHp) * ehpW), ehpH);
+
+        ctx.restore();
+    }
+
+    // ─── 내 플레이어 렌더 ───
     ctx.save();
     if (player.qBuffTimer > 0) {
         ctx.strokeStyle='#f1c40f'; ctx.lineWidth=4;
@@ -1635,21 +1738,12 @@ function gameLoop(timestamp) {
     }
     ctx.fillStyle='#3498db';
     ctx.beginPath(); ctx.arc(player.x,player.y,player.radius,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle='#fff'; ctx.font='bold 9px Outfit,Arial'; ctx.textAlign='center';
-    ctx.fillText(myNickname.slice(0,6), player.x, player.y-player.radius-4);
+    ctx.strokeStyle='#fff'; ctx.lineWidth=1.5; ctx.stroke();
+    ctx.fillStyle='#fff'; ctx.font='bold 10px Outfit,Arial'; ctx.textAlign='center';
+    ctx.fillText(myNickname.slice(0,6), player.x, player.y-player.radius-8);
     ctx.restore();
 
-    // ─── 상대방 렌더 ───
-    if (isMulti && peerPlayer) {
-        ctx.save();
-        ctx.fillStyle = '#9b59b6';
-        ctx.beginPath(); ctx.arc(peerPlayer.x,peerPlayer.y,player.radius,0,Math.PI*2); ctx.fill();
-        ctx.fillStyle='#fff'; ctx.font='bold 9px Outfit,Arial'; ctx.textAlign='center';
-        ctx.fillText((peerPlayer.nickname||'상대').slice(0,6), peerPlayer.x, peerPlayer.y-player.radius-4);
-        ctx.restore();
-    }
-
-    // ─── 타워 렌더 ───
+    // ─── 내 타워 렌더 (하단) ───
     ctx.save();
     const tHpRatio = tower.hp / tower.maxHp;
     ctx.fillStyle = tHpRatio > 0.5 ? '#e74c3c' : tHpRatio > 0.25 ? '#e67e22' : '#c0392b';
@@ -1690,7 +1784,7 @@ function gameLoop(timestamp) {
         if (sw.alpha <= 0) shockwaves.splice(i,1);
     }
 
-    // ─── 미니언 ───
+    // ─── 미니언 업데이트 & 렌더링 ───
     for (let i = minions.length-1; i >= 0; i--) {
         const m = minions[i];
 
@@ -1742,18 +1836,26 @@ function gameLoop(timestamp) {
         }
     }
 
-    // ─── 투사체 ───
+    // ─── 내 투사체 업데이트 ───
     for (let i = projectiles.length-1; i >= 0; i--) {
         const p = projectiles[i];
-        if (!p.target || p.target.hp <= 0) { projectiles.splice(i,1); continue; }
+        if (!p.target || (p.target.hp !== undefined && p.target.hp <= 0)) { projectiles.splice(i,1); continue; }
         const d = Math.hypot(p.target.x-p.x, p.target.y-p.y);
         const mv = p.speed*dt;
         if (d <= mv) {
-            const idx = minions.indexOf(p.target);
-            p.target.hp -= p.damage;
-            if (player.lifesteal > 0) player.hp = Math.min(player.maxHp, player.hp+player.lifesteal);
-            floatingTexts.push(new FloatingText(`-${p.damage}`, p.target.x, p.target.y-10, p.color));
-            if (isMulti && idx >= 0) sendMinionHit(idx, p.damage);
+            if (p.target.isEnemyPlayer) {
+                // 적 플레이어 명중
+                floatingTexts.push(new FloatingText(`-${p.damage}`, p.target.x, p.target.y-10, '#e74c3c'));
+                if (conn && conn.open) conn.send({ type:'minion_hit', idx: -1, dmg: p.damage });
+            } else {
+                // 미니언 명중
+                const idx = minions.indexOf(p.target);
+                p.target.hp -= p.damage;
+                if (player.lifesteal > 0) player.hp = Math.min(player.maxHp, player.hp+player.lifesteal);
+                floatingTexts.push(new FloatingText(`-${p.damage}`, p.target.x, p.target.y-10, p.color));
+                if (isMulti && idx >= 0) sendMinionHit(idx, p.damage);
+            }
+
             if ((player.explosionChance||0) > 0 && Math.random() < player.explosionChance) {
                 explosions.push({ x:p.target.x, y:p.target.y, radius:55, timer:0.22 });
                 minions.forEach(nm => {
@@ -1766,6 +1868,23 @@ function gameLoop(timestamp) {
             p.x += ((p.target.x-p.x)/d)*mv; p.y += ((p.target.y-p.y)/d)*mv;
             ctx.fillStyle=p.color;
             ctx.beginPath(); ctx.arc(p.x,p.y,p.radius,0,Math.PI*2); ctx.fill();
+        }
+    }
+
+    // ─── 상대방 투사체 렌더링 ───
+    for (let i = enemyProjectiles.length-1; i >= 0; i--) {
+        const ep = enemyProjectiles[i];
+        const d = Math.hypot(ep.target.x - ep.x, ep.target.y - ep.y);
+        const mv = ep.speed * dt;
+        if (d <= mv) {
+            player.hp -= ep.damage;
+            floatingTexts.push(new FloatingText(`-${ep.damage}`, player.x, player.y - 10, '#e74c3c'));
+            enemyProjectiles.splice(i, 1);
+        } else {
+            ep.x += ((ep.target.x - ep.x)/d) * mv;
+            ep.y += ((ep.target.y - ep.y)/d) * mv;
+            ctx.fillStyle = ep.color;
+            ctx.beginPath(); ctx.arc(ep.x, ep.y, ep.radius, 0, Math.PI*2); ctx.fill();
         }
     }
 
