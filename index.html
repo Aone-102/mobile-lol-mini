@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
     <title>모바일 LOL: 하이퍼 어택 Ultra (WebRTC Multi)</title>
-    <!-- PeerJS CDN 추가 -->
+    <!-- PeerJS CDN -->
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         * {
@@ -188,7 +188,7 @@
                 <input type="text" id="roomCodeInput" placeholder="4자리 방 코드" style="flex:1; background:#222; border:1px solid #555; color:#fff; padding:4px;">
                 <button class="btn-buy" onclick="joinMultiRoom()">참가</button>
             </div>
-            <p id="multiStatus" style="color:#f1c40f; margin-top:8px; word-break:break-all;"></p>
+            <p id="multiStatus" style="color:#f1c40f; margin-top:8px; word-break:break-all; font-weight:bold;"></p>
         </div>
         <button class="btn-close" onclick="closeModal('modalMulti')">닫기</button>
     </div>
@@ -217,7 +217,7 @@
         let peer = null;
         let peerConn = null;
         let isMultiActive = false;
-        let remotePlayer = null; // 상대방 위치 정보
+        let remotePlayer = null;
 
         const player = {
             x: canvasWidth / 2, y: canvasHeight - 120,
@@ -259,7 +259,6 @@
         let scopeEffects = [];
         let shockwaves = [];
 
-        // 채팅 및 메시지 핸들러
         function handleChatKey(e) {
             if (e.key === 'Enter') {
                 const input = document.getElementById('chat-input');
@@ -400,13 +399,25 @@
         
         function closeModal(id) { document.getElementById(id).style.display = 'none'; }
 
-        // ================= WebRTC 멀티플레이 로직 =================
-        function initPeer(customId = null) {
+        // ================= WebRTC 멀티플레이 로직 (STUN 서버 최적화) =================
+        const peerConfig = {
+            config: {
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' },
+                    { urls: 'stun:stun2.l.google.com:19302' }
+                ]
+            }
+        };
+
+        function initPeer(customId = null, callback = null) {
             if (peer) peer.destroy();
-            peer = customId ? new Peer(customId) : new Peer();
+            
+            peer = customId ? new Peer(customId, peerConfig) : new Peer(peerConfig);
 
             peer.on('open', (id) => {
-                document.getElementById('multiStatus').innerText = `내 ID: ${id}\n연결 대기 중...`;
+                document.getElementById('multiStatus').innerText = `내 ID: ${id}\n상대방 연결 대기 중...`;
+                if (callback) callback(id);
             });
 
             peer.on('connection', (conn) => {
@@ -415,34 +426,52 @@
             });
 
             peer.on('error', (err) => {
-                document.getElementById('multiStatus').innerText = `오류 발생: ${err.type}`;
+                console.error("PeerJS Error:", err);
+                if (err.type === 'unavailable-id') {
+                    document.getElementById('multiStatus').innerText = "이미 사용 중인 방 코드입니다. 다시 생성하세요.";
+                } else if (err.type === 'peer-unavailable') {
+                    document.getElementById('multiStatus').innerText = "방을 찾을 수 없습니다. 코드를 확인하세요.";
+                } else {
+                    document.getElementById('multiStatus').innerText = `연결 오류: ${err.type}`;
+                }
             });
         }
 
         function createMultiRoom() {
             const code = "room-" + Math.floor(1000 + Math.random() * 9000);
+            document.getElementById('multiStatus').innerText = "방 생성 중...";
             initPeer(code);
-            document.getElementById('multiStatus').innerText = `방 생성 완료!\n코드: ${code}`;
         }
 
         function joinMultiRoom() {
             const inputVal = document.getElementById('roomCodeInput').value.trim();
+            if (!inputVal) {
+                document.getElementById('multiStatus').innerText = "방 코드를 입력해주세요.";
+                return;
+            }
+            
             const targetId = inputVal.startsWith('room-') ? inputVal : 'room-' + inputVal;
-            if (!peer) initPeer();
+            document.getElementById('multiStatus').innerText = "서버 연결 중...";
 
-            setTimeout(() => {
-                peerConn = peer.connect(targetId);
+            initPeer(null, () => {
+                document.getElementById('multiStatus').innerText = `${targetId} 방 접속 시도 중...`;
+                peerConn = peer.connect(targetId, { reliable: true });
                 setupConnection();
-            }, 500);
+            });
         }
 
         function setupConnection() {
+            if (!peerConn) return;
+
             peerConn.on('open', () => {
                 isMultiActive = true;
                 remotePlayer = { x: canvasWidth / 2 + 30, y: canvasHeight - 120, hp: 200, maxHp: 200 };
-                document.getElementById('multiStatus').innerText = "상대방과 성공적으로 동기화 되었습니다!";
-                addChatLog("[멀티] 플레이어가 게임에 접속했습니다.", true);
-                closeModal('modalMulti');
+                document.getElementById('multiStatus').innerText = "연결 성공! 게임에 진입합니다.";
+                addChatLog("[멀티] 플레이어가 성공적으로 연결되었습니다!", true);
+                
+                setTimeout(() => {
+                    closeModal('modalMulti');
+                }, 1000);
             });
 
             peerConn.on('data', (data) => {
@@ -455,7 +484,6 @@
                 } else if (data.type === 'CHAT') {
                     addChatLog(`상대: ${data.msg}`);
                 } else if (data.type === 'SHOOT') {
-                    // 상대방 사격 시 시각적 투사체 생성
                     projectiles.push({
                         x: data.x, y: data.y, target: minions[data.targetIdx] || { x: data.tx, y: data.ty, hp: 10 },
                         speed: 12, damage: data.damage, color: '#9b59b6', radius: 5
@@ -467,6 +495,10 @@
                 isMultiActive = false;
                 remotePlayer = null;
                 addChatLog("[멀티] 상대방과의 연결이 끊겼습니다.", true);
+            });
+
+            peerConn.on('error', (err) => {
+                console.error("Connection Error:", err);
             });
         }
 
@@ -545,7 +577,6 @@
                     player.y += (dy / dist) * currentSpeed;
                 }
 
-                // 멀티 데이터 전송 (내 위치 공유)
                 if (isMultiActive && peerConn && peerConn.open) {
                     peerConn.send({
                         type: 'POS',
@@ -574,7 +605,6 @@
                             damage: player.attackPower, color: '#2ecc71', radius: 5
                         });
 
-                        // 멀티 사격 동기화
                         if (isMultiActive && peerConn && peerConn.open) {
                             peerConn.send({
                                 type: 'SHOOT', x: player.x, y: player.y,
@@ -583,7 +613,6 @@
                             });
                         }
 
-                        // 조준경 발동 이펙트
                         if (Math.random() < player.scopeChance) {
                             const scopeTarget = targets.length > 1 ? targets[1] : targets[0];
                             projectiles.push({
@@ -596,7 +625,7 @@
                     }
                 }
 
-                // 내 플레이어 그리기
+                // 내 캐릭터 (파란색)
                 ctx.save();
                 if (player.qBuffTimer > 0) {
                     ctx.strokeStyle = '#f1c40f'; ctx.lineWidth = 4;
@@ -609,13 +638,12 @@
                 ctx.fillStyle = '#3498db'; ctx.beginPath(); ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2); ctx.fill();
                 ctx.restore();
 
-                // 🟣 [실시간 멀티 플레이어 동료 렌더링]
+                // 상대방 멀티 캐릭터 (보라색)
                 if (isMultiActive && remotePlayer) {
                     ctx.save();
-                    ctx.fillStyle = '#9b59b6'; // 보라색 2P
+                    ctx.fillStyle = '#9b59b6';
                     ctx.beginPath(); ctx.arc(remotePlayer.x, remotePlayer.y, player.radius, 0, Math.PI * 2); ctx.fill();
 
-                    // 2P 머리 위 닉네임 및 HP
                     ctx.font = 'bold 10px Arial';
                     ctx.fillStyle = '#e056fd';
                     ctx.textAlign = 'center';
@@ -654,7 +682,7 @@
                     if (sc.progress >= sc.maxTime) scopeEffects.splice(i, 1);
                 }
 
-                // 충격파 스킬(E)
+                // 충격파
                 for (let i = shockwaves.length - 1; i >= 0; i--) {
                     const sw = shockwaves[i];
                     sw.radius += 8;
@@ -667,7 +695,7 @@
                     if (sw.alpha <= 0) shockwaves.splice(i, 1);
                 }
 
-                // 미니언 & 체력바
+                // 미니언
                 for (let i = minions.length - 1; i >= 0; i--) {
                     const m = minions[i];
                     if (m.isChaser) {
@@ -744,7 +772,7 @@
                     }
                 }
 
-                // 폭발 및 텍스트 애니메이션
+                // 폭발 및 텍스트
                 for (let i = explosions.length - 1; i >= 0; i--) {
                     const exp = explosions[i];
                     ctx.fillStyle = `rgba(230, 126, 34, ${exp.timer / 12 * 0.6})`;
@@ -758,7 +786,7 @@
                 }
             }
 
-            // 라운드 배너
+            // 라운드 안내 배너
             if (roundBannerTimer > 0) {
                 ctx.save();
                 const alpha = Math.min(1, roundBannerTimer / 30);
