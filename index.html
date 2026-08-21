@@ -1,1881 +1,1629 @@
 <!DOCTYPE html>
 <html lang="ko">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-    <title>모바일 LOL: 하이퍼 어택 Ultra</title>
-    <!-- PeerJS CDN -->
+    <title>⚔️ 하이퍼 어택 Ultra — LOL × 랜덤다이스</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <!-- Firebase -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;700;900&display=swap');
 
-        * {
-            box-sizing: border-box;
-            user-select: none;
-            -webkit-user-select: none;
-            touch-action: none;
-            margin: 0;
-            padding: 0;
-            font-family: 'Outfit', 'Segoe UI', sans-serif;
+        :root {
+            --gold: #f39c12;
+            --blue: #3498db;
+            --green: #2ecc71;
+            --red: #e74c3c;
+            --purple: #9b59b6;
+            --bg: #0a0d13;
+            --surface: rgba(255,255,255,0.05);
+            --border: rgba(255,255,255,0.1);
         }
 
-        body {
-            background-color: #0b0e14;
-            color: #fff;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            overflow: hidden;
-        }
+        * { box-sizing:border-box; user-select:none; -webkit-user-select:none;
+            touch-action:none; margin:0; padding:0;
+            font-family:'Outfit','Segoe UI',sans-serif; }
 
-        /* ─── 메인 로비 ─── */
+        body { background:var(--bg); color:#fff;
+            display:flex; flex-direction:column;
+            align-items:center; justify-content:center;
+            min-height:100vh; overflow:hidden; }
+
+        /* ══════════ LOBBY ══════════ */
         #main-lobby {
-            position: fixed;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            background: linear-gradient(160deg, #0b0e14 0%, #0d1f35 60%, #0b0e14 100%);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: space-between;
-            padding: 36px 20px 24px;
-            z-index: 500;
-            overflow-y: auto;
+            position:fixed; inset:0;
+            background:linear-gradient(160deg,#0a0d13 0%,#0d1f35 55%,#0a0d13 100%);
+            display:flex; flex-direction:column; align-items:center;
+            justify-content:space-between; padding:32px 20px 20px;
+            z-index:500; overflow-y:auto; gap:16px;
         }
 
-        .lobby-header { text-align: center; }
+        .lobby-header { text-align:center; }
         .lobby-title {
-            font-size: 28px;
-            font-weight: 900;
-            color: #f39c12;
-            text-shadow: 0 0 18px rgba(243,156,18,.6), 0 2px 4px #000;
-            letter-spacing: 1px;
+            font-size:26px; font-weight:900; color:var(--gold);
+            text-shadow:0 0 20px rgba(243,156,18,.7), 0 2px 4px #000;
         }
-        .lobby-subtitle {
-            font-size: 12px;
-            color: #7f8c8d;
-            margin-top: 4px;
+        .lobby-badge {
+            display:inline-block; margin-top:4px;
+            font-size:10px; font-weight:700; letter-spacing:1px;
+            background:linear-gradient(90deg,#8e44ad,#3498db);
+            padding:2px 10px; border-radius:20px; color:#fff;
         }
 
-        /* 플레이어 목록 */
-        #lobby-players-section {
-            width: 100%;
-            max-width: 320px;
-            background: rgba(255,255,255,0.04);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 12px;
-            padding: 12px;
+        /* 온라인 패널 */
+        .lobby-panel {
+            width:100%; max-width:320px;
+            background:var(--surface);
+            border:1px solid var(--border);
+            border-radius:14px; padding:12px;
         }
-        .lobby-section-title {
-            font-size: 12px;
-            font-weight: 700;
-            color: #f39c12;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 8px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
+        .panel-title {
+            font-size:11px; font-weight:700; color:var(--gold);
+            text-transform:uppercase; letter-spacing:1px;
+            margin-bottom:8px; display:flex; align-items:center; gap:6px;
         }
-        .lobby-section-title .live-dot {
-            width: 7px; height: 7px;
-            border-radius: 50%;
-            background: #2ecc71;
-            animation: blink 1.2s infinite;
-        }
-        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.2} }
+        .live-dot { width:7px; height:7px; border-radius:50%;
+            background:var(--green); animation:blink 1.2s infinite; }
+        @keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
 
-        #player-list {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            max-height: 150px;
-            overflow-y: auto;
-        }
-        .player-list-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 6px 8px;
-            background: rgba(255,255,255,0.05);
-            border-radius: 7px;
-            font-size: 12px;
-        }
-        .player-list-avatar {
-            width: 26px; height: 26px;
-            border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 13px;
-            flex-shrink: 0;
-        }
-        .player-list-name { flex: 1; font-weight: 700; }
-        .player-list-status {
-            font-size: 10px;
-            padding: 2px 7px;
-            border-radius: 20px;
-            font-weight: 700;
-        }
-        .status-waiting { background: rgba(52,152,219,.25); color: #3498db; }
-        .status-playing { background: rgba(231,76,60,.25); color: #e74c3c; }
+        #player-list { display:flex; flex-direction:column; gap:5px;
+            max-height:140px; overflow-y:auto; }
+        .pli { display:flex; align-items:center; gap:8px;
+            padding:6px 8px; background:rgba(255,255,255,0.04);
+            border-radius:8px; font-size:12px; }
+        .pli-avatar { width:26px; height:26px; border-radius:50%;
+            display:flex; align-items:center; justify-content:center;
+            font-size:13px; flex-shrink:0; }
+        .pli-name { flex:1; font-weight:700; }
+        .pli-status { font-size:10px; padding:2px 7px;
+            border-radius:20px; font-weight:700; }
+        .st-wait { background:rgba(52,152,219,.2); color:var(--blue); }
+        .st-play { background:rgba(231,76,60,.2); color:var(--red); }
+        .pli-connect { font-size:10px; padding:3px 8px; border-radius:5px;
+            border:none; background:var(--blue); color:#fff;
+            cursor:pointer; font-weight:700; }
 
-        /* 버튼 */
-        .lobby-menu {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            width: 100%;
-            max-width: 320px;
-        }
+        /* 메뉴 버튼 */
+        .lobby-menu { display:flex; flex-direction:column; gap:10px;
+            width:100%; max-width:320px; }
+        .btn-lobby { padding:13px; border-radius:10px;
+            border:1.5px solid rgba(243,156,18,0.4);
+            background:rgba(44,62,80,0.6); backdrop-filter:blur(8px);
+            color:#fff; font-size:15px; font-weight:700;
+            cursor:pointer; text-align:center; transition:all .18s; }
+        .btn-lobby:active { transform:scale(.96); background:rgba(243,156,18,.2); }
+        .btn-start { background:linear-gradient(135deg,#27ae60,#1e8449);
+            border-color:var(--green); font-size:16px;
+            box-shadow:0 4px 18px rgba(46,204,113,.3); }
+        .btn-dice { background:linear-gradient(135deg,#8e44ad,#6c3483);
+            border-color:var(--purple); }
+        .btn-sub-action { background:rgba(41,128,185,0.35); border-color:var(--blue);
+            margin-top:4px; padding:10px; font-size:13px; }
 
-        .btn-lobby {
-            padding: 14px;
-            border-radius: 10px;
-            border: 1.5px solid rgba(243,156,18,0.5);
-            background: rgba(44,62,80,0.7);
-            backdrop-filter: blur(8px);
-            color: #fff;
-            font-size: 15px;
-            font-weight: 700;
-            cursor: pointer;
-            text-align: center;
-            transition: all 0.18s;
-            letter-spacing: 0.3px;
-        }
-        .btn-lobby:active { transform: scale(0.96); background: rgba(243,156,18,0.25); }
-
-        .btn-start {
-            background: linear-gradient(135deg, #27ae60, #1e8449);
-            border-color: #2ecc71;
-            font-size: 17px;
-            box-shadow: 0 4px 20px rgba(46,204,113,0.3);
-        }
-        .btn-sub-action {
-            background: rgba(41,128,185,0.4);
-            border-color: #3498db;
-            margin-top: 4px;
-            padding: 10px;
-            font-size: 13px;
-        }
-
-        /* ─── 인게임 Top UI ─── */
+        /* ══════════ IN-GAME TOP UI ══════════ */
         #top-ui {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            width: 100%;
-            max-width: 480px;
-            padding: 6px 10px;
-            background: rgba(11,14,20,0.95);
-            backdrop-filter: blur(8px);
-            font-size: 11px;
-            font-weight: 700;
-            border-bottom: 1px solid rgba(255,255,255,0.08);
-            position: fixed;
-            top: 0;
-            z-index: 10;
+            display:flex; justify-content:space-between; align-items:center;
+            width:100%; max-width:480px; padding:5px 10px;
+            background:rgba(10,13,19,.95); backdrop-filter:blur(8px);
+            font-size:11px; font-weight:700;
+            border-bottom:1px solid var(--border);
+            position:fixed; top:0; z-index:10;
         }
+        .ui-group { display:flex; gap:5px; align-items:center; flex-wrap:wrap; }
+        .hp-bar-container { width:60px; height:11px;
+            background:rgba(255,255,255,0.1);
+            border:1px solid rgba(255,255,255,0.15);
+            border-radius:6px; overflow:hidden; position:relative; }
+        .hp-bar-fill { height:100%; transition:width .15s linear; border-radius:6px; }
+        .hp-player { background:linear-gradient(90deg,#2980b9,#3498db); }
+        .hp-tower  { background:linear-gradient(90deg,#c0392b,#e74c3c); }
+        .hp-enemy  { background:linear-gradient(90deg,#8e44ad,#9b59b6); }
+        .hp-bar-text { position:absolute; inset:0; font-size:7px;
+            text-align:center; line-height:11px; color:#fff;
+            font-weight:700; text-shadow:0 0 2px #000; }
 
-        .ui-group { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-
-        .hp-bar-container {
-            width: 62px; height: 12px;
-            background: rgba(255,255,255,0.1);
-            border: 1px solid rgba(255,255,255,0.15);
-            border-radius: 6px;
-            overflow: hidden;
-            position: relative;
-        }
-        .hp-bar-fill { height: 100%; transition: width 0.15s linear; border-radius: 6px; }
-        .hp-player { background: linear-gradient(90deg, #2980b9, #3498db); }
-        .hp-tower  { background: linear-gradient(90deg, #c0392b, #e74c3c); }
-        .hp-enemy  { background: linear-gradient(90deg, #8e44ad, #9b59b6); }
-        .hp-bar-text {
-            position: absolute; top: 0; left: 0;
-            width: 100%; height: 100%;
-            font-size: 8px; text-align: center;
-            line-height: 12px; color: #fff;
-            font-weight: 700;
-            text-shadow: 0 0 2px #000;
-        }
-
-        /* 인게임 상대방 패널 */
+        /* 인게임 상대 패널 */
         #enemy-ui-panel {
-            display: none;
-            position: fixed;
-            top: 36px;
-            right: 8px;
-            background: rgba(142,68,173,0.2);
-            border: 1px solid rgba(155,89,182,0.5);
-            border-radius: 8px;
-            padding: 6px 10px;
-            font-size: 11px;
-            z-index: 12;
-            gap: 4px;
-            flex-direction: column;
-            min-width: 130px;
+            display:none; position:fixed; top:34px; right:6px;
+            background:rgba(142,68,173,.18);
+            border:1px solid rgba(155,89,182,.5);
+            border-radius:8px; padding:6px 10px;
+            font-size:10px; z-index:12; gap:3px; flex-direction:column; min-width:120px;
         }
-        .enemy-panel-title { color: #9b59b6; font-weight: 700; font-size: 10px; }
+        .enemy-panel-title { color:var(--purple); font-weight:700; font-size:10px; }
+
+        /* 다이스 UI */
+        #dice-panel {
+            display:none; position:fixed; top:34px; left:6px;
+            background:rgba(142,68,173,.18);
+            border:1px solid rgba(155,89,182,.5);
+            border-radius:8px; padding:6px 8px;
+            font-size:10px; z-index:12; gap:4px; flex-direction:column; min-width:100px;
+        }
+        .dice-title { color:var(--purple); font-weight:700; font-size:10px; margin-bottom:2px; }
+        .dice-slots { display:flex; gap:4px; flex-wrap:wrap; }
+        .dice-slot {
+            width:32px; height:32px; border-radius:6px;
+            border:1.5px solid rgba(255,255,255,0.2);
+            display:flex; align-items:center; justify-content:center;
+            font-size:16px; cursor:pointer; background:rgba(255,255,255,0.05);
+            transition:transform .1s;
+        }
+        .dice-slot:active { transform:scale(.9); }
+        .dice-slot.empty { color:#444; border-style:dashed; }
+        #btn-roll-dice {
+            background:linear-gradient(135deg,#8e44ad,#6c3483);
+            color:#fff; border:none; border-radius:6px;
+            padding:4px 8px; font-size:10px; font-weight:700;
+            cursor:pointer; width:100%; margin-top:2px;
+        }
+        #dice-cost { font-size:9px; color:#aaa; text-align:center; }
 
         #dev-panel {
-            display: none;
-            position: fixed;
-            top: 36px;
-            z-index: 15;
-            background: rgba(142,68,173,0.9);
-            padding: 4px 8px;
-            border-radius: 0 0 8px 8px;
-            gap: 6px;
-            align-items: center;
-        }
+            display:none; position:fixed; top:34px; z-index:15;
+            background:rgba(142,68,173,.9); padding:4px 8px;
+            border-radius:0 0 8px 8px; gap:6px; align-items:center; }
+        .btn-dev { background:#27ae60; color:#fff; border:none;
+            padding:3px 8px; border-radius:4px; font-weight:700;
+            font-size:11px; cursor:pointer; }
 
-        .btn-dev {
-            background: #27ae60; color: #fff;
-            border: none; padding: 3px 8px;
-            border-radius: 4px; font-weight: 700;
-            font-size: 11px; cursor: pointer;
-        }
-
-        canvas {
-            background: #0d1117;
-            box-shadow: 0 4px 30px rgba(0,0,0,0.9);
-            margin-top: 36px;
-        }
+        canvas { background:#0a0f14; box-shadow:0 4px 30px rgba(0,0,0,.9); margin-top:34px; }
 
         #chat-container {
-            position: absolute;
-            bottom: 80px; left: 10px;
-            width: 220px;
-            background: rgba(0,0,0,0.55);
-            border: 1px solid rgba(255,255,255,0.07);
-            border-radius: 8px;
-            padding: 6px;
-            display: flex; flex-direction: column; gap: 4px;
-            z-index: 20;
-            backdrop-filter: blur(4px);
+            position:absolute; bottom:82px; left:10px; width:200px;
+            background:rgba(0,0,0,.55); border:1px solid var(--border);
+            border-radius:8px; padding:6px; display:flex;
+            flex-direction:column; gap:4px; z-index:20; backdrop-filter:blur(4px);
         }
-        #chat-logs { height: 70px; overflow-y: auto; font-size: 11px; display: flex; flex-direction: column; gap: 2px; }
-        .chat-msg { color: #ccc; word-break: break-all; }
-        .chat-sys { color: #f1c40f; font-weight: 700; }
-        #chat-input-box { display: flex; gap: 4px; }
-        #chat-input {
-            flex: 1;
-            background: rgba(255,255,255,0.08);
-            border: 1px solid rgba(255,255,255,0.15);
-            color: #fff; border-radius: 4px;
-            padding: 3px 6px; font-size: 11px;
-        }
+        #chat-logs { height:65px; overflow-y:auto; font-size:11px;
+            display:flex; flex-direction:column; gap:2px; }
+        .chat-msg { color:#ccc; word-break:break-all; }
+        .chat-sys { color:var(--gold); font-weight:700; }
+        #chat-input-box { display:flex; gap:4px; }
+        #chat-input { flex:1; background:rgba(255,255,255,.08);
+            border:1px solid var(--border); color:#fff;
+            border-radius:4px; padding:3px 6px; font-size:11px; }
 
-        #controls-overlay {
-            position: absolute; bottom: 15px; right: 10px;
-            display: flex; gap: 8px; z-index: 10;
-        }
-        #menu-overlay {
-            position: absolute; bottom: 15px; left: 10px;
-            display: flex; gap: 6px; z-index: 10;
-        }
+        #controls-overlay { position:absolute; bottom:15px; right:10px;
+            display:flex; gap:7px; z-index:10; }
+        #menu-overlay { position:absolute; bottom:15px; left:10px;
+            display:flex; gap:5px; z-index:10; }
 
-        .btn-ui {
-            width: 50px; height: 50px;
-            border-radius: 50%;
-            border: 2px solid #f39c12;
-            background: rgba(44,62,80,0.85);
-            backdrop-filter: blur(6px);
-            color: #fff; font-weight: 700; font-size: 11px;
-            display: flex; flex-direction: column;
-            align-items: center; justify-content: center;
-            cursor: pointer; transition: transform 0.1s;
-        }
-        .btn-ui:active { transform: scale(0.88); }
-        .btn-stat { border-color: #3498db; }
-        .btn-shop { border-color: #2ecc71; }
-        .btn-multi { border-color: #9b59b6; }
-        .btn-exit { border-color: #e74c3c; background: rgba(192,57,43,0.7); }
-        .btn-skill-cd { font-size: 8px; color: #f1c40f; margin-top: 2px; }
+        .btn-ui { width:48px; height:48px; border-radius:50%;
+            border:2px solid var(--gold); background:rgba(44,62,80,.85);
+            backdrop-filter:blur(6px); color:#fff; font-weight:700; font-size:11px;
+            display:flex; flex-direction:column; align-items:center;
+            justify-content:center; cursor:pointer; transition:transform .1s; }
+        .btn-ui:active { transform:scale(.88); }
+        .btn-stat { border-color:var(--blue); }
+        .btn-shop { border-color:var(--green); }
+        .btn-multi { border-color:var(--purple); }
+        .btn-exit  { border-color:var(--red); background:rgba(192,57,43,.7); }
+        .btn-skill-cd { font-size:8px; color:var(--gold); margin-top:2px; }
 
-        /* ─── 모달 ─── */
+        /* ══════════ MODAL ══════════ */
         .modal {
-            position: fixed;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            width: 90%; max-width: 380px;
-            max-height: 85vh;
-            overflow-y: auto;
-            background: rgba(13,17,23,0.97);
-            border: 1.5px solid rgba(243,156,18,0.5);
-            border-radius: 14px;
-            padding: 18px;
-            display: none;
-            flex-direction: column; gap: 10px;
-            z-index: 600;
-            backdrop-filter: blur(16px);
-            box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+            position:fixed; top:50%; left:50%;
+            transform:translate(-50%,-50%);
+            width:90%; max-width:360px; max-height:88vh; overflow-y:auto;
+            background:rgba(10,13,19,.97);
+            border:1.5px solid rgba(243,156,18,.45);
+            border-radius:14px; padding:18px;
+            display:none; flex-direction:column; gap:10px;
+            z-index:600; backdrop-filter:blur(16px);
+            box-shadow:0 20px 60px rgba(0,0,0,.8);
         }
-        .modal-title {
-            font-size: 16px; font-weight: 700;
-            text-align: center; color: #f39c12;
-            border-bottom: 1px solid rgba(255,255,255,0.08);
-            padding-bottom: 8px;
-        }
-        .modal-content { font-size: 12px; line-height: 1.6; }
-        .shop-section-title {
-            font-size: 12px; color: #f1c40f; font-weight: 700;
-            margin: 8px 0 4px;
-            border-left: 3px solid #f1c40f;
-            padding-left: 6px;
-        }
-        .shop-item {
-            display: flex; justify-content: space-between; align-items: center;
-            background: rgba(255,255,255,0.04);
-            padding: 7px 8px; border-radius: 7px; margin-bottom: 5px;
-        }
-        .btn-buy {
-            background: #2ecc71; color: #fff;
-            border: none; padding: 5px 10px;
-            border-radius: 5px; font-weight: 700;
-            font-size: 10px; cursor: pointer;
-        }
-        .btn-bought { background: #555 !important; cursor: not-allowed; }
-        .btn-close {
-            background: rgba(231,76,60,0.7);
-            color: #fff; border: 1px solid #e74c3c;
-            padding: 8px; border-radius: 8px;
-            font-weight: 700; cursor: pointer;
-        }
+        .modal-title { font-size:15px; font-weight:700; text-align:center;
+            color:var(--gold); border-bottom:1px solid var(--border); padding-bottom:8px; }
+        .modal-content { font-size:12px; line-height:1.6; }
+        .shop-section-title { font-size:12px; color:var(--gold); font-weight:700;
+            margin:8px 0 4px; border-left:3px solid var(--gold); padding-left:6px; }
+        .shop-item { display:flex; justify-content:space-between; align-items:center;
+            background:rgba(255,255,255,.04); padding:7px 8px;
+            border-radius:7px; margin-bottom:5px; }
+        .btn-buy { background:var(--green); color:#fff; border:none;
+            padding:5px 10px; border-radius:5px; font-weight:700;
+            font-size:10px; cursor:pointer; }
+        .btn-bought { background:#555!important; cursor:not-allowed; }
+        .btn-close { background:rgba(231,76,60,.6); color:#fff;
+            border:1px solid var(--red); padding:8px; border-radius:8px;
+            font-weight:700; cursor:pointer; }
 
         #game-msg {
-            position: absolute; top: 40%; left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(0,0,0,0.9);
-            border: 2px solid #e74c3c;
-            padding: 22px 30px; border-radius: 12px;
-            font-size: 22px; font-weight: 900;
-            color: #e74c3c; display: none;
-            z-index: 200; text-align: center;
-            box-shadow: 0 0 30px rgba(231,76,60,0.5);
+            position:absolute; top:40%; left:50%;
+            transform:translate(-50%,-50%);
+            background:rgba(0,0,0,.92); border:2px solid var(--red);
+            padding:22px 30px; border-radius:12px;
+            font-size:22px; font-weight:900; color:var(--red);
+            display:none; z-index:200; text-align:center;
+            box-shadow:0 0 30px rgba(231,76,60,.5);
         }
 
-        .setting-row {
-            display: flex; justify-content: space-between;
-            align-items: center; margin-bottom: 12px;
-        }
-        .mode-desc {
-            background: rgba(255,255,255,0.04);
-            padding: 10px; border-radius: 7px;
-            margin-bottom: 10px; font-size: 12px; color: #bbb;
-        }
+        .setting-row { display:flex; justify-content:space-between;
+            align-items:center; margin-bottom:12px; }
+        .mode-desc { background:var(--surface); padding:10px; border-radius:7px;
+            margin-bottom:10px; font-size:12px; color:#bbb; }
 
-        /* 매칭 관련 */
-        #match-queue-list {
-            max-height: 150px; overflow-y: auto;
-            margin: 8px 0;
-        }
-        .match-queue-item {
-            display: flex; align-items: center; gap: 8px;
-            padding: 7px 10px;
-            background: rgba(255,255,255,0.05);
-            border-radius: 7px; margin-bottom: 5px;
-            cursor: pointer; transition: background 0.15s;
-        }
-        .match-queue-item:hover { background: rgba(52,152,219,0.2); }
-        .match-queue-item .mq-name { flex: 1; font-size: 12px; font-weight: 700; }
-        .match-queue-item .mq-mode {
-            font-size: 10px; padding: 2px 6px;
-            border-radius: 10px;
-            background: rgba(52,152,219,0.3); color: #74b9ff;
-        }
-        .btn-connect { background: #3498db; font-size: 10px; padding: 4px 8px; border-radius: 4px; border: none; color: #fff; cursor: pointer; font-weight: 700; }
+        /* 매칭 대기열 */
+        #match-queue-list { max-height:150px; overflow-y:auto; margin:8px 0; }
+        .mqi { display:flex; align-items:center; gap:8px; padding:7px 10px;
+            background:var(--surface); border-radius:7px; margin-bottom:5px;
+            cursor:pointer; transition:background .15s; }
+        .mqi:hover { background:rgba(52,152,219,.2); }
+        .mqi-name { flex:1; font-size:12px; font-weight:700; }
+        .mqi-mode { font-size:10px; padding:2px 6px; border-radius:10px;
+            background:rgba(52,152,219,.3); color:#74b9ff; }
+        .btn-connect { background:var(--blue); font-size:10px; padding:4px 8px;
+            border-radius:4px; border:none; color:#fff; cursor:pointer; font-weight:700; }
 
-        /* 핑 표시 */
-        #ping-display {
-            position: fixed;
-            top: 38px; left: 8px;
-            font-size: 10px; font-weight: 700;
-            color: #2ecc71; z-index: 15;
-            display: none;
-            background: rgba(0,0,0,0.5);
-            padding: 2px 6px; border-radius: 4px;
+        @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+        @keyframes dicePop{0%{transform:scale(1)}50%{transform:scale(1.4)}100%{transform:scale(1)}}
+        .dice-pop { animation:dicePop .3s ease; }
+
+        /* 다이스 결과 오버레이 */
+        #dice-result-overlay {
+            position:absolute; top:50%; left:50%;
+            transform:translate(-50%,-50%);
+            background:rgba(0,0,0,.85); border:2px solid var(--purple);
+            border-radius:12px; padding:16px 24px;
+            display:none; z-index:180; text-align:center; pointer-events:none;
         }
+        .dice-result-text { font-size:20px; font-weight:900; }
     </style>
 </head>
-
 <body>
 
-    <!-- 메인 로비 화면 -->
-    <div id="main-lobby">
-        <div class="lobby-header">
-            <div class="lobby-title">⚔️ 하이퍼 어택 Ultra</div>
-            <div class="lobby-subtitle">v2.0.0 — 실시간 멀티플레이</div>
-        </div>
-
-        <!-- 온라인 플레이어 목록 -->
-        <div id="lobby-players-section">
-            <div class="lobby-section-title">
-                <span class="live-dot"></span>
-                온라인 플레이어
-                <span id="online-count" style="color:#7f8c8d; font-weight:400;">(연결 중...)</span>
-            </div>
-            <div id="player-list">
-                <div style="font-size:11px; color:#666; text-align:center; padding:10px;">Firebase 연결 중...</div>
-            </div>
-        </div>
-
-        <div class="lobby-menu">
-            <button class="btn-lobby btn-start" onclick="startSoloPlay()">👤 솔로 플레이</button>
-            <button class="btn-lobby" onclick="openModal('modalPvpSelect')">⚔️ 대전 모드 (1v1 PVP)</button>
-            <button class="btn-lobby" onclick="openModal('modalCoopSelect')">🤝 협동 모드 (CO-OP)</button>
-            <button class="btn-lobby" onclick="openModal('modalNotice')">📢 공지사항</button>
-            <button class="btn-lobby" onclick="openModal('modalSettings')">⚙️ 설정</button>
-        </div>
-        <div style="font-size:11px; color:#7f8c8d;">v2.0.0 — Delta Time 엔진 & 실시간 매칭</div>
+<!-- ══════════════════ LOBBY ══════════════════ -->
+<div id="main-lobby">
+    <div class="lobby-header">
+        <div class="lobby-title">⚔️ 하이퍼 어택 Ultra</div>
+        <span class="lobby-badge">LOL × 랜덤다이스 Fusion</span>
     </div>
 
-    <!-- 인게임 Top UI -->
-    <div id="top-ui">
-        <div class="ui-group">
-            <div>🚩 R<span id="round">1</span></div>
-            <div>💰 <span id="gold">0</span>G</div>
+    <!-- 온라인 플레이어 목록 -->
+    <div class="lobby-panel">
+        <div class="panel-title">
+            <span class="live-dot"></span>온라인 플레이어
+            <span id="online-count" style="color:#7f8c8d;font-weight:400;">(연결 중...)</span>
         </div>
-        <div class="ui-group">
-            <span>👤</span>
-            <div class="hp-bar-container">
-                <div class="hp-bar-fill hp-player" id="playerHpBar"></div>
-                <div class="hp-bar-text" id="playerHpText">200/200</div>
-            </div>
-            <span>🏰</span>
-            <div class="hp-bar-container">
-                <div class="hp-bar-fill hp-tower" id="towerHpBar"></div>
-                <div class="hp-bar-text" id="towerHpText">1500</div>
-            </div>
+        <div id="player-list">
+            <div style="font-size:11px;color:#555;text-align:center;padding:10px;">대기 중인 플레이어를 찾는 중...</div>
         </div>
     </div>
 
-    <!-- 인게임 상대방 패널 -->
-    <div id="enemy-ui-panel">
-        <div class="enemy-panel-title">👥 <span id="enemy-name">상대방</span></div>
-        <div class="ui-group">
-            <span style="font-size:10px;">HP</span>
-            <div class="hp-bar-container" style="width:80px;">
-                <div class="hp-bar-fill hp-enemy" id="enemyHpBar"></div>
-                <div class="hp-bar-text" id="enemyHpText">200/200</div>
-            </div>
+    <div class="lobby-menu">
+        <button class="btn-lobby btn-start" onclick="startSoloPlay()">👤 솔로 플레이</button>
+        <button class="btn-lobby btn-dice" onclick="openModal('modalPvpSelect')">⚔️ PVP 대전 모드</button>
+        <button class="btn-lobby btn-dice" onclick="openModal('modalCoopSelect')">🤝 협동 모드</button>
+        <button class="btn-lobby" onclick="openModal('modalNotice')">📢 공지사항</button>
+        <button class="btn-lobby" onclick="openModal('modalSettings')">⚙️ 설정</button>
+    </div>
+    <div style="font-size:10px;color:#555;">v3.0 — Delta Time · PeerJS P2P · 랜덤다이스</div>
+</div>
+
+<!-- ══════════════════ IN-GAME UI ══════════════════ -->
+<div id="top-ui">
+    <div class="ui-group">
+        <div>🚩R<span id="round">1</span></div>
+        <div>💰<span id="gold">0</span>G</div>
+        <div id="dice-count-ui" style="color:#9b59b6;">🎲<span id="diceCountEl">0</span></div>
+    </div>
+    <div class="ui-group">
+        <span>👤</span>
+        <div class="hp-bar-container">
+            <div class="hp-bar-fill hp-player" id="playerHpBar"></div>
+            <div class="hp-bar-text" id="playerHpText">200/200</div>
         </div>
-        <div id="enemy-round-info" style="font-size:10px; color:#bbb;">R1</div>
-        <div id="ping-indicator" style="font-size:10px; color:#2ecc71;">핑: --ms</div>
-    </div>
-
-    <div id="dev-panel">
-        <button class="btn-dev" onclick="addDevGold()">+10,000G</button>
-        <button class="btn-dev" onclick="toggleGameSpeed()">배속: <span id="speed-label">1x</span></button>
-    </div>
-
-    <canvas id="gameCanvas"></canvas>
-    <div id="game-msg">게임 오버!</div>
-
-    <div id="chat-container">
-        <div id="chat-logs">
-            <div class="chat-msg chat-sys">[시스템] 게임에 접속했습니다.</div>
-        </div>
-        <div id="chat-input-box">
-            <input type="text" id="chat-input" placeholder="메시지 입력..." onkeypress="handleChatKey(event)">
+        <span>🏰</span>
+        <div class="hp-bar-container">
+            <div class="hp-bar-fill hp-tower" id="towerHpBar"></div>
+            <div class="hp-bar-text" id="towerHpText">1500</div>
         </div>
     </div>
+</div>
 
-    <div id="menu-overlay">
-        <button class="btn-ui btn-stat" id="btnOpenStat">스탯</button>
-        <button class="btn-ui btn-shop" id="btnOpenShop">상점</button>
-        <button class="btn-ui btn-multi" id="btnOpenMulti">멀티</button>
-        <button class="btn-ui btn-exit" onclick="returnToLobby()">나가기</button>
-    </div>
-
-    <div id="controls-overlay">
-        <button class="btn-ui" id="btnQ">Q<span class="btn-skill-cd" id="cdQ">READY</span></button>
-        <button class="btn-ui" id="btnW">W<span class="btn-skill-cd" id="cdW">READY</span></button>
-        <button class="btn-ui" id="btnE">E<span class="btn-skill-cd" id="cdE">READY</span></button>
-    </div>
-
-    <!-- 대전 모드 선택 모달 -->
-    <div class="modal" id="modalPvpSelect">
-        <div class="modal-title">⚔️ 대전 모드 (1v1 PVP)</div>
-        <div class="modal-content">
-            <div class="mode-desc">상대 플레이어와 실시간 1대1 대결!<br>상대의 타워를 먼저 파괴하면 승리합니다.</div>
-            <button class="btn-lobby btn-sub-action"
-                onclick="closeModal('modalPvpSelect'); startRandomMatching('PVP');">🔍 무작위 매칭</button>
-            <button class="btn-lobby btn-sub-action"
-                onclick="closeModal('modalPvpSelect'); openFriendRoomModal('PVP');">👥 친구랑 하기</button>
+<!-- 상대방 패널 (멀티) -->
+<div id="enemy-ui-panel">
+    <div class="enemy-panel-title">👥 <span id="enemy-name">상대방</span></div>
+    <div class="ui-group">
+        <span>HP</span>
+        <div class="hp-bar-container" style="width:80px;">
+            <div class="hp-bar-fill hp-enemy" id="enemyHpBar"></div>
+            <div class="hp-bar-text" id="enemyHpText">200/200</div>
         </div>
-        <button class="btn-close" onclick="closeModal('modalPvpSelect')">닫기</button>
     </div>
+    <div id="enemy-round-info" style="font-size:9px;color:#aaa;">R1</div>
+    <div id="ping-indicator" style="font-size:9px;color:var(--green);">핑: --ms</div>
+</div>
 
-    <!-- 협동 모드 선택 모달 -->
-    <div class="modal" id="modalCoopSelect">
-        <div class="modal-title">🤝 협동 모드 (CO-OP)</div>
-        <div class="modal-content">
-            <div class="mode-desc">함께 적 웨이브를 막아냅시다!<br>두 플레이어가 협력하여 최대한 오래 버티세요.</div>
-            <button class="btn-lobby btn-sub-action"
-                onclick="closeModal('modalCoopSelect'); startRandomMatching('COOP');">🔍 무작위 매칭</button>
-            <button class="btn-lobby btn-sub-action"
-                onclick="closeModal('modalCoopSelect'); openFriendRoomModal('COOP');">👥 친구랑 하기</button>
-        </div>
-        <button class="btn-close" onclick="closeModal('modalCoopSelect')">닫기</button>
+<!-- 다이스 패널 -->
+<div id="dice-panel">
+    <div class="dice-title">🎲 내 다이스</div>
+    <div class="dice-slots" id="dice-slots-container"></div>
+    <button id="btn-roll-dice" onclick="rollDice()">굴리기</button>
+    <div id="dice-cost">비용: <span id="dice-roll-cost">50</span>G</div>
+</div>
+
+<div id="dev-panel">
+    <button class="btn-dev" onclick="addDevGold()">+10,000G</button>
+    <button class="btn-dev" onclick="toggleGameSpeed()">배속:<span id="speed-label">1x</span></button>
+    <button class="btn-dev" onclick="addDevDice()">+다이스</button>
+</div>
+
+<canvas id="gameCanvas"></canvas>
+<div id="game-msg">게임 오버!</div>
+<div id="dice-result-overlay"><div class="dice-result-text" id="dice-result-text"></div></div>
+
+<div id="chat-container">
+    <div id="chat-logs"><div class="chat-msg chat-sys">[시스템] 게임 접속 완료.</div></div>
+    <div id="chat-input-box">
+        <input type="text" id="chat-input" placeholder="메시지..." onkeypress="handleChatKey(event)">
     </div>
+</div>
 
-    <!-- 친구랑 하기 모달 -->
-    <div class="modal" id="modalMulti">
-        <div class="modal-title">👥 친구와 함께하기</div>
-        <div class="modal-content">
-            <p style="margin-bottom:10px; color:#aaa; font-size:12px;">내 ID를 친구에게 공유하거나, 친구 ID를 입력하여 접속하세요.</p>
-            <div style="background:rgba(0,0,0,0.4); padding:10px; border-radius:8px; margin-bottom:10px;">
-                <div style="font-size:11px; color:#aaa; margin-bottom:4px;">내 접속 ID</div>
-                <div style="display:flex; align-items:center; gap:6px;">
-                    <b id="myPeerId" style="color:#2ecc71; font-size:13px; word-break:break-all;">생성 중...</b>
-                    <button class="btn-dev" onclick="copyMyId()" style="padding:4px 8px; font-size:10px;">복사</button>
-                </div>
-            </div>
-            <button class="btn-buy" style="width:100%; margin-bottom:10px; padding:10px; font-size:13px;" onclick="createHostRoom()">🏠 방 생성 (Host)</button>
-            <div style="display:flex; gap:6px;">
-                <input type="text" id="roomCodeInput" placeholder="친구 ID 입력"
-                    style="flex:1; background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.2); color:#fff; padding:8px; border-radius:6px; font-size:12px;">
-                <button class="btn-buy" onclick="connectToPeer()" style="padding:8px 12px;">참가</button>
-            </div>
-            <p id="multiStatus" style="color:#f1c40f; margin-top:10px; word-break:break-all; font-weight:700; font-size:12px;"></p>
-        </div>
-        <button class="btn-close" onclick="closeModal('modalMulti')">닫기</button>
+<div id="menu-overlay">
+    <button class="btn-ui btn-stat" id="btnOpenStat">스탯</button>
+    <button class="btn-ui btn-shop" id="btnOpenShop">상점</button>
+    <button class="btn-ui btn-multi" id="btnOpenMulti">멀티</button>
+    <button class="btn-ui btn-exit" onclick="returnToLobby()">나가기</button>
+</div>
+<div id="controls-overlay">
+    <button class="btn-ui" id="btnQ">Q<span class="btn-skill-cd" id="cdQ">READY</span></button>
+    <button class="btn-ui" id="btnW">W<span class="btn-skill-cd" id="cdW">READY</span></button>
+    <button class="btn-ui" id="btnE">E<span class="btn-skill-cd" id="cdE">READY</span></button>
+</div>
+
+<!-- ══════ MODALS ══════ -->
+<div class="modal" id="modalPvpSelect">
+    <div class="modal-title">⚔️ PVP 대전 모드</div>
+    <div class="modal-content">
+        <div class="mode-desc">1대1 실시간 PVP! 상대의 타워를 먼저 파괴하면 승리.</div>
+        <button class="btn-lobby btn-sub-action" onclick="closeModal('modalPvpSelect');startRandomMatching('PVP');">🔍 무작위 매칭</button>
+        <button class="btn-lobby btn-sub-action" onclick="closeModal('modalPvpSelect');openFriendRoomModal('PVP');">👥 친구랑 하기</button>
     </div>
+    <button class="btn-close" onclick="closeModal('modalPvpSelect')">닫기</button>
+</div>
 
-    <!-- 무작위 매칭 모달 -->
-    <div class="modal" id="modalMatch">
-        <div class="modal-title" id="matchModalTitle">🔍 무작위 매칭</div>
-        <div class="modal-content" style="text-align:center; padding:8px 0;">
-            <p id="matchText" style="color:#aaa; margin-bottom:10px;">대기 중인 플레이어를 찾고 있습니다...</p>
-            <div id="matchSpinner" style="font-size:28px; margin:10px 0; animation: spin 2s linear infinite; display:inline-block;">⏳</div>
-            <div id="match-queue-list"></div>
-            <p id="matchMyId" style="font-size:10px; color:#555; margin-top:6px;"></p>
-        </div>
-        <button class="btn-close" onclick="cancelMatching()">취소 / 닫기</button>
+<div class="modal" id="modalCoopSelect">
+    <div class="modal-title">🤝 협동 모드</div>
+    <div class="modal-content">
+        <div class="mode-desc">2인 협동으로 몬스터 웨이브를 막아내세요!</div>
+        <button class="btn-lobby btn-sub-action" onclick="closeModal('modalCoopSelect');startRandomMatching('COOP');">🔍 무작위 매칭</button>
+        <button class="btn-lobby btn-sub-action" onclick="closeModal('modalCoopSelect');openFriendRoomModal('COOP');">👥 친구랑 하기</button>
     </div>
+    <button class="btn-close" onclick="closeModal('modalCoopSelect')">닫기</button>
+</div>
 
-    <!-- 스탯 모달 -->
-    <div class="modal" id="modalStat">
-        <div class="modal-title">챔피언 스탯</div>
-        <div class="modal-content" id="statContent"></div>
-        <button class="btn-close" onclick="closeModal('modalStat')">닫기</button>
-    </div>
-
-    <!-- 상점 모달 -->
-    <div class="modal" id="modalShop">
-        <div class="modal-title">아이템 상점</div>
-        <div class="modal-content" id="shopContent"></div>
-        <button class="btn-close" onclick="closeModal('modalShop')">닫기</button>
-    </div>
-
-    <!-- 공지사항 모달 -->
-    <div class="modal" id="modalNotice">
-        <div class="modal-title">📢 시스템 공지사항</div>
-        <div class="modal-content">
-            <div style="margin-bottom:10px; border-bottom:1px solid #333; padding-bottom:8px;">
-                <b style="color:#f39c12;">[v2.0.0] 실시간 멀티플레이 & 엔진 업그레이드</b><br>
-                - Delta Time 기반 게임 루프 도입 (기기별 속도 차이 해결)<br>
-                - Firebase 기반 실시간 로비 플레이어 목록<br>
-                - 무작위 매칭 대기열 시스템<br>
-                - 인게임 상대방 HP/정보 패널 추가<br>
-                - PeerJS 멀티플레이 동기화 대폭 강화<br>
-            </div>
-            <div>
-                <b style="color:#2ecc71;">[안내] 멀티플레이 연결 방법</b><br>
-                무작위 매칭: 대기열에 등록 후 상대를 클릭하여 연결<br>
-                친구랑 하기: 내 ID를 복사하여 친구에게 공유
+<div class="modal" id="modalMulti">
+    <div class="modal-title">👥 친구와 함께하기</div>
+    <div class="modal-content">
+        <p style="color:#aaa;font-size:12px;margin-bottom:10px;">내 ID를 친구에게 공유하거나, 친구 ID를 입력해 참가하세요.</p>
+        <div style="background:rgba(0,0,0,.4);padding:10px;border-radius:8px;margin-bottom:10px;">
+            <div style="font-size:11px;color:#aaa;margin-bottom:4px;">내 접속 ID (PeerJS)</div>
+            <div style="display:flex;align-items:center;gap:6px;">
+                <b id="myPeerId" style="color:var(--green);font-size:12px;word-break:break-all;flex:1;">생성 중...</b>
+                <button class="btn-dev" onclick="copyMyId()" style="padding:4px 8px;font-size:10px;">복사</button>
             </div>
         </div>
-        <button class="btn-close" onclick="closeModal('modalNotice')">닫기</button>
-    </div>
-
-    <!-- 설정 모달 -->
-    <div class="modal" id="modalSettings">
-        <div class="modal-title">⚙️ 게임 설정</div>
-        <div class="modal-content">
-            <div class="setting-row">
-                <span>사운드 효과</span>
-                <input type="checkbox" checked id="setSound">
-            </div>
-            <div class="setting-row">
-                <span>화면 진동 연출</span>
-                <input type="checkbox" checked id="setShake">
-            </div>
-            <div class="setting-row">
-                <span>닉네임</span>
-                <input type="text" id="setNickname" placeholder="닉네임 입력"
-                    style="background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2); color:#fff; padding:4px 8px; border-radius:5px; width:120px; font-size:12px;">
-            </div>
-            <button class="btn-lobby" style="width:100%; margin-top:6px; background:rgba(231,76,60,0.4); border-color:#c0392b;" onclick="returnToLobby()">로비로 나가기</button>
+        <button class="btn-buy" style="width:100%;margin-bottom:10px;padding:10px;font-size:13px;" onclick="createHostRoom()">🏠 방 생성 (Host)</button>
+        <div style="display:flex;gap:6px;">
+            <input type="text" id="roomCodeInput" placeholder="친구 ID 입력"
+                style="flex:1;background:rgba(255,255,255,.07);border:1px solid var(--border);color:#fff;padding:8px;border-radius:6px;font-size:12px;">
+            <button class="btn-buy" onclick="connectToPeer()" style="padding:8px 12px;">참가</button>
         </div>
-        <button class="btn-close" onclick="saveSettings()">저장 및 닫기</button>
+        <p id="multiStatus" style="color:var(--gold);margin-top:10px;word-break:break-all;font-weight:700;font-size:12px;white-space:pre-wrap;"></p>
     </div>
+    <button class="btn-close" onclick="closeModal('modalMulti')">닫기</button>
+</div>
 
-    <style>
-        @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
-    </style>
+<div class="modal" id="modalMatch">
+    <div class="modal-title" id="matchModalTitle">🔍 무작위 매칭</div>
+    <div class="modal-content" style="text-align:center;padding:8px 0;">
+        <p id="matchText" style="color:#aaa;margin-bottom:8px;font-size:13px;">대기 중인 플레이어를 찾고 있습니다...</p>
+        <div style="font-size:26px;margin:8px 0;display:inline-block;animation:spin 2s linear infinite;">⏳</div>
+        <div id="match-queue-list"></div>
+        <p id="matchMyId" style="font-size:10px;color:#555;margin-top:6px;word-break:break-all;"></p>
+        <p style="font-size:10px;color:#666;margin-top:6px;">💡 같은 탭이나 친구에게 ID를 공유해도 연결할 수 있어요</p>
+    </div>
+    <button class="btn-close" onclick="cancelMatching()">취소</button>
+</div>
 
-    <script>
-    // ═══════════════════════════════════════════════════
-    //  FIREBASE 설정 (무료 Realtime DB - 공개 읽기/쓰기)
-    // ═══════════════════════════════════════════════════
-    const firebaseConfig = {
-        apiKey: "AIzaSyDemo_replace_with_real_key",
-        authDomain: "hyper-attack-ultra.firebaseapp.com",
-        databaseURL: "https://hyper-attack-ultra-default-rtdb.firebaseio.com",
-        projectId: "hyper-attack-ultra",
-        storageBucket: "hyper-attack-ultra.appspot.com",
-        messagingSenderId: "123456789",
-        appId: "1:123456789:web:abcdef"
+<div class="modal" id="modalStat">
+    <div class="modal-title">챔피언 스탯</div>
+    <div class="modal-content" id="statContent"></div>
+    <button class="btn-close" onclick="closeModal('modalStat')">닫기</button>
+</div>
+
+<div class="modal" id="modalShop">
+    <div class="modal-title">🛒 아이템 상점</div>
+    <div class="modal-content" id="shopContent"></div>
+    <button class="btn-close" onclick="closeModal('modalShop')">닫기</button>
+</div>
+
+<div class="modal" id="modalNotice">
+    <div class="modal-title">📢 공지사항</div>
+    <div class="modal-content">
+        <div style="margin-bottom:10px;border-bottom:1px solid #333;padding-bottom:8px;">
+            <b style="color:var(--gold);">[v3.0] LOL × 랜덤다이스 Fusion 업데이트</b><br>
+            - 🎲 랜덤다이스 시스템 추가 (라운드마다 무료 다이스 지급!)<br>
+            - ⚡ Delta Time 엔진 (기기별 속도 차이 완전 해결)<br>
+            - 🌐 PeerJS P2P 멀티플레이 대폭 개선<br>
+            - 👥 실시간 로비 플레이어 목록 (BroadcastChannel)<br>
+            - 🔍 무작위 매칭 대기열 시스템<br>
+            - 📊 인게임 상대방 HP/핑 패널
+        </div>
+        <div>
+            <b style="color:var(--green);">[멀티 연결 방법]</b><br>
+            1. 친구랑 하기: 내 ID 복사 → 친구에게 공유<br>
+            2. 무작위 매칭: 같은 브라우저 탭이나 ID 공유로 연결<br>
+            3. 연결 후 Host가 게임을 시작합니다
+        </div>
+    </div>
+    <button class="btn-close" onclick="closeModal('modalNotice')">닫기</button>
+</div>
+
+<div class="modal" id="modalSettings">
+    <div class="modal-title">⚙️ 설정</div>
+    <div class="modal-content">
+        <div class="setting-row">
+            <span>닉네임</span>
+            <input type="text" id="setNickname"
+                style="background:rgba(255,255,255,.08);border:1px solid var(--border);color:#fff;padding:4px 8px;border-radius:5px;width:130px;font-size:12px;">
+        </div>
+        <div class="setting-row"><span>사운드</span><input type="checkbox" checked id="setSound"></div>
+        <div class="setting-row"><span>화면 진동</span><input type="checkbox" checked id="setShake"></div>
+        <button class="btn-lobby" style="width:100%;margin-top:8px;background:rgba(231,76,60,.4);border-color:#c0392b;" onclick="returnToLobby()">로비로 나가기</button>
+    </div>
+    <button class="btn-close" onclick="saveSettings()">저장 및 닫기</button>
+</div>
+
+<script>
+// ╔══════════════════════════════════════════════════════════╗
+// ║              CORE SETUP                                  ║
+// ╚══════════════════════════════════════════════════════════╝
+const canvas = document.getElementById('gameCanvas');
+const ctx    = canvas.getContext('2d');
+
+const CW = Math.min(window.innerWidth, 480);
+const CH = Math.min(window.innerHeight - 34, 640);
+canvas.width  = CW;
+canvas.height = CH;
+const MID_Y = CH * 0.45;
+
+// ─── 닉네임 ───
+let myNickname = localStorage.getItem('nickname') || ('용사' + Math.floor(Math.random()*9000+1000));
+document.getElementById('setNickname').value = myNickname;
+
+// ─── 게임 상태 ───
+let gold = 0, round = 1;
+let isGameOver = false, gameRunning = false;
+let gameSpeed = 1;
+let isDevMode = false;
+let roundBannerTimer = 0, roundBannerText = '';
+let lastTimestamp = 0;
+
+// ─── 멀티플레이 ───
+let currentGameMode = 'SOLO';
+let isMulti = false, isHost = false;
+let peer = null, conn = null;
+let peerPlayer = null;
+let netSendInterval = null;
+let matchingMode = null, myMatchingKey = null;
+let currentPing = 0;
+
+// ─── 랜덤다이스 ───
+const DICE_TYPES = [
+    { id:'atk',   emoji:'⚔️',  name:'공격 주사위',  rarity:'common',   color:'#e74c3c', effect: ()=>{ player.attackPower += 20; return '+공격력 20'; } },
+    { id:'spd',   emoji:'💨',  name:'속도 주사위',  rarity:'common',   color:'#3498db', effect: ()=>{ player.moveSpeed += 60; return '+이동속도'; } },
+    { id:'hp',    emoji:'❤️',  name:'체력 주사위',  rarity:'common',   color:'#e74c3c', effect: ()=>{ player.maxHp += 80; player.hp = Math.min(player.maxHp, player.hp+80); return '+체력 80'; } },
+    { id:'vamp',  emoji:'🩸',  name:'흡혈 주사위',  rarity:'rare',     color:'#8e44ad', effect: ()=>{ player.lifesteal += 8; return '+흡혈 8'; } },
+    { id:'crit',  emoji:'💥',  name:'크리 주사위',  rarity:'rare',     color:'#f39c12', effect: ()=>{ player.critChance = Math.min(0.8, (player.critChance||0)+0.15); return '+치명타15%'; } },
+    { id:'tower', emoji:'🏰',  name:'타워 주사위',  rarity:'rare',     color:'#27ae60', effect: ()=>{ tower.maxHp += 400; tower.hp = Math.min(tower.maxHp, tower.hp+400); return '+타워체력400'; } },
+    { id:'multi', emoji:'🔱',  name:'멀티샷 주사위',rarity:'epic',     color:'#9b59b6', effect: ()=>{ player.multiShot = (player.multiShot||1)+1; return '+멀티샷'; } },
+    { id:'bomb',  emoji:'💣',  name:'폭탄 주사위',  rarity:'epic',     color:'#e67e22', effect: ()=>{ player.explosionChance = Math.min(0.9, (player.explosionChance||0)+0.25); return '+폭발25%'; } },
+    { id:'scope', emoji:'🔭',  name:'조준경 주사위',rarity:'epic',     color:'#1abc9c', effect: ()=>{ player.scopeChance = Math.min(0.9, (player.scopeChance||0.25)+0.2); return '+조준경20%'; } },
+    { id:'legend',emoji:'⭐',  name:'전설 주사위',  rarity:'legendary',color:'#f1c40f', effect: ()=>{ player.attackPower+=40; player.maxHp+=120; player.hp=Math.min(player.maxHp,player.hp+120); return '⭐전설강화!'; } },
+];
+const DICE_RARITY_WEIGHT = { common:50, rare:30, epic:15, legendary:5 };
+
+let myDice = [];          // 현재 보유 다이스 슬롯 (최대 6개)
+let diceRollCost = 50;
+let freeDiceThisRound = false;
+
+// ─── 플레이어 ───
+const player = {
+    x: CW/2, y: CH-120,
+    targetX: CW/2, targetY: CH-120,
+    radius: 18, moveSpeed: 228,
+    hp: 200, maxHp: 200,
+    attackPower: 30,
+    attackBaseCooldown: 0.25,
+    attackCooldown: 0,
+    attackRange: 170,
+    qBuffTimer:0, qCooldown:0,
+    wBuffTimer:0, wCooldown:0,
+    eCooldown:0,
+    lifesteal:0, scopeChance:0.25,
+    explosionChance:0, critChance:0, multiShot:1
+};
+
+const tower = { x:CW/2, y:CH-40, radius:30, hp:1500, maxHp:1500 };
+
+// ─── 상점 ───
+const statUpgrades = {
+    atk: { level:0, basePrice:50, priceMult:1.4 },
+    spd: { level:0, basePrice:70, priceMult:1.5 }
+};
+
+const equipmentItems = [
+    { id:'doran',  name:'🗡️ 도란의 검',       desc:'공격력+15, 체력+40',    price:150, bought:false,
+      apply:()=>{ player.attackPower+=15; player.maxHp+=40; player.hp+=40; } },
+    { id:'boots',  name:'👟 광전사의 신발',    desc:'이속+1, 공속+15%',      price:220, bought:false,
+      apply:()=>{ player.moveSpeed+=60; player.attackBaseCooldown=Math.max(0.05,player.attackBaseCooldown*.85); } },
+    { id:'vamp',   name:'🩸 흡혈의 낫',        desc:'타격시 체력+6 회복',    price:280, bought:false,
+      apply:()=>{ player.lifesteal+=6; } },
+    { id:'expOrb', name:'💥 폭발의 구슬',      desc:'30% 확률 폭발',         price:300, bought:false,
+      apply:()=>{ player.explosionChance=Math.min(0.9,(player.explosionChance||0)+0.3); } },
+    { id:'warmog', name:'🛡️ 워모그의 갑옷',   desc:'체력+150, 타워+300',    price:350, bought:false,
+      apply:()=>{ player.maxHp+=150; player.hp+=150; tower.maxHp+=300; tower.hp=Math.min(tower.maxHp,tower.hp+300); } },
+    { id:'ie',     name:'♾️ 무한의 대검',      desc:'치명타확률+25%',        price:400, bought:false,
+      apply:()=>{ player.critChance=Math.min(0.8,(player.critChance||0)+0.25); } },
+    { id:'guinsoo',name:'🌀 귀뚜라미 망령검',  desc:'멀티샷+1발',            price:450, bought:false,
+      apply:()=>{ player.multiShot=(player.multiShot||1)+1; } },
+];
+
+let minions=[], projectiles=[], floatingTexts=[], explosions=[], scopeEffects=[], shockwaves=[];
+let isWaveActive=false;
+
+// ╔══════════════════════════════════════════════════════════╗
+// ║              PEERJS & LOBBY                              ║
+// ╚══════════════════════════════════════════════════════════╝
+
+// BroadcastChannel (같은 기기 탭들 간 통신)
+let bc = null;
+try { bc = new BroadcastChannel('hyper_attack_v3'); } catch(e) {}
+
+const bcPlayers = {}; // { id: { nickname, peerId, status, mode, ts } }
+let myBcId = 'bc_' + Math.random().toString(36).slice(2,8);
+let bcMatchQueue = {}; // { id: { nickname, peerId, mode } }
+
+function initBroadcastChannel() {
+    if (!bc) { renderLobbyList([]); return; }
+    // 자신 등록
+    bcPlayers[myBcId] = { nickname: myNickname, peerId:'', status:'lobby', mode:'', ts: Date.now() };
+    bc.postMessage({ type:'join', id:myBcId, nickname:myNickname, peerId:'' });
+
+    bc.onmessage = (e) => {
+        const d = e.data;
+        if (!d || !d.type) return;
+
+        if (d.type === 'join') {
+            bcPlayers[d.id] = { nickname:d.nickname, peerId:d.peerId||'', status:'lobby', mode:'', ts:Date.now() };
+            // 응답: 내 정보 알려주기
+            bc.postMessage({ type:'here', id:myBcId, nickname:myNickname, peerId: peer?.id||'' });
+            renderLobbyList(Object.values(bcPlayers));
+        } else if (d.type === 'here') {
+            bcPlayers[d.id] = { nickname:d.nickname, peerId:d.peerId||'', status:'lobby', mode:'', ts:Date.now() };
+            renderLobbyList(Object.values(bcPlayers));
+        } else if (d.type === 'leave') {
+            delete bcPlayers[d.id];
+            delete bcMatchQueue[d.id];
+            renderLobbyList(Object.values(bcPlayers));
+        } else if (d.type === 'status_update') {
+            if (bcPlayers[d.id]) {
+                bcPlayers[d.id].status = d.status;
+                bcPlayers[d.id].mode = d.mode||'';
+                if (d.peerId) bcPlayers[d.id].peerId = d.peerId;
+                renderLobbyList(Object.values(bcPlayers));
+            }
+        } else if (d.type === 'match_seek') {
+            if (d.id !== myBcId) {
+                bcMatchQueue[d.id] = { nickname:d.nickname, peerId:d.peerId, mode:d.mode, id:d.id };
+                renderMatchQueue(Object.values(bcMatchQueue).filter(p => p.mode === matchingMode));
+            }
+        } else if (d.type === 'match_cancel') {
+            delete bcMatchQueue[d.id];
+            renderMatchQueue(Object.values(bcMatchQueue).filter(p => p.mode === matchingMode));
+        }
     };
 
-    // Firebase 없이도 동작하는 로컬 플레이어 목록 (BroadcastChannel 활용)
-    let firebaseAvailable = false;
-    let firebaseDB = null;
-    let myFirebaseKey = null;
-    let lobbyPlayersRef = null;
+    renderLobbyList([{ nickname: myNickname+' (나)', status:'lobby' }]);
+}
 
-    // BroadcastChannel로 같은 브라우저 탭들과 통신
-    let bc = null;
-    try { bc = new BroadcastChannel('hyper_attack_lobby'); } catch(e) {}
+function bcUpdateStatus(status, mode) {
+    if (!bc) return;
+    if (bcPlayers[myBcId]) { bcPlayers[myBcId].status = status; bcPlayers[myBcId].mode = mode||''; }
+    bc.postMessage({ type:'status_update', id:myBcId, status, mode: mode||'', peerId: peer?.id||'' });
+}
 
-    // ═══════════════════════════════════════════════════
-    //  게임 설정 & 변수
-    // ═══════════════════════════════════════════════════
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
+function renderLobbyList(players) {
+    const list  = document.getElementById('player-list');
+    const count = document.getElementById('online-count');
+    const cols  = ['#3498db','#e74c3c','#2ecc71','#f39c12','#9b59b6','#1abc9c'];
 
-    const canvasWidth = Math.min(window.innerWidth, 480);
-    const canvasHeight = Math.min(window.innerHeight - 36, 640);
-    canvas.width = canvasWidth;
-    canvas.height = canvasHeight;
+    // 나 자신도 항상 포함
+    const selfEntry = { nickname: myNickname + ' (나)', status: 'lobby', isSelf: true };
+    const others = players.filter(p => p.nickname !== myNickname + ' (나)' && !p.isSelf);
+    const all = [selfEntry, ...others];
 
-    const midLineY = canvasHeight * 0.45;
+    count.textContent = `(${all.length}명)`;
 
-    let gold = 0;
-    let round = 1;
-    let isGameOver = false;
-    let gameSpeed = 1;
-    let isDevMode = false;
-    let roundBannerTimer = 0;
-    let roundBannerText = "";
-
-    // 닉네임
-    let myNickname = localStorage.getItem('nickname') || ('플레이어' + Math.floor(Math.random()*9000+1000));
-    document.getElementById('setNickname').value = myNickname;
-
-    // 멀티플레이 변수
-    let currentGameMode = 'SOLO';
-    let isMulti = false;
-    let isHost = false;
-    let peer = null;
-    let conn = null;
-    let peerPlayer = null; // 상대방 상태
-    let matchingMode = null;
-    let matchingRef = null; // Firebase 매칭 대기열 ref
-    let myMatchingKey = null;
-    let pingStart = 0;
-    let currentPing = 0;
-
-    // Delta Time 관련
-    let lastTimestamp = 0;
-    const TARGET_FPS = 60;
-    const FIXED_DT = 1000 / TARGET_FPS; // 16.67ms
-
-    // ═══════════════════════════════════════════════════
-    //  플레이어 & 타워
-    // ═══════════════════════════════════════════════════
-    const player = {
-        x: canvasWidth / 2, y: canvasHeight - 120,
-        targetX: canvasWidth / 2, targetY: canvasHeight - 120,
-        radius: 18,
-        // 속도: px/초 단위로 통일
-        moveSpeed: 228,      // 3.8 * 60
-        hp: 200, maxHp: 200,
-        attackPower: 30,
-        attackBaseCooldown: 0.25, // 초 단위
-        attackCooldown: 0,        // 초 단위
-        attackRange: 170,
-        qBuffTimer: 0, qCooldown: 0,
-        wBuffTimer: 0, wCooldown: 0,
-        eCooldown: 0, eEffectTimer: 0,
-        lifesteal: 0,
-        scopeChance: 0.25,
-        explosionChance: 0
-    };
-
-    const tower = {
-        x: canvasWidth / 2, y: canvasHeight - 40,
-        radius: 30, hp: 1500, maxHp: 1500
-    };
-
-    const statUpgrades = {
-        atk: { level: 0, basePrice: 50, priceMult: 1.4 },
-        spd: { level: 0, basePrice: 70, priceMult: 1.5 }
-    };
-
-    const equipmentItems = [
-        { id:'doran', name:'🗡️ 도란의 검', desc:'공격력 +15, 체력 +40', price:150, bought:false,
-          apply:() => { player.attackPower += 15; player.maxHp += 40; player.hp += 40; } },
-        { id:'boots', name:'👟 광전사의 신발', desc:'이속 +0.8, 공속 +15%', price:220, bought:false,
-          apply:() => { player.moveSpeed += 48; player.attackBaseCooldown = Math.max(0.05, player.attackBaseCooldown * 0.85); } },
-        { id:'vamp', name:'🩸 흡혈의 낫', desc:'타격 시 체력 +4 회복', price:280, bought:false,
-          apply:() => { player.lifesteal += 4; } },
-        { id:'expOrb', name:'💥 폭발의 구슬', desc:'30% 확률 탄환 폭발', price:300, bought:false,
-          apply:() => { player.explosionChance += 0.3; } },
-        { id:'warmog', name:'🛡️ 워모그의 갑옷', desc:'체력 +150 & 타워 +300', price:350, bought:false,
-          apply:() => { player.maxHp += 150; player.hp += 150; tower.maxHp += 300; tower.hp = Math.min(tower.maxHp, tower.hp+300); } }
-    ];
-
-    let minions = [];
-    let projectiles = [];
-    let floatingTexts = [];
-    let explosions = [];
-    let scopeEffects = [];
-    let shockwaves = [];
-    let isWaveActive = false;
-
-    // ═══════════════════════════════════════════════════
-    //  FIREBASE 초기화
-    // ═══════════════════════════════════════════════════
-    function initFirebase() {
-        try {
-            firebase.initializeApp(firebaseConfig);
-            firebaseDB = firebase.database();
-            firebaseAvailable = true;
-            registerInLobby();
-            listenToLobby();
-        } catch(e) {
-            console.warn('Firebase 연결 실패, 로컬 모드로 동작:', e);
-            firebaseAvailable = false;
-            useBroadcastChannelLobby();
-        }
+    if (all.length === 0) {
+        list.innerHTML = '<div style="font-size:11px;color:#555;text-align:center;padding:10px;">아직 아무도 없어요 👻</div>';
+        return;
     }
 
-    function registerInLobby() {
-        if (!firebaseAvailable) return;
-        lobbyPlayersRef = firebaseDB.ref('lobby/players');
-        const myRef = lobbyPlayersRef.push({
-            nickname: myNickname,
-            peerId: peer ? peer.id : '',
-            status: 'lobby',
-            mode: '',
-            ts: Date.now()
-        });
-        myFirebaseKey = myRef.key;
-        // 연결 끊기면 자동 제거
-        myRef.onDisconnect().remove();
-    }
+    list.innerHTML = all.map((p, i) => {
+        const c = cols[i % cols.length];
+        const em = p.status === 'playing' ? '🎮' : '🕹️';
+        const sc = p.status === 'playing' ? 'st-play' : 'st-wait';
+        const st = p.status === 'playing' ? '게임중' : '대기중';
+        // 연결 버튼: 상대방이 대기 중이고 PeerID가 있을 때
+        const connectBtn = (!p.isSelf && p.peerId && p.status === 'lobby')
+            ? `<button class="pli-connect" onclick="connectToBcPlayer('${p.peerId}')">연결</button>`
+            : '';
+        return `<div class="pli">
+            <div class="pli-avatar" style="background:${c}22;border:1px solid ${c};">${em}</div>
+            <div class="pli-name">${p.nickname||'익명'}</div>
+            <div class="pli-status ${sc}">${st}</div>
+            ${connectBtn}
+        </div>`;
+    }).join('');
+}
 
-    function listenToLobby() {
-        if (!firebaseAvailable) return;
-        lobbyPlayersRef.on('value', snap => {
-            const players = [];
-            snap.forEach(child => {
-                players.push({ key: child.key, ...child.val() });
-            });
-            renderLobbyPlayerList(players);
-        });
-    }
-
-    function updateMyLobbyStatus(status, mode) {
-        if (!firebaseAvailable || !myFirebaseKey) return;
-        firebaseDB.ref(`lobby/players/${myFirebaseKey}`).update({
-            status: status,
-            mode: mode || '',
-            peerId: peer ? peer.id : '',
-            ts: Date.now()
-        });
-    }
-
-    // BroadcastChannel 폴백 (같은 브라우저 탭들 간)
-    const bcPlayers = {};
-    function useBroadcastChannelLobby() {
-        if (!bc) {
-            renderLobbyPlayerList([]);
-            return;
-        }
-        // 내 정보 브로드캐스트
-        const myBcId = 'bc_' + Math.random().toString(36).slice(2,8);
-        bcPlayers[myBcId] = { nickname: myNickname, status: 'lobby', mode: '' };
-
-        bc.postMessage({ type: 'join', id: myBcId, nickname: myNickname });
-
-        bc.onmessage = (e) => {
-            const d = e.data;
-            if (d.type === 'join') {
-                bcPlayers[d.id] = { nickname: d.nickname, status: 'lobby', mode: '' };
-                bc.postMessage({ type: 'here', id: myBcId, nickname: myNickname });
-                renderLobbyPlayerList(Object.entries(bcPlayers).map(([k,v]) => ({key:k,...v})));
-            } else if (d.type === 'here') {
-                bcPlayers[d.id] = { nickname: d.nickname, status: 'lobby', mode: '' };
-                renderLobbyPlayerList(Object.entries(bcPlayers).map(([k,v]) => ({key:k,...v})));
-            } else if (d.type === 'leave') {
-                delete bcPlayers[d.id];
-                renderLobbyPlayerList(Object.entries(bcPlayers).map(([k,v]) => ({key:k,...v})));
-            }
-        };
-
-        renderLobbyPlayerList([{ key: myBcId, nickname: myNickname + ' (나)', status: 'lobby' }]);
-    }
-
-    function renderLobbyPlayerList(players) {
-        const list = document.getElementById('player-list');
-        const countEl = document.getElementById('online-count');
-        const colors = ['#3498db','#e74c3c','#2ecc71','#f39c12','#9b59b6','#1abc9c'];
-
-        // 오래된 항목(2분 이상) 필터
-        const now = Date.now();
-        const active = players.filter(p => !p.ts || (now - p.ts) < 120000);
-        countEl.textContent = `(${active.length}명)`;
-
-        if (active.length === 0) {
-            list.innerHTML = '<div style="font-size:11px; color:#555; text-align:center; padding:10px;">아직 아무도 없어요 👻</div>';
-            return;
-        }
-
-        list.innerHTML = active.map((p, i) => {
-            const avatarColor = colors[i % colors.length];
-            const emoji = p.status === 'playing' ? '🎮' : '🕹️';
-            const statusClass = p.status === 'playing' ? 'status-playing' : 'status-waiting';
-            const statusText = p.status === 'playing' ? '게임중' : '대기중';
-            return `
-                <div class="player-list-item">
-                    <div class="player-list-avatar" style="background:${avatarColor}22; border:1px solid ${avatarColor};">${emoji}</div>
-                    <div class="player-list-name">${p.nickname || '익명'}</div>
-                    <div class="player-list-status ${statusClass}">${statusText}</div>
-                </div>
-            `;
-        }).join('');
-    }
-
-    // ═══════════════════════════════════════════════════
-    //  PEERJS 초기화
-    // ═══════════════════════════════════════════════════
-    function initPeer(callback) {
-        if (peer && peer.id) {
-            if (callback) callback(peer.id);
-            return;
-        }
-        if (peer) peer.destroy();
-
-        peer = new Peer({
-            config: {
-                iceServers: [
-                    { urls: 'stun:stun.l.google.com:19302' },
-                    { urls: 'stun:stun1.l.google.com:19302' }
-                ]
-            }
-        });
-
-        peer.on('open', (id) => {
-            document.getElementById('myPeerId').innerText = id;
-            if (callback) callback(id);
-            // Firebase에 peerId 업데이트
-            if (firebaseAvailable && myFirebaseKey) {
-                firebaseDB.ref(`lobby/players/${myFirebaseKey}`).update({ peerId: id });
-            }
-        });
-
-        peer.on('connection', (c) => {
-            conn = c;
-            isHost = true;
-            setupConnection('HOST');
-        });
-
-        peer.on('error', (err) => {
-            console.error("Peer Error:", err);
-            setMultiStatus('⚠️ 연결 오류: ' + err.type);
-        });
-    }
-
-    function setupConnection(role) {
-        isHost = (role === 'HOST');
-        setMultiStatus('✅ 상대방과 연결되었습니다!');
-        addChatLog(`[멀티] ${isHost ? 'HOST' : 'GUEST'} 로 연결 완료!`, true);
-
-        peerPlayer = {
-            x: canvasWidth / 2 + 40, y: canvasHeight - 120,
-            hp: 200, maxHp: 200,
-            nickname: '상대방',
-            round: 1
-        };
-
-        conn.on('open', () => {
-            isMulti = true;
-            // HOST가 게임 시작 신호 전송
-            if (isHost) {
-                setTimeout(() => {
-                    conn.send({ type: 'start_game', mode: currentGameMode });
-                }, 500);
-            }
-        });
-
-        conn.on('data', (data) => {
-            handleNetworkData(data);
-        });
-
-        conn.on('close', () => {
-            addChatLog('[시스템] 상대방 연결이 끊어졌습니다.', true);
-            isMulti = false;
-            peerPlayer = null;
-            updateEnemyPanel();
-        });
-
-        conn.on('error', (err) => {
-            console.error('Connection error:', err);
-        });
-    }
-
-    function handleNetworkData(data) {
-        if (!data || !data.type) return;
-
-        switch(data.type) {
-            case 'start_game':
-                currentGameMode = data.mode;
-                closeModal('modalMulti');
-                closeModal('modalMatch');
-                document.getElementById('main-lobby').style.display = 'none';
-                document.getElementById('btnOpenMulti').style.display = 'flex';
-                resetGameState();
-                addChatLog(`[시스템] ${currentGameMode} 멀티 게임 시작!`, true);
-                break;
-
-            case 'pos':
-                // 상대방 위치
-                if (peerPlayer) {
-                    peerPlayer.x = data.x;
-                    peerPlayer.y = data.y;
-                }
-                break;
-
-            case 'state':
-                // HOST → GUEST: 전체 게임 상태
-                if (!isHost && peerPlayer) {
-                    peerPlayer.hp = data.hp;
-                    peerPlayer.maxHp = data.maxHp;
-                    peerPlayer.round = data.round;
-                    peerPlayer.nickname = data.nickname || '상대방';
-                    peerPlayer.x = data.x;
-                    peerPlayer.y = data.y;
-
-                    // GUEST는 HOST에서 받은 몬스터 정보로 렌더링 (COOP 모드)
-                    if (currentGameMode === 'COOP' && data.minions) {
-                        // 공유 몬스터 상태 (COOP에서 HOST 권위)
-                        syncMinionState(data.minions);
-                    }
-                    updateEnemyPanel();
-                }
-                // GUEST → HOST: 상대방 상태
-                if (isHost && peerPlayer) {
-                    peerPlayer.hp = data.hp;
-                    peerPlayer.maxHp = data.maxHp;
-                    peerPlayer.round = data.round;
-                    peerPlayer.nickname = data.nickname || '상대방';
-                    peerPlayer.x = data.x;
-                    peerPlayer.y = data.y;
-                    updateEnemyPanel();
-                }
-                break;
-
-            case 'minion_hit':
-                // 상대가 몬스터에게 데미지를 줬을 때
-                if (data.minionIdx !== undefined && minions[data.minionIdx]) {
-                    minions[data.minionIdx].hp -= data.damage;
-                    floatingTexts.push(new FloatingText(`-${data.damage}`, minions[data.minionIdx].x, minions[data.minionIdx].y - 10, '#9b59b6'));
-                }
-                break;
-
-            case 'chat':
-                addChatLog(`[상대] ${data.msg}`);
-                break;
-
-            case 'ping':
-                conn.send({ type: 'pong', ts: data.ts });
-                break;
-
-            case 'pong':
-                currentPing = Date.now() - data.ts;
-                document.getElementById('ping-indicator').textContent = `핑: ${currentPing}ms`;
-                break;
-
-            case 'game_over':
-                if (!isGameOver) {
-                    addChatLog(`[시스템] 상대방 게임 오버! 당신이 승리했습니다! 🏆`, true);
-                    document.getElementById('game-msg').style.color = '#2ecc71';
-                    document.getElementById('game-msg').innerText = '🏆 승리!';
-                    document.getElementById('game-msg').style.display = 'block';
-                }
-                break;
-        }
-    }
-
-    function syncMinionState(hostMinions) {
-        // COOP: HOST 몬스터 상태를 GUEST에 동기화 (위치만)
-        for (let i = 0; i < Math.min(hostMinions.length, minions.length); i++) {
-            minions[i].x = hostMinions[i].x;
-            minions[i].y = hostMinions[i].y;
-            minions[i].hp = hostMinions[i].hp;
-        }
-    }
-
-    // 주기적으로 상태 전송 (60ms마다)
-    let netSendInterval = null;
-    function startNetSync() {
-        if (netSendInterval) clearInterval(netSendInterval);
-        netSendInterval = setInterval(() => {
-            if (!conn || !conn.open) return;
-            const payload = {
-                type: 'state',
-                x: player.x, y: player.y,
-                hp: player.hp, maxHp: player.maxHp,
-                round: round,
-                nickname: myNickname
-            };
-            // HOST COOP: 몬스터 상태도 전송
-            if (isHost && currentGameMode === 'COOP' && minions.length > 0) {
-                payload.minions = minions.slice(0, 20).map(m => ({ x: m.x, y: m.y, hp: m.hp }));
-            }
-            conn.send(payload);
-        }, 60);
-
-        // 핑 체크 (3초마다)
-        setInterval(() => {
-            if (conn && conn.open) {
-                pingStart = Date.now();
-                conn.send({ type: 'ping', ts: pingStart });
-            }
-        }, 3000);
-    }
-
-    function sendMinionHit(minionIdx, damage) {
-        if (conn && conn.open && minionIdx >= 0) {
-            conn.send({ type: 'minion_hit', minionIdx, damage });
-        }
-    }
-
-    function updateEnemyPanel() {
-        const panel = document.getElementById('enemy-ui-panel');
-        if (!isMulti || !peerPlayer) {
-            panel.style.display = 'none';
-            return;
-        }
-        panel.style.display = 'flex';
-        document.getElementById('enemy-name').textContent = peerPlayer.nickname || '상대방';
-        document.getElementById('enemyHpBar').style.width = Math.max(0, (peerPlayer.hp / peerPlayer.maxHp) * 100) + '%';
-        document.getElementById('enemyHpText').textContent = `${Math.ceil(Math.max(0, peerPlayer.hp))}/${peerPlayer.maxHp}`;
-        document.getElementById('enemy-round-info').textContent = `R${peerPlayer.round || 1}`;
-    }
-
-    // ═══════════════════════════════════════════════════
-    //  무작위 매칭 (Firebase 대기열)
-    // ═══════════════════════════════════════════════════
-    function startRandomMatching(mode) {
-        matchingMode = mode;
-        openModal('modalMatch');
-        document.getElementById('matchModalTitle').textContent = `🔍 ${mode} 무작위 매칭`;
-        document.getElementById('matchText').textContent = '대기열에 등록 중...';
-        document.getElementById('match-queue-list').innerHTML = '';
-
-        initPeer((myId) => {
-            document.getElementById('matchMyId').textContent = `내 ID: ${myId}`;
-            registerInMatchQueue(mode, myId);
-        });
-    }
-
-    function registerInMatchQueue(mode, myPeerId) {
-        document.getElementById('matchText').textContent = '대기 중인 플레이어를 찾고 있습니다...';
-
-        if (firebaseAvailable) {
-            const queueRef = firebaseDB.ref('matchQueue');
-            const myEntry = queueRef.push({
-                nickname: myNickname,
-                peerId: myPeerId,
-                mode: mode,
-                ts: Date.now()
-            });
-            myMatchingKey = myEntry.key;
-            myEntry.onDisconnect().remove();
-
-            // 대기열 실시간 감지
-            queueRef.on('value', snap => {
-                const queue = [];
-                snap.forEach(child => {
-                    const val = child.val();
-                    if (child.key !== myMatchingKey && val.mode === mode && Date.now() - val.ts < 60000) {
-                        queue.push({ key: child.key, ...val });
-                    }
-                });
-                renderMatchQueue(queue);
-            });
-        } else {
-            // Firebase 없을 때: BroadcastChannel로 같은 PC 탭들 간 매칭
-            if (bc) {
-                bc.postMessage({ type: 'match_seek', peerId: myPeerId, mode, nickname: myNickname });
-                bc.onmessage = (e) => {
-                    if (e.data.type === 'match_seek' && e.data.mode === mode) {
-                        renderMatchQueue([{ nickname: e.data.nickname, peerId: e.data.peerId, mode }]);
-                    }
-                };
-            }
-            document.getElementById('matchText').textContent = '같은 브라우저 내 탭을 찾고 있습니다. 또는 친구에게 ID를 공유하세요.';
-            document.getElementById('matchMyId').textContent = `내 ID: ${myPeerId} (복사하여 친구에게 공유)`;
-        }
-    }
-
-    function renderMatchQueue(queue) {
-        const container = document.getElementById('match-queue-list');
-        if (queue.length === 0) {
-            container.innerHTML = '<div style="font-size:11px; color:#555; text-align:center; padding:8px;">대기 중인 플레이어가 없습니다. 잠시 기다려주세요...</div>';
-            document.getElementById('matchText').textContent = '대기 중인 플레이어를 찾고 있습니다...';
-            return;
-        }
-        document.getElementById('matchText').textContent = `${queue.length}명의 플레이어가 매칭 대기 중입니다!`;
-        container.innerHTML = queue.map(p => `
-            <div class="match-queue-item" onclick="connectToMatchPlayer('${p.peerId}', '${p.key || ''}')">
-                <span style="font-size:18px;">🎮</span>
-                <span class="mq-name">${p.nickname || '익명'}</span>
-                <span class="mq-mode">${p.mode}</span>
-                <button class="btn-connect">연결</button>
-            </div>
-        `).join('');
-    }
-
-    function connectToMatchPlayer(targetPeerId, targetKey) {
-        if (!peer || !targetPeerId) return;
-        document.getElementById('matchText').textContent = '연결 중...';
-        conn = peer.connect(targetPeerId);
+// 로비에서 직접 연결
+function connectToBcPlayer(targetPeerId) {
+    if (!targetPeerId) return;
+    currentGameMode = 'PVP';
+    initPeer((myId) => {
+        conn = peer.connect(targetPeerId, { reliable: true });
         isHost = false;
         setupConnection('GUEST');
+    });
+}
 
-        // 대기열에서 제거
-        removeFromMatchQueue();
-
-        conn.on('open', () => {
-            // GUEST가 먼저 연결 신호
-            conn.send({ type: 'start_game', mode: matchingMode });
-            closeModal('modalMatch');
-            document.getElementById('main-lobby').style.display = 'none';
-            document.getElementById('btnOpenMulti').style.display = 'flex';
-            resetGameState();
-            addChatLog(`[시스템] ${matchingMode} 멀티 게임 시작!`, true);
-            startNetSync();
-        });
+// ─── PeerJS 초기화 ───
+function initPeer(callback) {
+    if (peer && peer.id && !peer.destroyed) {
+        if (callback) callback(peer.id);
+        return;
     }
+    if (peer && !peer.destroyed) peer.destroy();
 
-    function cancelMatching() {
-        removeFromMatchQueue();
-        closeModal('modalMatch');
-    }
-
-    function removeFromMatchQueue() {
-        if (firebaseAvailable && myMatchingKey) {
-            firebaseDB.ref(`matchQueue/${myMatchingKey}`).remove();
-            myMatchingKey = null;
+    peer = new Peer(undefined, {
+        config: {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun.cloudflare.com:3478' }
+            ]
         }
-    }
+    });
 
-    // ═══════════════════════════════════════════════════
-    //  친구랑 하기
-    // ═══════════════════════════════════════════════════
-    function openFriendRoomModal(mode) {
-        currentGameMode = mode;
-        openModal('modalMulti');
-        initPeer();
-    }
+    peer.on('open', (id) => {
+        document.getElementById('myPeerId').innerText = id;
+        // BroadcastChannel에 peerId 업데이트
+        if (bcPlayers[myBcId]) bcPlayers[myBcId].peerId = id;
+        if (bc) bc.postMessage({ type:'here', id:myBcId, nickname:myNickname, peerId:id });
+        if (callback) callback(id);
+    });
 
-    function createHostRoom() {
-        initPeer((id) => {
-            setMultiStatus(`✅ 방 생성 완료! ID를 친구에게 공유하세요:\n${id}`);
-        });
-    }
+    // HOST 수신
+    peer.on('connection', (c) => {
+        conn = c;
+        isHost = true;
+        setupConnection('HOST');
+    });
 
-    function connectToPeer() {
-        const destId = document.getElementById('roomCodeInput').value.trim();
-        if (!destId) { setMultiStatus('상대방 ID를 입력하세요.'); return; }
-        setMultiStatus('연결 시도 중...');
-        initPeer(() => {
-            conn = peer.connect(destId);
-            isHost = false;
-            setupConnection('GUEST');
-            conn.on('open', () => {
-                conn.send({ type: 'start_game', mode: currentGameMode });
-                closeModal('modalMulti');
-                document.getElementById('main-lobby').style.display = 'none';
-                document.getElementById('btnOpenMulti').style.display = 'flex';
-                resetGameState();
-                addChatLog(`[시스템] ${currentGameMode} 멀티 게임 시작!`, true);
-                startNetSync();
-            });
-        });
-    }
-
-    function copyMyId() {
-        const id = document.getElementById('myPeerId').innerText;
-        if (navigator.clipboard) navigator.clipboard.writeText(id).then(() => setMultiStatus('✅ ID가 복사되었습니다!'));
-        else {
-            const el = document.createElement('textarea');
-            el.value = id; document.body.appendChild(el);
-            el.select(); document.execCommand('copy');
-            document.body.removeChild(el);
-            setMultiStatus('✅ ID가 복사되었습니다!');
+    peer.on('error', (err) => {
+        console.error('[Peer Error]', err.type, err);
+        const msg = {
+            'peer-unavailable': '상대방을 찾을 수 없습니다. ID를 다시 확인하세요.',
+            'network':          '네트워크 오류가 발생했습니다.',
+            'unavailable-id':   '이미 사용 중인 ID입니다. 새로고침 해보세요.',
+        }[err.type] || '연결 오류: ' + err.type;
+        setMultiStatus('⚠️ ' + msg);
+        if (document.getElementById('matchText')) {
+            document.getElementById('matchText').textContent = '⚠️ ' + msg;
         }
-    }
+    });
+}
 
-    function setMultiStatus(msg) {
-        document.getElementById('multiStatus').innerText = msg;
-    }
+// ─── 연결 셋업 ───
+function setupConnection(role) {
+    isHost = (role === 'HOST');
+    console.log('[Multi] setupConnection as', role, conn);
 
-    // ═══════════════════════════════════════════════════
-    //  모달 관리
-    // ═══════════════════════════════════════════════════
-    function openModal(id) {
-        document.getElementById(id).style.display = 'flex';
-    }
+    // peerPlayer 초기화
+    peerPlayer = { x: CW/2+40, y: CH-120, hp:200, maxHp:200, nickname:'상대방', round:1 };
 
-    function closeModal(id) {
-        document.getElementById(id).style.display = 'none';
-    }
+    conn.on('open', () => {
+        console.log('[Multi] Connection open, role:', role);
+        setMultiStatus('✅ 상대방과 연결되었습니다!');
+        addChatLog(`[멀티] ${isHost ? 'HOST' : 'GUEST'} 연결 완료!`, true);
+        isMulti = true;
 
-    // ═══════════════════════════════════════════════════
-    //  게임 모드 시작
-    // ═══════════════════════════════════════════════════
-    function startSoloPlay() {
-        currentGameMode = 'SOLO';
-        isMulti = false;
-        document.getElementById('btnOpenMulti').style.display = 'none';
-        document.getElementById('main-lobby').style.display = 'none';
-        updateMyLobbyStatus('playing', 'SOLO');
-        resetGameState();
-        addChatLog('[시스템] 솔로 매치가 시작되었습니다.', true);
-    }
+        // HOST가 게임 시작 신호
+        if (isHost) {
+            setTimeout(() => {
+                if (conn && conn.open) {
+                    conn.send({ type:'start_game', mode: currentGameMode });
+                    // HOST도 게임 시작
+                    closeAllModals();
+                    document.getElementById('main-lobby').style.display = 'none';
+                    document.getElementById('btnOpenMulti').style.display = 'flex';
+                    startGame();
+                    addChatLog(`[시스템] ${currentGameMode} 멀티 게임 시작! (HOST)`, true);
+                }
+            }, 600);
+        }
+        startNetSync();
+    });
 
-    function returnToLobby() {
-        closeModal('modalSettings');
+    conn.on('data', handleNetworkData);
+
+    conn.on('close', () => {
+        addChatLog('[시스템] 상대방 연결이 끊어졌습니다.', true);
         isMulti = false;
         peerPlayer = null;
         updateEnemyPanel();
-        updateMyLobbyStatus('lobby', '');
         if (netSendInterval) { clearInterval(netSendInterval); netSendInterval = null; }
-        document.getElementById('main-lobby').style.display = 'flex';
-        document.getElementById('game-msg').style.display = 'none';
-        document.getElementById('game-msg').style.color = '#e74c3c';
-        document.getElementById('game-msg').innerText = '게임 오버!';
-    }
+    });
 
-    function saveSettings() {
-        myNickname = document.getElementById('setNickname').value.trim() || myNickname;
-        localStorage.setItem('nickname', myNickname);
-        updateMyLobbyStatus('lobby', '');
-        closeModal('modalSettings');
-    }
+    conn.on('error', (err) => { console.error('[Conn Error]', err); });
+}
 
-    // ═══════════════════════════════════════════════════
-    //  게임 상태 리셋
-    // ═══════════════════════════════════════════════════
-    function resetGameState() {
-        player.hp = player.maxHp;
-        tower.hp = tower.maxHp;
-        player.x = canvasWidth / 2;
-        player.y = canvasHeight - 120;
-        player.targetX = player.x;
-        player.targetY = player.y;
-        player.attackCooldown = 0;
-        player.qCooldown = 0; player.qBuffTimer = 0;
-        player.wCooldown = 0; player.wBuffTimer = 0;
-        player.eCooldown = 0;
-        minions = [];
-        projectiles = [];
-        floatingTexts = [];
-        explosions = [];
-        scopeEffects = [];
-        shockwaves = [];
-        gold = 0;
-        round = 1;
-        isWaveActive = false;
-        isGameOver = false;
-        lastTimestamp = 0;
-        document.getElementById('game-msg').style.display = 'none';
-        document.getElementById('game-msg').style.color = '#e74c3c';
-        document.getElementById('game-msg').innerText = '게임 오버!';
-        updateUI();
-        updateMyLobbyStatus('playing', currentGameMode);
-        if (isMulti) {
-            updateEnemyPanel();
-            startNetSync();
-        }
-        requestAnimationFrame(gameLoop);
-    }
+// ─── 네트워크 데이터 처리 ───
+function handleNetworkData(data) {
+    if (!data || !data.type) return;
 
-    // ═══════════════════════════════════════════════════
-    //  채팅
-    // ═══════════════════════════════════════════════════
-    function handleChatKey(e) {
-        if (e.key === 'Enter') {
-            const input = document.getElementById('chat-input');
-            const val = input.value.trim();
-            if (!val) return;
-            addChatLog(`나: ${val}`);
-            if (conn && conn.open) conn.send({ type: 'chat', msg: val });
-            if (val === '개발자모드') {
-                const code = prompt('코드를 입력하라:');
-                if (code === '물게피스') {
-                    isDevMode = true;
-                    document.getElementById('dev-panel').style.display = 'flex';
-                    addChatLog('[시스템] 개발자 모드 활성화!', true);
-                } else {
-                    addChatLog('[시스템] 잘못된 코드입니다.', true);
-                }
+    switch (data.type) {
+        case 'start_game':
+            // GUEST가 받으면 게임 시작
+            if (!isHost) {
+                currentGameMode = data.mode;
+                closeAllModals();
+                document.getElementById('main-lobby').style.display = 'none';
+                document.getElementById('btnOpenMulti').style.display = 'flex';
+                startGame();
+                addChatLog(`[시스템] ${currentGameMode} 멀티 게임 시작! (GUEST)`, true);
             }
-            input.value = '';
-        }
+            break;
+
+        case 'state':
+            if (peerPlayer) {
+                peerPlayer.x        = data.x ?? peerPlayer.x;
+                peerPlayer.y        = data.y ?? peerPlayer.y;
+                peerPlayer.hp       = data.hp ?? peerPlayer.hp;
+                peerPlayer.maxHp    = data.maxHp ?? peerPlayer.maxHp;
+                peerPlayer.round    = data.round ?? peerPlayer.round;
+                peerPlayer.nickname = data.nickname || peerPlayer.nickname;
+                updateEnemyPanel();
+            }
+            break;
+
+        case 'minion_hit':
+            if (data.idx !== undefined && minions[data.idx]) {
+                minions[data.idx].hp -= data.dmg;
+                floatingTexts.push(new FloatingText(`-${data.dmg}`, minions[data.idx].x, minions[data.idx].y - 10, '#9b59b6'));
+            }
+            break;
+
+        case 'chat':
+            addChatLog(`[상대] ${data.msg}`);
+            break;
+
+        case 'ping':
+            if (conn && conn.open) conn.send({ type:'pong', ts: data.ts });
+            break;
+
+        case 'pong':
+            currentPing = Date.now() - data.ts;
+            const pi = document.getElementById('ping-indicator');
+            if (pi) pi.textContent = `핑: ${currentPing}ms`;
+            break;
+
+        case 'game_over':
+            if (!isGameOver) {
+                addChatLog('[시스템] 상대방 패배! 🏆 승리!', true);
+                document.getElementById('game-msg').style.color = '#2ecc71';
+                document.getElementById('game-msg').innerText = '🏆 승리!';
+                document.getElementById('game-msg').style.display = 'block';
+                isGameOver = true;
+            }
+            break;
+
+        case 'dice_used':
+            addChatLog(`[상대] 다이스 사용: ${data.result}`, true);
+            break;
     }
+}
 
-    function addChatLog(msg, isSys = false) {
-        const logs = document.getElementById('chat-logs');
-        const div = document.createElement('div');
-        div.className = isSys ? 'chat-msg chat-sys' : 'chat-msg';
-        div.innerText = msg;
-        logs.appendChild(div);
-        logs.scrollTop = logs.scrollHeight;
-    }
-
-    // ═══════════════════════════════════════════════════
-    //  개발자 도구
-    // ═══════════════════════════════════════════════════
-    function addDevGold() {
-        gold += 10000;
-        updateUI();
-        addChatLog('[개발자] 10,000 Gold 지급.', true);
-    }
-
-    function toggleGameSpeed() {
-        if (gameSpeed === 1) gameSpeed = 2;
-        else if (gameSpeed === 2) gameSpeed = 3;
-        else gameSpeed = 1;
-        document.getElementById('speed-label').innerText = `${gameSpeed}x`;
-        addChatLog(`[개발자] 배속 ${gameSpeed}x`, true);
-    }
-
-    // ═══════════════════════════════════════════════════
-    //  UI 업데이트
-    // ═══════════════════════════════════════════════════
-    function updateUI() {
-        document.getElementById('gold').innerText = gold;
-        document.getElementById('round').innerText = round;
-
-        document.getElementById('playerHpBar').style.width = Math.max(0, (player.hp / player.maxHp) * 100) + '%';
-        document.getElementById('playerHpText').innerText = `${Math.ceil(Math.max(0, player.hp))}/${player.maxHp}`;
-
-        document.getElementById('towerHpBar').style.width = Math.max(0, (tower.hp / tower.maxHp) * 100) + '%';
-        document.getElementById('towerHpText').innerText = `${Math.ceil(Math.max(0, tower.hp))}`;
-
-        const cdFmt = (cd) => cd > 0 ? `${cd.toFixed(1)}s` : 'READY';
-        document.getElementById('cdQ').innerText = cdFmt(player.qCooldown);
-        document.getElementById('cdW').innerText = cdFmt(player.wCooldown);
-        document.getElementById('cdE').innerText = cdFmt(player.eCooldown);
-    }
-
-    // ═══════════════════════════════════════════════════
-    //  상점
-    // ═══════════════════════════════════════════════════
-    function renderShop() {
-        const atkPrice = Math.floor(statUpgrades.atk.basePrice * Math.pow(statUpgrades.atk.priceMult, statUpgrades.atk.level));
-        const spdPrice = Math.floor(statUpgrades.spd.basePrice * Math.pow(statUpgrades.spd.priceMult, statUpgrades.spd.level));
-
-        let html = `
-            <div class="shop-section-title">⚡ 스탯 강화</div>
-            <div class="shop-item"><div><b>공격력 +10</b> (Lv.${statUpgrades.atk.level})<br><small style="color:#aaa">${atkPrice}G</small></div><button class="btn-buy" onclick="buyStatUpgrade('atk')">구매</button></div>
-            <div class="shop-item"><div><b>공속 +10%</b> (Lv.${statUpgrades.spd.level})<br><small style="color:#aaa">${spdPrice}G</small></div><button class="btn-buy" onclick="buyStatUpgrade('spd')">구매</button></div>
-            <div class="shop-section-title">🗡️ 장비 아이템</div>
-        `;
-        equipmentItems.forEach((item, idx) => {
-            html += `<div class="shop-item"><div><b>${item.name}</b><br><small style="color:#aaa">${item.desc} / ${item.price}G</small></div>
-                ${item.bought ? `<button class="btn-buy btn-bought" disabled>완료</button>` : `<button class="btn-buy" onclick="buyEquipment(${idx})">구매</button>`}</div>`;
+// ─── 상태 전송 ───
+function startNetSync() {
+    if (netSendInterval) clearInterval(netSendInterval);
+    netSendInterval = setInterval(() => {
+        if (!conn || !conn.open) return;
+        conn.send({
+            type:'state', x:player.x, y:player.y,
+            hp:player.hp, maxHp:player.maxHp,
+            round:round, nickname:myNickname
         });
-        document.getElementById('shopContent').innerHTML = html;
-    }
+    }, 80);
 
-    function buyStatUpgrade(type) {
-        const stat = statUpgrades[type];
-        const price = Math.floor(stat.basePrice * Math.pow(stat.priceMult, stat.level));
-        if (gold >= price) {
-            gold -= price;
-            if (type === 'atk') player.attackPower += 10;
-            else player.attackBaseCooldown = Math.max(0.05, player.attackBaseCooldown * 0.9);
-            stat.level++;
-            updateUI(); renderShop();
+    // 핑 측정 (5초마다)
+    setInterval(() => {
+        if (conn && conn.open) conn.send({ type:'ping', ts: Date.now() });
+    }, 5000);
+}
+
+function sendMinionHit(idx, dmg) {
+    if (conn && conn.open && idx >= 0) conn.send({ type:'minion_hit', idx, dmg });
+}
+
+function updateEnemyPanel() {
+    const p = document.getElementById('enemy-ui-panel');
+    if (!isMulti || !peerPlayer) { p.style.display = 'none'; return; }
+    p.style.display = 'flex';
+    document.getElementById('enemy-name').textContent     = peerPlayer.nickname || '상대방';
+    document.getElementById('enemyHpBar').style.width     = Math.max(0,(peerPlayer.hp/peerPlayer.maxHp)*100)+'%';
+    document.getElementById('enemyHpText').textContent    = `${Math.ceil(Math.max(0,peerPlayer.hp))}/${peerPlayer.maxHp}`;
+    document.getElementById('enemy-round-info').textContent = `R${peerPlayer.round||1}`;
+}
+
+// ╔══════════════════════════════════════════════════════════╗
+// ║              MATCHING SYSTEM                             ║
+// ╚══════════════════════════════════════════════════════════╝
+function startRandomMatching(mode) {
+    matchingMode = mode;
+    openModal('modalMatch');
+    document.getElementById('matchModalTitle').textContent = `🔍 ${mode} 무작위 매칭`;
+    document.getElementById('matchText').textContent = 'PeerJS ID 생성 중...';
+    document.getElementById('match-queue-list').innerHTML = '';
+
+    initPeer((myId) => {
+        document.getElementById('matchMyId').textContent = `내 ID: ${myId}`;
+        document.getElementById('matchText').textContent = '대기열에 등록 중...';
+
+        // BroadcastChannel로 매칭 공고
+        if (bc) {
+            bcMatchQueue[myBcId] = { nickname:myNickname, peerId:myId, mode, id:myBcId };
+            bc.postMessage({ type:'match_seek', id:myBcId, nickname:myNickname, peerId:myId, mode });
         }
-    }
 
-    function buyEquipment(idx) {
-        const item = equipmentItems[idx];
-        if (!item.bought && gold >= item.price) {
-            gold -= item.price; item.bought = true; item.apply();
-            updateUI(); renderShop();
-        }
-    }
+        // 자기 자신 제외한 같은 모드 대기열 표시
+        const queue = Object.values(bcMatchQueue).filter(p => p.id !== myBcId && p.mode === mode);
+        renderMatchQueue(queue);
 
-    // ═══════════════════════════════════════════════════
-    //  입력 처리
-    // ═══════════════════════════════════════════════════
-    canvas.addEventListener('pointerdown', (e) => {
-        if (isGameOver) return;
-        const rect = canvas.getBoundingClientRect();
-        player.targetX = e.clientX - rect.left;
-        player.targetY = e.clientY - rect.top;
-    });
-
-    document.getElementById('btnQ').addEventListener('pointerdown', (e) => {
-        e.stopPropagation();
-        if (player.qCooldown <= 0) { player.qBuffTimer = 3; player.qCooldown = 6; } // 초 단위
-    });
-    document.getElementById('btnW').addEventListener('pointerdown', (e) => {
-        e.stopPropagation();
-        if (player.wCooldown <= 0) { player.wBuffTimer = 2.5; player.wCooldown = 7; }
-    });
-    document.getElementById('btnE').addEventListener('pointerdown', (e) => {
-        e.stopPropagation();
-        if (player.eCooldown <= 0) {
-            player.eCooldown = 8.33;
-            shockwaves.push({ x: player.x, y: player.y, radius: 10, maxRadius: 160, alpha: 1.0 });
-            for (let i = minions.length - 1; i >= 0; i--) {
-                const m = minions[i];
-                if (Math.hypot(m.x - player.x, m.y - player.y) <= 160) {
-                    const dmg = Math.floor(player.attackPower * 2.5);
-                    m.hp -= dmg;
-                    floatingTexts.push(new FloatingText(`-${dmg}`, m.x, m.y - 15, '#f1c40f'));
-                    sendMinionHit(i, dmg);
-                }
-            }
+        if (queue.length === 0) {
+            document.getElementById('matchText').textContent = `대기 중... (ID를 친구에게 공유해도 됩니다)`;
         }
     });
+}
 
-    document.getElementById('btnOpenStat').addEventListener('pointerdown', (e) => {
-        e.stopPropagation();
-        document.getElementById('statContent').innerHTML = `
-            • 체력: <b>${Math.ceil(player.hp)} / ${player.maxHp}</b><br>
-            • 공격력: <b>${player.attackPower}</b><br>
-            • 이동속도: <b>${(player.moveSpeed / 60).toFixed(1)}</b><br>
-            • 조준경 확률: <b>${Math.round(player.scopeChance * 100)}%</b><br>
-            • 폭발 확률: <b>${Math.round(player.explosionChance * 100)}%</b><br>
-            • 흡혈: <b>${player.lifesteal}</b>
-        `;
-        openModal('modalStat');
+function renderMatchQueue(queue) {
+    const c = document.getElementById('match-queue-list');
+    if (queue.length === 0) {
+        c.innerHTML = '<div style="font-size:11px;color:#555;text-align:center;padding:8px;">대기 중인 플레이어 없음.<br>잠시 기다리거나 ID를 공유하세요.</div>';
+        return;
+    }
+    document.getElementById('matchText').textContent = `${queue.length}명 대기 중! 클릭하여 연결`;
+    c.innerHTML = queue.map(p => `
+        <div class="mqi" onclick="connectToMatchPlayer('${p.peerId}')">
+            <span style="font-size:18px;">🎮</span>
+            <span class="mqi-name">${p.nickname||'익명'}</span>
+            <span class="mqi-mode">${p.mode}</span>
+            <button class="btn-connect">연결</button>
+        </div>`).join('');
+}
+
+function connectToMatchPlayer(targetPeerId) {
+    if (!peer || !targetPeerId) return;
+    document.getElementById('matchText').textContent = '연결 시도 중...';
+    removeFromMatchQueue();
+    conn = peer.connect(targetPeerId, { reliable:true });
+    isHost = false;
+    setupConnection('GUEST');
+}
+
+function cancelMatching() {
+    removeFromMatchQueue();
+    closeModal('modalMatch');
+}
+
+function removeFromMatchQueue() {
+    if (bc && bcMatchQueue[myBcId]) {
+        delete bcMatchQueue[myBcId];
+        bc.postMessage({ type:'match_cancel', id:myBcId });
+    }
+}
+
+// ╔══════════════════════════════════════════════════════════╗
+// ║              FRIEND ROOM                                 ║
+// ╚══════════════════════════════════════════════════════════╝
+function openFriendRoomModal(mode) {
+    currentGameMode = mode;
+    openModal('modalMulti');
+    initPeer((id) => {
+        document.getElementById('myPeerId').innerText = id;
     });
+}
 
-    document.getElementById('btnOpenShop').addEventListener('pointerdown', (e) => { e.stopPropagation(); renderShop(); openModal('modalShop'); });
-    document.getElementById('btnOpenMulti').addEventListener('pointerdown', (e) => { e.stopPropagation(); openModal('modalMulti'); initPeer(); });
+function createHostRoom() {
+    initPeer((id) => {
+        document.getElementById('myPeerId').innerText = id;
+        setMultiStatus(`✅ 방 생성 완료!\nID를 친구에게 공유하세요:\n${id}`);
+    });
+}
 
-    // ═══════════════════════════════════════════════════
-    //  플로팅 텍스트 클래스
-    // ═══════════════════════════════════════════════════
-    class FloatingText {
-        constructor(text, x, y, color = '#ffda79') {
-            this.text = text; this.x = x; this.y = y;
-            this.color = color; this.alpha = 1;
-        }
-        update(dt) {
-            this.y -= 72 * dt;  // 72px/초
-            this.alpha -= 1.8 * dt; // ~0.55초 지속
-        }
-        draw() {
-            ctx.save(); ctx.globalAlpha = Math.max(0, this.alpha);
-            ctx.font = 'bold 12px Outfit, Arial'; ctx.fillStyle = this.color;
-            ctx.fillText(this.text, this.x, this.y); ctx.restore();
+function connectToPeer() {
+    const destId = document.getElementById('roomCodeInput').value.trim();
+    if (!destId) { setMultiStatus('ID를 입력하세요.'); return; }
+    setMultiStatus('연결 시도 중...');
+    initPeer(() => {
+        conn = peer.connect(destId, { reliable:true });
+        isHost = false;
+        setupConnection('GUEST');
+    });
+}
+
+function copyMyId() {
+    const id = document.getElementById('myPeerId').innerText;
+    if (!id || id === '생성 중...') { setMultiStatus('ID 생성 중입니다. 잠시 후 시도하세요.'); return; }
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(id).then(() => setMultiStatus('✅ ID가 클립보드에 복사되었습니다!'));
+    } else {
+        const el = document.createElement('textarea');
+        el.value = id; document.body.appendChild(el);
+        el.select(); document.execCommand('copy');
+        document.body.removeChild(el);
+        setMultiStatus('✅ ID 복사 완료!');
+    }
+}
+
+function setMultiStatus(msg) { document.getElementById('multiStatus').innerText = msg; }
+
+// ╔══════════════════════════════════════════════════════════╗
+// ║              DICE SYSTEM (랜덤다이스)                    ║
+// ╚══════════════════════════════════════════════════════════╝
+function rollRandomDice() {
+    const total = Object.values(DICE_RARITY_WEIGHT).reduce((a,b) => a+b, 0);
+    let rand = Math.random() * total;
+    let rarity = 'common';
+    for (const [r, w] of Object.entries(DICE_RARITY_WEIGHT)) {
+        rand -= w;
+        if (rand <= 0) { rarity = r; break; }
+    }
+    const pool = DICE_TYPES.filter(d => d.rarity === rarity);
+    return pool[Math.floor(Math.random() * pool.length)];
+}
+
+function rollDice() {
+    if (myDice.length >= 6) { addChatLog('[시스템] 다이스 슬롯이 가득 찼습니다.', true); return; }
+    if (gold < diceRollCost) { addChatLog(`[시스템] 골드가 부족합니다 (필요: ${diceRollCost}G)`, true); return; }
+    gold -= diceRollCost;
+    diceRollCost = Math.floor(diceRollCost * 1.3);
+
+    const dice = rollRandomDice();
+    myDice.push({ ...dice, id: dice.id + '_' + Date.now() });
+    renderDicePanel();
+    updateUI();
+
+    showDiceResult(`🎲 ${dice.emoji} ${dice.name}!`);
+    addChatLog(`[다이스] ${dice.emoji} ${dice.name} 획득!`, true);
+}
+
+function useDice(slotIdx) {
+    if (!myDice[slotIdx]) return;
+    const dice = myDice[slotIdx];
+    const result = dice.effect();
+    myDice.splice(slotIdx, 1);
+    renderDicePanel();
+    updateUI();
+    showDiceResult(`${dice.emoji} ${result}`);
+    addChatLog(`[다이스] ${dice.emoji} ${dice.name} 사용: ${result}`, true);
+    if (conn && conn.open) conn.send({ type:'dice_used', result });
+}
+
+function renderDicePanel() {
+    const container = document.getElementById('dice-slots-container');
+    const slots = [];
+    for (let i = 0; i < 6; i++) {
+        const d = myDice[i];
+        if (d) {
+            slots.push(`<div class="dice-slot" style="border-color:${d.color};" onclick="useDice(${i})" title="${d.name}">${d.emoji}</div>`);
+        } else {
+            slots.push(`<div class="dice-slot empty" title="빈 슬롯">·</div>`);
         }
     }
+    container.innerHTML = slots.join('');
+    document.getElementById('dice-roll-cost').textContent = diceRollCost;
+    document.getElementById('diceCountEl').textContent = myDice.length;
+}
 
-    // ═══════════════════════════════════════════════════
-    //  웨이브 & 라운드
-    // ═══════════════════════════════════════════════════
-    function triggerRoundBanner(roundNum) {
-        roundBannerText = `ROUND ${roundNum}`;
-        roundBannerTimer = 1.5; // 초 단위
+function showDiceResult(text) {
+    const el = document.getElementById('dice-result-overlay');
+    const te = document.getElementById('dice-result-text');
+    te.textContent = text;
+    el.style.display = 'block';
+    setTimeout(() => { el.style.display = 'none'; }, 1800);
+}
+
+function addDevDice() {
+    const dice = rollRandomDice();
+    if (myDice.length < 6) {
+        myDice.push({ ...dice, id: dice.id + '_' + Date.now() });
+        renderDicePanel();
+        showDiceResult(`[개발자] ${dice.emoji} ${dice.name}`);
     }
+}
 
-    function startNextWave() {
-        isWaveActive = true;
-        triggerRoundBanner(round);
-        addChatLog(`[라운드] ROUND ${round} 시작!`, true);
+// ╔══════════════════════════════════════════════════════════╗
+// ║              MODAL & UI UTILS                            ║
+// ╚══════════════════════════════════════════════════════════╝
+function openModal(id) { document.getElementById(id).style.display = 'flex'; }
+function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+function closeAllModals() {
+    ['modalPvpSelect','modalCoopSelect','modalMulti','modalMatch','modalStat','modalShop','modalNotice','modalSettings']
+        .forEach(closeModal);
+}
 
-        let enemyCount = 5 + round * 2;
-        let spawned = 0;
-        const spawnDelay = 0.6; // 초
-        let elapsed = 0;
+function updateUI() {
+    document.getElementById('gold').innerText  = gold;
+    document.getElementById('round').innerText = round;
+    document.getElementById('diceCountEl').innerText = myDice.length;
 
-        function spawnLoop(dt) {
-            if (isGameOver) return;
-            elapsed += dt;
-            if (elapsed >= spawnDelay) {
-                elapsed -= spawnDelay;
-                const isChaser = Math.random() < 0.35;
-                minions.push({
-                    x: Math.random() * (canvasWidth - 80) + 40, y: -20,
-                    radius: isChaser ? 15 : 13,
-                    speed: (0.9 + round * 0.1) * 60, // px/초
-                    hp: 100 + round * 35, maxHp: 100 + round * 35,
-                    isChaser, isBoss: false,
-                    attackPower: Math.floor(player.attackPower * 0.4),
-                    attackCooldown: 0,
-                    attackRate: 1.5 // 초
-                });
-                spawned++;
-                if (spawned >= enemyCount) {
-                    // 보스 1초 후 등장
-                    setTimeout(() => {
-                        if (!isGameOver) {
-                            minions.push({
-                                x: canvasWidth / 2, y: -30, radius: 24,
-                                speed: (0.5 + round * 0.05) * 60,
-                                hp: 450 + round * 320, maxHp: 450 + round * 320,
-                                isChaser: false, isBoss: true,
-                                attackPower: 30, attackCooldown: 0, attackRate: 1
-                            });
-                        }
-                    }, 1000);
-                    spawnLoopFn = null;
-                    return;
-                }
-            }
-            spawnLoopFn && spawnLoopFn(0); // 다음 프레임에 처리
+    document.getElementById('playerHpBar').style.width  = Math.max(0,(player.hp/player.maxHp)*100)+'%';
+    document.getElementById('playerHpText').innerText   = `${Math.ceil(Math.max(0,player.hp))}/${player.maxHp}`;
+    document.getElementById('towerHpBar').style.width   = Math.max(0,(tower.hp/tower.maxHp)*100)+'%';
+    document.getElementById('towerHpText').innerText    = Math.ceil(Math.max(0,tower.hp));
+
+    const fmt = cd => cd > 0 ? `${cd.toFixed(1)}s` : 'READY';
+    document.getElementById('cdQ').innerText = fmt(player.qCooldown);
+    document.getElementById('cdW').innerText = fmt(player.wCooldown);
+    document.getElementById('cdE').innerText = fmt(player.eCooldown);
+}
+
+function addChatLog(msg, sys=false) {
+    const logs = document.getElementById('chat-logs');
+    const div = document.createElement('div');
+    div.className = sys ? 'chat-msg chat-sys' : 'chat-msg';
+    div.innerText = msg;
+    logs.appendChild(div);
+    logs.scrollTop = logs.scrollHeight;
+}
+
+function handleChatKey(e) {
+    if (e.key !== 'Enter') return;
+    const inp = document.getElementById('chat-input');
+    const val = inp.value.trim();
+    if (!val) return;
+    addChatLog(`나: ${val}`);
+    if (conn && conn.open) conn.send({ type:'chat', msg:val });
+    if (val === '개발자모드') {
+        if (prompt('코드:') === '물게피스') {
+            isDevMode = true;
+            document.getElementById('dev-panel').style.display = 'flex';
+            addChatLog('[시스템] 개발자 모드 ON', true);
         }
-
-        // setInterval 방식으로 스폰
-        let spawnCount = 0;
-        const spawnInterval = setInterval(() => {
-            if (isGameOver) { clearInterval(spawnInterval); return; }
-            const isChaser = Math.random() < 0.35;
-            minions.push({
-                x: Math.random() * (canvasWidth - 80) + 40, y: -20,
-                radius: isChaser ? 15 : 13,
-                speed: (0.9 + round * 0.1) * 60,
-                hp: 100 + round * 35, maxHp: 100 + round * 35,
-                isChaser, isBoss: false,
-                attackPower: Math.floor(player.attackPower * 0.4),
-                attackCooldown: 0,
-                attackRate: 1.5
-            });
-            spawnCount++;
-            if (spawnCount >= enemyCount) {
-                clearInterval(spawnInterval);
-                setTimeout(() => {
-                    if (!isGameOver) {
-                        minions.push({
-                            x: canvasWidth / 2, y: -30, radius: 24,
-                            speed: (0.5 + round * 0.05) * 60,
-                            hp: 450 + round * 320, maxHp: 450 + round * 320,
-                            isChaser: false, isBoss: true,
-                            attackPower: 30, attackCooldown: 0, attackRate: 1
-                        });
-                    }
-                }, 1000);
-            }
-        }, 600);
     }
+    inp.value = '';
+}
 
-    // ═══════════════════════════════════════════════════
-    //  메인 게임 루프 (Delta Time 기반)
-    // ═══════════════════════════════════════════════════
-    function gameLoop(timestamp) {
-        if (isGameOver) return;
+function addDevGold() { gold += 10000; updateUI(); addChatLog('[개발자] 10,000G 지급', true); }
+function toggleGameSpeed() {
+    gameSpeed = gameSpeed === 1 ? 2 : gameSpeed === 2 ? 3 : 1;
+    document.getElementById('speed-label').innerText = `${gameSpeed}x`;
+}
 
-        // Delta Time 계산 (초 단위, 최대 0.05초 클램프)
-        if (!lastTimestamp) lastTimestamp = timestamp;
-        let dt = (timestamp - lastTimestamp) / 1000;
-        dt = Math.min(dt, 0.05); // 최대 50ms (탭 비활성 등 방지)
-        dt *= gameSpeed;
-        lastTimestamp = timestamp;
+// ╔══════════════════════════════════════════════════════════╗
+// ║              SHOP                                        ║
+// ╚══════════════════════════════════════════════════════════╝
+function renderShop() {
+    const atkP = Math.floor(statUpgrades.atk.basePrice * Math.pow(statUpgrades.atk.priceMult, statUpgrades.atk.level));
+    const spdP = Math.floor(statUpgrades.spd.basePrice * Math.pow(statUpgrades.spd.priceMult, statUpgrades.spd.level));
+    let html = `
+        <div class="shop-section-title">⚡ 스탯 강화</div>
+        <div class="shop-item"><div><b>공격력 +10</b> (Lv.${statUpgrades.atk.level})<br><small style="color:#aaa">${atkP}G</small></div><button class="btn-buy" onclick="buyStatUpgrade('atk')">구매</button></div>
+        <div class="shop-item"><div><b>공속 +10%</b> (Lv.${statUpgrades.spd.level})<br><small style="color:#aaa">${spdP}G</small></div><button class="btn-buy" onclick="buyStatUpgrade('spd')">구매</button></div>
+        <div class="shop-section-title">🗡️ 장비</div>`;
+    equipmentItems.forEach((it, i) => {
+        html += `<div class="shop-item"><div><b>${it.name}</b><br><small style="color:#aaa">${it.desc} / ${it.price}G</small></div>
+            ${it.bought ? '<button class="btn-buy btn-bought" disabled>완료</button>' : `<button class="btn-buy" onclick="buyEquipment(${i})">구매</button>`}</div>`;
+    });
+    document.getElementById('shopContent').innerHTML = html;
+}
 
-        // 캔버스 클리어
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+function buyStatUpgrade(type) {
+    const st = statUpgrades[type];
+    const pr = Math.floor(st.basePrice * Math.pow(st.priceMult, st.level));
+    if (gold < pr) return;
+    gold -= pr;
+    if (type === 'atk') player.attackPower += 10;
+    else player.attackBaseCooldown = Math.max(0.05, player.attackBaseCooldown * 0.9);
+    st.level++;
+    updateUI(); renderShop();
+}
 
-        // 가이드 라인
-        ctx.strokeStyle = 'rgba(255,255,255,0.06)';
-        ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.moveTo(0, midLineY); ctx.lineTo(canvasWidth, midLineY); ctx.stroke();
+function buyEquipment(idx) {
+    const it = equipmentItems[idx];
+    if (!it.bought && gold >= it.price) {
+        gold -= it.price; it.bought = true; it.apply();
+        updateUI(); renderShop();
+    }
+}
 
-        // 웨이브 시작
-        if (!isWaveActive && minions.length === 0) startNextWave();
+// ╔══════════════════════════════════════════════════════════╗
+// ║              GAME START / RESET                          ║
+// ╚══════════════════════════════════════════════════════════╝
+function startSoloPlay() {
+    currentGameMode = 'SOLO';
+    isMulti = false;
+    document.getElementById('btnOpenMulti').style.display = 'none';
+    document.getElementById('main-lobby').style.display = 'none';
+    bcUpdateStatus('playing', 'SOLO');
+    startGame();
+    addChatLog('[시스템] 솔로 플레이 시작!', true);
+}
 
-        // ─── 스킬 쿨다운 ───
-        if (player.qCooldown > 0) player.qCooldown = Math.max(0, player.qCooldown - dt);
-        if (player.wCooldown > 0) player.wCooldown = Math.max(0, player.wCooldown - dt);
-        if (player.eCooldown > 0) player.eCooldown = Math.max(0, player.eCooldown - dt);
-        if (player.qBuffTimer > 0) player.qBuffTimer = Math.max(0, player.qBuffTimer - dt);
-        if (player.wBuffTimer > 0) player.wBuffTimer = Math.max(0, player.wBuffTimer - dt);
+function startGame() {
+    resetGameState();
+    gameRunning = true;
+    lastTimestamp = 0;
+    requestAnimationFrame(gameLoop);
+}
 
-        // ─── 플레이어 이동 (px/초 기반) ───
-        const currentSpeed = player.moveSpeed * (player.wBuffTimer > 0 ? 1.8 : 1);
-        const dx = player.targetX - player.x;
-        const dy = player.targetY - player.y;
-        const dist = Math.hypot(dx, dy);
-        if (dist > 2) {
-            const moveDist = Math.min(currentSpeed * dt, dist);
-            player.x += (dx / dist) * moveDist;
-            player.y += (dy / dist) * moveDist;
-        }
+function resetGameState() {
+    // 플레이어 리셋 (아이템/스탯은 유지하지 않고 초기화)
+    player.x = CW/2; player.y = CH-120;
+    player.targetX = player.x; player.targetY = player.y;
+    player.hp = player.maxHp;
+    player.attackCooldown = 0;
+    player.qCooldown = 0; player.qBuffTimer = 0;
+    player.wCooldown = 0; player.wBuffTimer = 0;
+    player.eCooldown = 0;
 
-        // ─── 자동 공격 ───
-        const currentCooldown = player.qBuffTimer > 0
-            ? Math.max(0.05, player.attackBaseCooldown * 0.1)
-            : player.attackBaseCooldown;
+    tower.hp = tower.maxHp;
+    minions=[]; projectiles=[]; floatingTexts=[]; explosions=[]; scopeEffects=[]; shockwaves=[];
+    gold = 0; round = 1;
+    isWaveActive = false; isGameOver = false;
+    myDice = []; diceRollCost = 50; freeDiceThisRound = false;
 
-        if (player.attackCooldown > 0) player.attackCooldown = Math.max(0, player.attackCooldown - dt);
+    document.getElementById('game-msg').style.display = 'none';
+    document.getElementById('game-msg').style.color = '#e74c3c';
+    document.getElementById('game-msg').innerText = '게임 오버!';
+    document.getElementById('dice-panel').style.display = 'flex';
 
-        if (player.attackCooldown <= 0) {
-            const targets = minions.filter(m => Math.hypot(m.x - player.x, m.y - player.y) <= player.attackRange)
-                .sort((a, b) => Math.hypot(a.x - player.x, a.y - player.y) - Math.hypot(b.x - player.x, b.y - player.y));
+    renderDicePanel();
+    updateUI();
+    bcUpdateStatus('playing', currentGameMode);
+}
 
-            if (targets.length > 0) {
-                projectiles.push({
-                    x: player.x, y: player.y, target: targets[0],
-                    speed: 720, // px/초
-                    damage: player.attackPower, color: '#2ecc71', radius: 5
-                });
+function returnToLobby() {
+    closeModal('modalSettings');
+    isMulti = false; peerPlayer = null;
+    gameRunning = false;
+    if (netSendInterval) { clearInterval(netSendInterval); netSendInterval = null; }
+    updateEnemyPanel();
+    bcUpdateStatus('lobby', '');
+    document.getElementById('main-lobby').style.display = 'flex';
+    document.getElementById('dice-panel').style.display = 'none';
+    document.getElementById('enemy-ui-panel').style.display = 'none';
+    document.getElementById('game-msg').style.display = 'none';
+}
 
-                if (Math.random() < player.scopeChance) {
-                    const scopeTarget = targets.length > 1 ? targets[1] : targets[0];
-                    projectiles.push({
-                        x: player.x, y: player.y, target: scopeTarget,
-                        speed: 900,
-                        damage: Math.floor(player.attackPower * 0.8), color: '#a55eea', radius: 4
-                    });
-                    scopeEffects.push({ progress: 0, maxTime: 0.7 });
-                }
-                player.attackCooldown = currentCooldown;
-            }
-        }
+function saveSettings() {
+    const val = document.getElementById('setNickname').value.trim();
+    if (val) { myNickname = val; localStorage.setItem('nickname', myNickname); }
+    closeModal('modalSettings');
+    bcUpdateStatus('lobby', '');
+}
 
-        // ─── 플레이어 렌더링 ───
-        ctx.save();
-        if (player.qBuffTimer > 0) {
-            ctx.strokeStyle = '#f1c40f'; ctx.lineWidth = 4;
-            ctx.beginPath(); ctx.arc(player.x, player.y, player.radius + 4, 0, Math.PI * 2); ctx.stroke();
-        }
-        if (player.wBuffTimer > 0) {
-            ctx.strokeStyle = '#3498db'; ctx.lineWidth = 3;
-            ctx.beginPath(); ctx.arc(player.x, player.y, player.radius + 7, 0, Math.PI * 2); ctx.stroke();
-        }
-        // 플레이어 원
-        ctx.fillStyle = '#3498db';
-        ctx.beginPath(); ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2); ctx.fill();
-        // 닉네임
-        ctx.fillStyle = '#fff'; ctx.font = 'bold 9px Outfit, Arial'; ctx.textAlign = 'center';
-        ctx.fillText(myNickname.slice(0,6), player.x, player.y - player.radius - 4);
-        ctx.restore();
+// ╔══════════════════════════════════════════════════════════╗
+// ║              INPUT                                       ║
+// ╚══════════════════════════════════════════════════════════╝
+canvas.addEventListener('pointerdown', (e) => {
+    if (isGameOver) return;
+    const rect = canvas.getBoundingClientRect();
+    player.targetX = e.clientX - rect.left;
+    player.targetY = e.clientY - rect.top;
+});
 
-        // ─── 상대방 플레이어 ───
-        if (isMulti && peerPlayer) {
-            ctx.save();
-            ctx.fillStyle = '#9b59b6';
-            ctx.beginPath(); ctx.arc(peerPlayer.x, peerPlayer.y, player.radius, 0, Math.PI * 2); ctx.fill();
-            ctx.fillStyle = '#fff'; ctx.font = 'bold 9px Outfit, Arial'; ctx.textAlign = 'center';
-            ctx.fillText((peerPlayer.nickname || '상대').slice(0,6), peerPlayer.x, peerPlayer.y - player.radius - 4);
-            ctx.restore();
-        }
-
-        // ─── 타워 ───
-        ctx.save();
-        ctx.fillStyle = '#e74c3c';
-        ctx.beginPath(); ctx.arc(tower.x, tower.y, tower.radius, 0, Math.PI * 2); ctx.fill();
-        // 타워 HP 텍스트
-        ctx.fillStyle = '#fff'; ctx.font = 'bold 8px Arial'; ctx.textAlign = 'center';
-        ctx.fillText('🏰', tower.x, tower.y + 4);
-        ctx.restore();
-
-        // ─── 조준경 이펙트 ───
-        for (let i = scopeEffects.length - 1; i >= 0; i--) {
-            const sc = scopeEffects[i];
-            sc.progress += dt;
-            const scale = sc.progress / sc.maxTime;
-            const curRadius = 10 + scale * 30;
-            const alpha = 1 - scale;
-
-            ctx.save();
-            ctx.strokeStyle = `rgba(165,94,234,${alpha})`;
-            ctx.lineWidth = 2;
-            ctx.beginPath(); ctx.arc(player.x, player.y, curRadius, 0, Math.PI * 2); ctx.stroke();
-            const innerGap = 4 + scale * 4;
-            const outerLen = curRadius + 6;
-            ctx.beginPath();
-            ctx.moveTo(player.x, player.y - innerGap); ctx.lineTo(player.x, player.y - outerLen);
-            ctx.moveTo(player.x, player.y + innerGap); ctx.lineTo(player.x, player.y + outerLen);
-            ctx.moveTo(player.x - innerGap, player.y); ctx.lineTo(player.x - outerLen, player.y);
-            ctx.moveTo(player.x + innerGap, player.y); ctx.lineTo(player.x + outerLen, player.y);
-            ctx.stroke();
-            ctx.restore();
-
-            if (sc.progress >= sc.maxTime) scopeEffects.splice(i, 1);
-        }
-
-        // ─── E 스킬 충격파 ───
-        for (let i = shockwaves.length - 1; i >= 0; i--) {
-            const sw = shockwaves[i];
-            sw.radius += 480 * dt; // px/초
-            sw.alpha -= 3 * dt;
-            ctx.save();
-            ctx.strokeStyle = `rgba(241,196,15,${Math.max(0, sw.alpha)})`;
-            ctx.lineWidth = 4;
-            ctx.beginPath(); ctx.arc(sw.x, sw.y, sw.radius, 0, Math.PI * 2); ctx.stroke();
-            ctx.restore();
-            if (sw.alpha <= 0) shockwaves.splice(i, 1);
-        }
-
-        // ─── 미니언 업데이트 & 렌더링 ───
-        for (let i = minions.length - 1; i >= 0; i--) {
+document.getElementById('btnQ').addEventListener('pointerdown', (e) => {
+    e.stopPropagation();
+    if (player.qCooldown <= 0) { player.qBuffTimer = 3; player.qCooldown = 6; }
+});
+document.getElementById('btnW').addEventListener('pointerdown', (e) => {
+    e.stopPropagation();
+    if (player.wCooldown <= 0) { player.wBuffTimer = 2.5; player.wCooldown = 7; }
+});
+document.getElementById('btnE').addEventListener('pointerdown', (e) => {
+    e.stopPropagation();
+    if (player.eCooldown <= 0) {
+        player.eCooldown = 8;
+        shockwaves.push({ x:player.x, y:player.y, radius:10, alpha:1 });
+        for (let i = minions.length-1; i >= 0; i--) {
             const m = minions[i];
+            if (Math.hypot(m.x-player.x, m.y-player.y) <= 160) {
+                const dmg = Math.floor(player.attackPower * 2.5);
+                m.hp -= dmg;
+                floatingTexts.push(new FloatingText(`-${dmg}`, m.x, m.y-15, '#f1c40f'));
+                sendMinionHit(i, dmg);
+            }
+        }
+    }
+});
 
-            if (m.isChaser) {
-                const d = Math.hypot(player.x - m.x, player.y - m.y);
-                if (d > player.radius + m.radius) {
-                    const moveDist = Math.min(m.speed * dt, d);
-                    m.x += ((player.x - m.x) / d) * moveDist;
-                    m.y += ((player.y - m.y) / d) * moveDist;
+document.getElementById('btnOpenStat').addEventListener('pointerdown', (e) => {
+    e.stopPropagation();
+    document.getElementById('statContent').innerHTML = `
+        • 체력: <b>${Math.ceil(player.hp)}/${player.maxHp}</b><br>
+        • 공격력: <b>${player.attackPower}</b><br>
+        • 이동속도: <b>${(player.moveSpeed/60).toFixed(1)}</b><br>
+        • 조준경 확률: <b>${Math.round(player.scopeChance*100)}%</b><br>
+        • 치명타 확률: <b>${Math.round((player.critChance||0)*100)}%</b><br>
+        • 폭발 확률: <b>${Math.round((player.explosionChance||0)*100)}%</b><br>
+        • 흡혈: <b>${player.lifesteal}</b><br>
+        • 멀티샷: <b>${player.multiShot||1}발</b><br>
+        • 다이스 보유: <b>${myDice.length}/6</b>
+    `;
+    openModal('modalStat');
+});
+
+document.getElementById('btnOpenShop').addEventListener('pointerdown', (e) => {
+    e.stopPropagation(); renderShop(); openModal('modalShop');
+});
+document.getElementById('btnOpenMulti').addEventListener('pointerdown', (e) => {
+    e.stopPropagation();
+    initPeer((id) => { document.getElementById('myPeerId').innerText = id; });
+    openModal('modalMulti');
+});
+
+// ╔══════════════════════════════════════════════════════════╗
+// ║              WAVE SYSTEM                                 ║
+// ╚══════════════════════════════════════════════════════════╝
+class FloatingText {
+    constructor(text, x, y, color='#ffda79') { this.text=text;this.x=x;this.y=y;this.color=color;this.alpha=1; }
+    update(dt) { this.y -= 72*dt; this.alpha -= 1.8*dt; }
+    draw() {
+        ctx.save(); ctx.globalAlpha=Math.max(0,this.alpha);
+        ctx.font='bold 12px Outfit,Arial'; ctx.fillStyle=this.color;
+        ctx.fillText(this.text,this.x,this.y); ctx.restore();
+    }
+}
+
+function triggerRoundBanner(r) { roundBannerText=`ROUND ${r}`; roundBannerTimer=1.5; }
+
+function startNextWave() {
+    isWaveActive = true;
+    triggerRoundBanner(round);
+    addChatLog(`[라운드] ROUND ${round} 시작!`, true);
+
+    // 라운드마다 무료 다이스 지급
+    if (!freeDiceThisRound && myDice.length < 6) {
+        freeDiceThisRound = true;
+        setTimeout(() => {
+            if (myDice.length < 6) {
+                const dice = rollRandomDice();
+                myDice.push({ ...dice, id: dice.id + '_' + Date.now() });
+                renderDicePanel();
+                showDiceResult(`🎁 무료 다이스: ${dice.emoji} ${dice.name}`);
+                addChatLog(`[다이스] 라운드 보상: ${dice.emoji} ${dice.name} 획득!`, true);
+            }
+        }, 500);
+    }
+
+    const enemyCount = 5 + round * 2;
+    let spawned = 0;
+
+    const spawnInterval = setInterval(() => {
+        if (isGameOver || !gameRunning) { clearInterval(spawnInterval); return; }
+        const isChaser = Math.random() < 0.35;
+        minions.push({
+            x: Math.random()*(CW-80)+40, y: -20,
+            radius: isChaser ? 15 : 13,
+            speed: (0.9 + round*0.1) * 60,
+            hp: 100 + round*35, maxHp: 100 + round*35,
+            isChaser, isBoss: false,
+            attackPower: Math.max(5, Math.floor(player.attackPower * 0.3)),
+            attackCooldown: 0, attackRate: 1.5
+        });
+        spawned++;
+        if (spawned >= enemyCount) {
+            clearInterval(spawnInterval);
+            setTimeout(() => {
+                if (isGameOver || !gameRunning) return;
+                minions.push({
+                    x: CW/2, y: -30, radius: 26,
+                    speed: (0.45 + round*0.05) * 60,
+                    hp: 450 + round*320, maxHp: 450 + round*320,
+                    isChaser:false, isBoss:true,
+                    attackPower: 30, attackCooldown:0, attackRate:1
+                });
+            }, 1000);
+        }
+    }, 600);
+}
+
+// ╔══════════════════════════════════════════════════════════╗
+// ║              GAME LOOP (DELTA TIME)                      ║
+// ╚══════════════════════════════════════════════════════════╝
+function gameLoop(timestamp) {
+    if (!gameRunning || isGameOver) return;
+
+    // Delta Time 계산
+    if (!lastTimestamp) lastTimestamp = timestamp;
+    let dt = (timestamp - lastTimestamp) / 1000;
+    dt = Math.min(dt, 0.05); // 최대 50ms 클램프
+    dt *= gameSpeed;
+    lastTimestamp = timestamp;
+
+    ctx.clearRect(0, 0, CW, CH);
+
+    // 가이드 라인
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(0, MID_Y); ctx.lineTo(CW, MID_Y); ctx.stroke();
+
+    // 웨이브 시작
+    if (!isWaveActive && minions.length === 0) {
+        freeDiceThisRound = false;
+        startNextWave();
+    }
+
+    // ─── 쿨다운 ───
+    if (player.qCooldown > 0) player.qCooldown = Math.max(0, player.qCooldown - dt);
+    if (player.wCooldown > 0) player.wCooldown = Math.max(0, player.wCooldown - dt);
+    if (player.eCooldown > 0) player.eCooldown = Math.max(0, player.eCooldown - dt);
+    if (player.qBuffTimer > 0) player.qBuffTimer = Math.max(0, player.qBuffTimer - dt);
+    if (player.wBuffTimer > 0) player.wBuffTimer = Math.max(0, player.wBuffTimer - dt);
+
+    // ─── 이동 ───
+    const spd = player.moveSpeed * (player.wBuffTimer > 0 ? 1.8 : 1);
+    const dx = player.targetX - player.x, dy = player.targetY - player.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist > 2) {
+        const move = Math.min(spd*dt, dist);
+        player.x += (dx/dist)*move; player.y += (dy/dist)*move;
+    }
+
+    // ─── 자동 공격 ───
+    const cd = player.qBuffTimer > 0
+        ? Math.max(0.03, player.attackBaseCooldown * 0.08)
+        : player.attackBaseCooldown;
+    if (player.attackCooldown > 0) player.attackCooldown = Math.max(0, player.attackCooldown - dt);
+
+    if (player.attackCooldown <= 0) {
+        const targets = minions
+            .filter(m => Math.hypot(m.x-player.x, m.y-player.y) <= player.attackRange)
+            .sort((a,b) => Math.hypot(a.x-player.x,a.y-player.y) - Math.hypot(b.x-player.x,b.y-player.y));
+
+        if (targets.length > 0) {
+            const shots = Math.min(player.multiShot || 1, targets.length);
+            for (let s = 0; s < shots; s++) {
+                let dmg = player.attackPower;
+                let color = '#2ecc71';
+                // 치명타
+                if ((player.critChance || 0) > 0 && Math.random() < player.critChance) {
+                    dmg = Math.floor(dmg * 2.2);
+                    color = '#f1c40f';
+                }
+                projectiles.push({ x:player.x, y:player.y, target:targets[s], speed:720, damage:dmg, color, radius:5 });
+            }
+
+            // 조준경 추가 탄
+            if (Math.random() < player.scopeChance) {
+                const st = targets.length > shots ? targets[shots] : targets[0];
+                projectiles.push({ x:player.x, y:player.y, target:st, speed:900,
+                    damage:Math.floor(player.attackPower*0.75), color:'#a55eea', radius:4 });
+                scopeEffects.push({ progress:0, maxTime:0.6 });
+            }
+            player.attackCooldown = cd;
+        }
+    }
+
+    // ─── 플레이어 렌더 ───
+    ctx.save();
+    if (player.qBuffTimer > 0) {
+        ctx.strokeStyle='#f1c40f'; ctx.lineWidth=4;
+        ctx.beginPath(); ctx.arc(player.x,player.y,player.radius+4,0,Math.PI*2); ctx.stroke();
+    }
+    if (player.wBuffTimer > 0) {
+        ctx.strokeStyle='#3498db'; ctx.lineWidth=3;
+        ctx.beginPath(); ctx.arc(player.x,player.y,player.radius+7,0,Math.PI*2); ctx.stroke();
+    }
+    ctx.fillStyle='#3498db';
+    ctx.beginPath(); ctx.arc(player.x,player.y,player.radius,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#fff'; ctx.font='bold 9px Outfit,Arial'; ctx.textAlign='center';
+    ctx.fillText(myNickname.slice(0,6), player.x, player.y-player.radius-4);
+    ctx.restore();
+
+    // ─── 상대방 렌더 ───
+    if (isMulti && peerPlayer) {
+        ctx.save();
+        ctx.fillStyle = '#9b59b6';
+        ctx.beginPath(); ctx.arc(peerPlayer.x,peerPlayer.y,player.radius,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle='#fff'; ctx.font='bold 9px Outfit,Arial'; ctx.textAlign='center';
+        ctx.fillText((peerPlayer.nickname||'상대').slice(0,6), peerPlayer.x, peerPlayer.y-player.radius-4);
+        ctx.restore();
+    }
+
+    // ─── 타워 렌더 ───
+    ctx.save();
+    // 타워 HP에 따른 색상
+    const tHpRatio = tower.hp / tower.maxHp;
+    ctx.fillStyle = tHpRatio > 0.5 ? '#e74c3c' : tHpRatio > 0.25 ? '#e67e22' : '#c0392b';
+    ctx.beginPath(); ctx.arc(tower.x,tower.y,tower.radius,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle='#fff'; ctx.font='14px Arial'; ctx.textAlign='center';
+    ctx.fillText('🏰', tower.x, tower.y+5);
+    ctx.restore();
+
+    // ─── 조준경 이펙트 ───
+    for (let i = scopeEffects.length-1; i >= 0; i--) {
+        const sc = scopeEffects[i];
+        sc.progress += dt;
+        const scale = sc.progress / sc.maxTime;
+        const r2 = 10 + scale*30;
+        const al = 1-scale;
+        ctx.save();
+        ctx.strokeStyle=`rgba(165,94,234,${al})`; ctx.lineWidth=2;
+        ctx.beginPath(); ctx.arc(player.x,player.y,r2,0,Math.PI*2); ctx.stroke();
+        const ig=4+scale*4, ol=r2+6;
+        ctx.beginPath();
+        ctx.moveTo(player.x,player.y-ig); ctx.lineTo(player.x,player.y-ol);
+        ctx.moveTo(player.x,player.y+ig); ctx.lineTo(player.x,player.y+ol);
+        ctx.moveTo(player.x-ig,player.y); ctx.lineTo(player.x-ol,player.y);
+        ctx.moveTo(player.x+ig,player.y); ctx.lineTo(player.x+ol,player.y);
+        ctx.stroke(); ctx.restore();
+        if (sc.progress >= sc.maxTime) scopeEffects.splice(i,1);
+    }
+
+    // ─── E 충격파 ───
+    for (let i = shockwaves.length-1; i >= 0; i--) {
+        const sw = shockwaves[i];
+        sw.radius += 480*dt; sw.alpha -= 3*dt;
+        ctx.save();
+        ctx.strokeStyle=`rgba(241,196,15,${Math.max(0,sw.alpha)})`; ctx.lineWidth=4;
+        ctx.beginPath(); ctx.arc(sw.x,sw.y,sw.radius,0,Math.PI*2); ctx.stroke(); ctx.restore();
+        if (sw.alpha <= 0) shockwaves.splice(i,1);
+    }
+
+    // ─── 미니언 ───
+    for (let i = minions.length-1; i >= 0; i--) {
+        const m = minions[i];
+
+        if (m.isChaser) {
+            const d = Math.hypot(player.x-m.x, player.y-m.y);
+            if (d > player.radius+m.radius) {
+                const mv = Math.min(m.speed*dt, d);
+                m.x += ((player.x-m.x)/d)*mv; m.y += ((player.y-m.y)/d)*mv;
+            } else {
+                m.attackCooldown -= dt;
+                if (m.attackCooldown <= 0) { player.hp -= m.attackPower; m.attackCooldown = m.attackRate; }
+            }
+        } else {
+            if (m.y < MID_Y) {
+                m.y += m.speed*dt;
+            } else {
+                const d = Math.hypot(tower.x-m.x, tower.y-m.y);
+                if (d > tower.radius+m.radius) {
+                    const mv = Math.min(m.speed*dt, d);
+                    m.x += ((tower.x-m.x)/d)*mv; m.y += ((tower.y-m.y)/d)*mv;
                 } else {
                     m.attackCooldown -= dt;
                     if (m.attackCooldown <= 0) {
-                        player.hp -= m.attackPower;
+                        tower.hp -= m.isBoss ? 40 : 15;
                         m.attackCooldown = m.attackRate;
                     }
                 }
-            } else {
-                if (m.y < midLineY) {
-                    m.y += m.speed * dt;
-                } else {
-                    const d = Math.hypot(tower.x - m.x, tower.y - m.y);
-                    if (d > tower.radius + m.radius) {
-                        const moveDist = Math.min(m.speed * dt, d);
-                        m.x += ((tower.x - m.x) / d) * moveDist;
-                        m.y += ((tower.y - m.y) / d) * moveDist;
-                    } else {
-                        m.attackCooldown -= dt;
-                        if (m.attackCooldown <= 0) {
-                            tower.hp -= m.isBoss ? 40 : 15;
-                            m.attackCooldown = m.attackRate;
-                        }
-                    }
-                }
-            }
-
-            // 미니언 렌더
-            ctx.fillStyle = m.isBoss ? '#8e44ad' : (m.isChaser ? '#e67e22' : '#e74c3c');
-            ctx.beginPath(); ctx.arc(m.x, m.y, m.radius, 0, Math.PI * 2); ctx.fill();
-
-            // HP 바
-            const hpBarW = 36, hpBarH = 5;
-            const hpBarX = m.x - hpBarW / 2;
-            const hpBarY = m.y - m.radius - 14;
-            ctx.fillStyle = 'rgba(0,0,0,0.6)';
-            ctx.fillRect(hpBarX, hpBarY, hpBarW, hpBarH);
-            ctx.fillStyle = m.isBoss ? '#9b59b6' : '#2ecc71';
-            ctx.fillRect(hpBarX, hpBarY, Math.max(0, (m.hp / m.maxHp) * hpBarW), hpBarH);
-            ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineWidth = 1;
-            ctx.strokeRect(hpBarX, hpBarY, hpBarW, hpBarH);
-
-            ctx.font = 'bold 8px Arial'; ctx.fillStyle = '#fff'; ctx.textAlign = 'center';
-            ctx.fillText(`${Math.ceil(Math.max(0, m.hp))}`, m.x, hpBarY - 1);
-
-            // 처치
-            if (m.hp <= 0) {
-                gold += m.isBoss ? 100 : 15;
-                minions.splice(i, 1);
-                if (minions.length === 0) { isWaveActive = false; round++; }
             }
         }
 
-        // ─── 투사체 업데이트 ───
-        for (let i = projectiles.length - 1; i >= 0; i--) {
-            const p = projectiles[i];
-            if (!p.target || p.target.hp <= 0) { projectiles.splice(i, 1); continue; }
-            const d = Math.hypot(p.target.x - p.x, p.target.y - p.y);
-            const moveDist = p.speed * dt;
-            if (d <= moveDist) {
-                // 명중
-                const minionIdx = minions.indexOf(p.target);
-                p.target.hp -= p.damage;
-                if (player.lifesteal > 0) player.hp = Math.min(player.maxHp, player.hp + player.lifesteal);
-                floatingTexts.push(new FloatingText(`-${p.damage}`, p.target.x, p.target.y - 10, p.color));
-                // 멀티: 상대방에게 명중 알림
-                if (isMulti && minionIdx >= 0) sendMinionHit(minionIdx, p.damage);
-
-                if (player.explosionChance > 0 && Math.random() < player.explosionChance) {
-                    explosions.push({ x: p.target.x, y: p.target.y, radius: 50, timer: 0.2 });
-                    minions.forEach(nearM => {
-                        if (nearM !== p.target && Math.hypot(nearM.x - p.target.x, nearM.y - p.target.y) <= 50) {
-                            nearM.hp -= Math.floor(p.damage * 0.7);
-                        }
-                    });
-                }
-                projectiles.splice(i, 1);
-            } else {
-                p.x += ((p.target.x - p.x) / d) * moveDist;
-                p.y += ((p.target.y - p.y) / d) * moveDist;
-                ctx.fillStyle = p.color;
-                ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2); ctx.fill();
-            }
+        // 미니언 그리기
+        ctx.fillStyle = m.isBoss ? '#8e44ad' : m.isChaser ? '#e67e22' : '#e74c3c';
+        ctx.beginPath(); ctx.arc(m.x,m.y,m.radius,0,Math.PI*2); ctx.fill();
+        if (m.isBoss) {
+            ctx.strokeStyle='rgba(255,255,255,0.4)'; ctx.lineWidth=2;
+            ctx.stroke();
         }
 
-        // ─── 폭발 이펙트 ───
-        for (let i = explosions.length - 1; i >= 0; i--) {
-            const exp = explosions[i];
-            ctx.fillStyle = `rgba(230,126,34,${(exp.timer / 0.2) * 0.6})`;
-            ctx.beginPath(); ctx.arc(exp.x, exp.y, exp.radius, 0, Math.PI * 2); ctx.fill();
-            exp.timer -= dt;
-            if (exp.timer <= 0) explosions.splice(i, 1);
+        // HP 바
+        const bw=38, bh=5, bx=m.x-bw/2, by=m.y-m.radius-14;
+        ctx.fillStyle='rgba(0,0,0,.6)'; ctx.fillRect(bx,by,bw,bh);
+        ctx.fillStyle = m.isBoss ? '#9b59b6' : '#2ecc71';
+        ctx.fillRect(bx,by,Math.max(0,(m.hp/m.maxHp)*bw),bh);
+        ctx.font='bold 8px Arial'; ctx.fillStyle='#fff'; ctx.textAlign='center';
+        ctx.fillText(Math.ceil(Math.max(0,m.hp)), m.x, by-1);
+
+        if (m.hp <= 0) {
+            gold += m.isBoss ? 100 : 15;
+            minions.splice(i,1);
+            if (minions.length === 0) { isWaveActive=false; round++; }
         }
-
-        // ─── 플로팅 텍스트 ───
-        for (let i = floatingTexts.length - 1; i >= 0; i--) {
-            floatingTexts[i].update(dt);
-            floatingTexts[i].draw();
-            if (floatingTexts[i].alpha <= 0) floatingTexts.splice(i, 1);
-        }
-
-        // ─── 라운드 배너 ───
-        if (roundBannerTimer > 0) {
-            roundBannerTimer -= dt;
-            const alpha = Math.min(1, roundBannerTimer / 0.5);
-            ctx.save();
-            ctx.globalAlpha = alpha;
-            ctx.fillStyle = 'rgba(0,0,0,0.5)';
-            ctx.fillRect(0, canvasHeight / 2 - 38, canvasWidth, 76);
-            ctx.font = 'bold 30px Outfit, Arial';
-            ctx.fillStyle = '#f1c40f';
-            ctx.textAlign = 'center';
-            ctx.shadowColor = '#e67e22'; ctx.shadowBlur = 15;
-            ctx.fillText(roundBannerText, canvasWidth / 2, canvasHeight / 2 + 10);
-            ctx.restore();
-        }
-
-        // ─── 게임 오버 체크 ───
-        if (player.hp <= 0 || tower.hp <= 0) {
-            isGameOver = true;
-            document.getElementById('game-msg').style.display = 'block';
-            updateMyLobbyStatus('lobby', '');
-            if (conn && conn.open) conn.send({ type: 'game_over' });
-        }
-
-        updateUI();
-        if (isMulti) updateEnemyPanel();
-
-        requestAnimationFrame(gameLoop);
     }
 
-    // ═══════════════════════════════════════════════════
-    //  초기화
-    // ═══════════════════════════════════════════════════
-    updateUI();
-    gameLoop(0);
-    initPeer(); // PeerJS 미리 초기화
-    initFirebase();
-    </script>
-</body>
+    // ─── 투사체 ───
+    for (let i = projectiles.length-1; i >= 0; i--) {
+        const p = projectiles[i];
+        if (!p.target || p.target.hp <= 0) { projectiles.splice(i,1); continue; }
+        const d = Math.hypot(p.target.x-p.x, p.target.y-p.y);
+        const mv = p.speed*dt;
+        if (d <= mv) {
+            const idx = minions.indexOf(p.target);
+            p.target.hp -= p.damage;
+            if (player.lifesteal > 0) player.hp = Math.min(player.maxHp, player.hp+player.lifesteal);
+            floatingTexts.push(new FloatingText(`-${p.damage}`, p.target.x, p.target.y-10, p.color));
+            if (isMulti && idx >= 0) sendMinionHit(idx, p.damage);
+            if ((player.explosionChance||0) > 0 && Math.random() < player.explosionChance) {
+                explosions.push({ x:p.target.x, y:p.target.y, radius:55, timer:0.22 });
+                minions.forEach(nm => {
+                    if (nm !== p.target && Math.hypot(nm.x-p.target.x,nm.y-p.target.y) <= 55)
+                        nm.hp -= Math.floor(p.damage*0.6);
+                });
+            }
+            projectiles.splice(i,1);
+        } else {
+            p.x += ((p.target.x-p.x)/d)*mv; p.y += ((p.target.y-p.y)/d)*mv;
+            ctx.fillStyle=p.color;
+            ctx.beginPath(); ctx.arc(p.x,p.y,p.radius,0,Math.PI*2); ctx.fill();
+        }
+    }
 
+    // ─── 폭발 ───
+    for (let i = explosions.length-1; i >= 0; i--) {
+        const ex = explosions[i];
+        ctx.fillStyle=`rgba(230,126,34,${(ex.timer/0.22)*0.55})`;
+        ctx.beginPath(); ctx.arc(ex.x,ex.y,ex.radius,0,Math.PI*2); ctx.fill();
+        ex.timer -= dt;
+        if (ex.timer <= 0) explosions.splice(i,1);
+    }
+
+    // ─── 플로팅 텍스트 ───
+    for (let i = floatingTexts.length-1; i >= 0; i--) {
+        floatingTexts[i].update(dt); floatingTexts[i].draw();
+        if (floatingTexts[i].alpha <= 0) floatingTexts.splice(i,1);
+    }
+
+    // ─── 라운드 배너 ───
+    if (roundBannerTimer > 0) {
+        roundBannerTimer -= dt;
+        const al = Math.min(1, roundBannerTimer/0.5);
+        ctx.save(); ctx.globalAlpha=al;
+        ctx.fillStyle='rgba(0,0,0,.5)';
+        ctx.fillRect(0, CH/2-40, CW, 80);
+        ctx.font='bold 30px Outfit,Arial'; ctx.fillStyle='#f1c40f';
+        ctx.textAlign='center'; ctx.shadowColor='#e67e22'; ctx.shadowBlur=15;
+        ctx.fillText(roundBannerText, CW/2, CH/2+10); ctx.restore();
+    }
+
+    // ─── 게임 오버 ───
+    if (player.hp <= 0 || tower.hp <= 0) {
+        isGameOver = true;
+        gameRunning = false;
+        document.getElementById('game-msg').style.display = 'block';
+        bcUpdateStatus('lobby', '');
+        if (conn && conn.open) conn.send({ type:'game_over' });
+        return;
+    }
+
+    updateUI();
+    if (isMulti) updateEnemyPanel();
+    requestAnimationFrame(gameLoop);
+}
+
+// ╔══════════════════════════════════════════════════════════╗
+// ║              INIT                                        ║
+// ╚══════════════════════════════════════════════════════════╝
+updateUI();
+renderDicePanel();
+initBroadcastChannel();
+// PeerJS 미리 초기화 (로비에서 ID 확보)
+initPeer((id) => {
+    document.getElementById('myPeerId').innerText = id;
+    if (bcPlayers[myBcId]) bcPlayers[myBcId].peerId = id;
+    if (bc) bc.postMessage({ type:'here', id:myBcId, nickname:myNickname, peerId:id });
+});
+</script>
+</body>
 </html>
