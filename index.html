@@ -95,9 +95,9 @@
         .st-play { background:rgba(231,76,60,.2); color:var(--red); }
         .st-match { background:rgba(241,196,15,.2); color:var(--gold); }
         .pli-connect { font-size:10px; padding:3px 8px; border-radius:5px;
-            border:none; background:var(--blue); color:#fff;
+            border:none; background:var(--green); color:#fff;
             cursor:pointer; font-weight:700; }
-        .pli-connect:hover { background:#2980b9; }
+        .pli-connect:hover { background:#27ae60; }
 
         /* 메뉴 버튼 */
         .lobby-menu { display:flex; flex-direction:column; gap:8px;
@@ -113,6 +113,12 @@
             box-shadow:0 4px 18px rgba(46,204,113,.3); }
         .btn-dice { background:linear-gradient(135deg,#8e44ad,#6c3483);
             border-color:var(--purple); }
+        .btn-disabled {
+            background:rgba(100,100,100,0.35) !important;
+            border-color:rgba(255,255,255,0.2) !important;
+            color:#888 !important;
+            cursor:not-allowed !important;
+        }
         .btn-sub-action { background:rgba(41,128,185,0.35); border-color:var(--blue);
             margin-top:4px; padding:10px; font-size:13px; }
 
@@ -138,7 +144,7 @@
             text-align:center; line-height:11px; color:#fff;
             font-weight:700; text-shadow:0 0 2px #000; }
 
-        /* 인게임 상대 패널 */
+        /* 인게임 동료 패널 */
         #enemy-ui-panel {
             display:none; position:fixed; top:34px; right:6px;
             background:rgba(142,68,173,.22);
@@ -306,12 +312,12 @@
 
     <div class="lobby-menu">
         <button class="btn-lobby btn-start" onclick="startSoloPlay()">👤 솔로 플레이</button>
-        <button class="btn-lobby btn-dice" onclick="openModal('modalPvpSelect')">⚔️ PVP 대전 모드</button>
-        <button class="btn-lobby btn-dice" onclick="openModal('modalCoopSelect')">🤝 협동 모드</button>
+        <button class="btn-lobby btn-dice" onclick="openModal('modalCoopSelect')">🤝 협동 모드 (2인 플레이)</button>
+        <button class="btn-lobby btn-disabled" onclick="alertPvpClosed()">⚔️ PVP 대전 모드 [임시 점검]</button>
         <button class="btn-lobby" onclick="openModal('modalNotice')">📢 공지사항</button>
         <button class="btn-lobby" onclick="openModal('modalSettings')">⚙️ 설정</button>
     </div>
-    <div style="font-size:10px;color:#555;">v5.2 — 실시간 P2P 동기화 & 캐릭터 렌더링 완벽 지원</div>
+    <div style="font-size:10px;color:#555;">v5.5 — 협동 전용 모드 & 아군 무적 안전 패치</div>
 </div>
 
 <!-- ══════════════════ IN-GAME UI ══════════════════ -->
@@ -335,9 +341,9 @@
     </div>
 </div>
 
-<!-- 상대방 패널 (멀티) -->
+<!-- 동료 패널 (멀티) -->
 <div id="enemy-ui-panel">
-    <div class="enemy-panel-title">👥 <span id="enemy-name">상대방</span></div>
+    <div class="enemy-panel-title">🤝 <span id="enemy-name">동료 소환사</span></div>
     <div class="ui-group">
         <span>HP</span>
         <div class="hp-bar-container" style="width:80px;">
@@ -387,21 +393,11 @@
 </div>
 
 <!-- ══════ MODALS ══════ -->
-<div class="modal" id="modalPvpSelect">
-    <div class="modal-title">⚔️ PVP 대전 모드</div>
-    <div class="modal-content">
-        <div class="mode-desc">1대1 실시간 PVP 대결! 상대의 타워를 먼저 파괴하면 승리합니다.</div>
-        <button class="btn-lobby btn-sub-action" onclick="closeModal('modalPvpSelect');startMatchmaking('PVP');">🔍 실시간 무작위 매칭</button>
-        <button class="btn-lobby btn-sub-action" onclick="closeModal('modalPvpSelect');openFriendRoomModal('PVP');">👥 친구랑 하기 (코드 생성/입력)</button>
-    </div>
-    <button class="btn-close" onclick="closeModal('modalPvpSelect')">닫기</button>
-</div>
-
 <div class="modal" id="modalCoopSelect">
     <div class="modal-title">🤝 협동 모드</div>
     <div class="modal-content">
-        <div class="mode-desc">2인 협동으로 몰려오는 몬스터 웨이브를 막아내세요!</div>
-        <button class="btn-lobby btn-sub-action" onclick="closeModal('modalCoopSelect');startMatchmaking('COOP');">🔍 실시간 무작위 매칭</button>
+        <div class="mode-desc">2인 협동으로 몰려오는 몬스터 웨이브를 함께 막아내세요! (아군끼리는 완전 무적입니다)</div>
+        <button class="btn-lobby btn-sub-action" onclick="closeModal('modalCoopSelect');startMatchmaking('COOP');">🔍 실시간 협동 매칭</button>
         <button class="btn-lobby btn-sub-action" onclick="closeModal('modalCoopSelect');openFriendRoomModal('COOP');">👥 친구랑 하기 (코드 생성/입력)</button>
     </div>
     <button class="btn-close" onclick="closeModal('modalCoopSelect')">닫기</button>
@@ -430,13 +426,13 @@
 </div>
 
 <div class="modal" id="modalMatch">
-    <div class="modal-title" id="matchModalTitle">🔍 실시간 무작위 매칭</div>
+    <div class="modal-title" id="matchModalTitle">🔍 실시간 협동 매칭</div>
     <div class="modal-content" style="text-align:center;padding:8px 0;">
-        <p id="matchText" style="color:#aaa;margin-bottom:8px;font-size:13px;">상대 플레이어를 찾는 중입니다...</p>
+        <p id="matchText" style="color:#aaa;margin-bottom:8px;font-size:13px;">함께할 동료 소환사를 찾는 중입니다...</p>
         <div style="font-size:32px;margin:12px 0;display:inline-block;animation:spin 2s linear infinite;">⏳</div>
         <div id="matchTimeElapsed" style="font-size:12px;color:var(--gold);margin-bottom:8px;">매칭 대기: 0초</div>
         <div id="matchBotOption" style="display:none;margin-top:10px;">
-            <button class="btn-buy" style="background:#8e44ad;padding:8px 16px;" onclick="startBotMatch()">🤖 AI 봇과 지금 시작</button>
+            <button class="btn-buy" style="background:#8e44ad;padding:8px 16px;" onclick="startBotMatch()">🤖 AI 봇 동료와 지금 시작</button>
         </div>
     </div>
     <button class="btn-close" onclick="cancelMatchmaking()">매칭 취소</button>
@@ -458,11 +454,19 @@
     <div class="modal-title">📢 공지사항</div>
     <div class="modal-content">
         <div style="margin-bottom:10px;border-bottom:1px solid #333;padding-bottom:8px;">
-            <b style="color:var(--gold);">[v5.2] 실시간 멀티플레이 렌더링 & 동기화 완료!</b><br>
-            - 🌐 <b>P2P 실시간 상대방 캐릭터 렌더링</b><br>
-            - ⚔️ <b>PVP 대전 모드</b>: 상대방 진영 및 적 타워 실시간 파괴전<br>
-            - 🤝 <b>협동 모드</b>: 두 플레이어가 함께 나란히 서서 웨이브 방어<br>
-            - 🎲 <b>10종 랜덤다이스 시스템</b>
+            <b style="color:var(--red);">[긴급 공지] PVP 대전 모드 임시 폐쇄 안내</b><br>
+            - 현재 PVP 대전 모드는 맵 크기가 협소하고 밸런스 조정이 필요하여 <b>잠시 폐쇄</b>되었습니다.<br>
+            - 추후 맵 확장 및 밸런스 전면 리워크 후 더욱 완성도 높게 오픈될 예정입니다.
+        </div>
+        <div style="margin-bottom:10px;border-bottom:1px solid #333;padding-bottom:8px;">
+            <b style="color:var(--green);">[v5.5] 협동 모드 아군 피격 완전 방지 패치</b><br>
+            - 🛡️ <b>아군 무적 시스템</b>: 조준경, 폭발, 멀티샷, E 스킬 충격파 등 모든 공격에서 <b>동료 소환사 타격 무효화 및 무적 판정</b> 적용.<br>
+            - 몬스터 공격에만 100% 데미지가 들어가며 팀킬이 완전히 차단되었습니다.
+        </div>
+        <div>
+            <b style="color:var(--gold);">[핵심 시스템]</b><br>
+            - 🎲 <b>10종 랜덤다이스 & 라운드 무료 주사위</b><br>
+            - ⏱️ <b>Delta-Time 물리 엔진</b> (기기별 속도 완벽 통일)
         </div>
     </div>
     <button class="btn-close" onclick="closeModal('modalNotice')">닫기</button>
@@ -510,12 +514,11 @@ let roundBannerTimer = 0, roundBannerText = '';
 let lastTimestamp = 0;
 
 // ─── 멀티플레이 ───
-let currentGameMode = 'SOLO';
+let currentGameMode = 'COOP';
 let isMulti = false, isHost = false, isBotMatch = false;
 let peer = null, conn = null;
 let peerPlayer = null;
-let enemyTower = { x: CW/2, y: 50, radius: 28, hp: 1500, maxHp: 1500 };
-let enemyProjectiles = [];
+let peerProjectiles = [];
 let netSendInterval = null;
 let currentPing = 0;
 
@@ -600,6 +603,10 @@ const equipmentItems = [
 
 let minions=[], projectiles=[], floatingTexts=[], explosions=[], scopeEffects=[], shockwaves=[];
 let isWaveActive=false;
+
+function alertPvpClosed() {
+    alert("⚔️ PVP 대전 모드는 맵 확장 및 밸런스 리워크를 위해 임시 폐쇄되었습니다.\n더욱 완성도 높은 대전 모드로 돌아오겠습니다!");
+}
 
 // ╔══════════════════════════════════════════════════════════╗
 // ║              P2P MESH LOBBY HUB ENGINE                   ║
@@ -695,7 +702,6 @@ function connectToLobbyHub() {
 
 function setupPeerListeners(targetPeer) {
     targetPeer.on('connection', (c) => {
-        // 인게임 대결/협동용 연결인지 확인하여 conn에 저장!
         c.on('open', () => {
             if (isLobbyHub) {
                 clientConns.add(c);
@@ -714,7 +720,6 @@ function setupPeerListeners(targetPeer) {
                     }
                 }
             } else {
-                // 인게임 데이터가 들어오면 이 연결을 인게임 conn으로 지정!
                 if (!conn || conn !== c) {
                     conn = c;
                     isHost = false;
@@ -748,7 +753,7 @@ function sendHeartbeatToHub() {
             nickname: myNickname,
             peerId: myPeerIdStr,
             status: gameRunning ? 'playing' : (isMatchingActive ? 'matching' : 'lobby'),
-            mode: currentGameMode,
+            mode: 'COOP',
             matching: isMatchingActive,
             ts: Date.now()
         };
@@ -764,7 +769,7 @@ function broadcastMyPresence() {
         nickname: myNickname,
         peerId: myPeerIdStr,
         status: gameRunning ? 'playing' : (isMatchingActive ? 'matching' : 'lobby'),
-        mode: currentGameMode,
+        mode: 'COOP',
         matching: isMatchingActive,
         ts: Date.now()
     };
@@ -794,7 +799,7 @@ function broadcastFullLobbyList() {
         nickname: myNickname,
         peerId: myPeerIdStr,
         status: gameRunning ? 'playing' : (isMatchingActive ? 'matching' : 'lobby'),
-        mode: currentGameMode,
+        mode: 'COOP',
         matching: isMatchingActive,
         ts: Date.now()
     });
@@ -821,12 +826,12 @@ function handleLobbyMsg(data) {
             nickname: data.nickname || '소환사',
             peerId: data.peerId || '',
             status: data.status || 'lobby',
-            mode: data.mode || '',
+            mode: 'COOP',
             matching: !!data.matching,
             lastSeen: Date.now()
         });
 
-        if (isMatchingActive && data.matching && data.mode === currentGameMode && data.peerId && myPeerIdStr) {
+        if (isMatchingActive && data.matching && data.peerId && myPeerIdStr) {
             attemptAutoMatch(data);
         }
     } else if (data.type === 'full_list' && Array.isArray(data.list)) {
@@ -838,9 +843,9 @@ function handleLobbyMsg(data) {
                 });
             }
         }
-    } else if (data.type === 'challenge' && data.targetPeerId === myPeerIdStr) {
-        if (confirm(`${data.fromName}님이 PVP 대결을 신청했습니다! 수락하시겠습니까?`)) {
-            currentGameMode = 'PVP';
+    } else if (data.type === 'invite_coop' && data.targetPeerId === myPeerIdStr) {
+        if (confirm(`${data.fromName}님이 2인 협동 모드를 신청했습니다! 수락하시겠습니까?`)) {
+            currentGameMode = 'COOP';
             conn = peer.connect(data.fromPeerId, { reliable: true });
             isHost = false;
             setupConnection('GUEST');
@@ -888,7 +893,7 @@ function renderLobbyPlayerList() {
 
         let actionBtn = '';
         if (!p.isSelf && p.peerId && !isPlay) {
-            actionBtn = `<button class="pli-connect" onclick="challengePlayer('${p.peerId}', '${p.nickname}')">도전</button>`;
+            actionBtn = `<button class="pli-connect" onclick="invitePlayerCoop('${p.peerId}', '${p.nickname}')">초대</button>`;
         }
 
         return `
@@ -906,14 +911,14 @@ function renderLobbyPlayerList() {
 // ║              MATCHMAKING LOGIC                           ║
 // ╚══════════════════════════════════════════════════════════╝
 function startMatchmaking(mode) {
-    currentGameMode = mode;
+    currentGameMode = 'COOP';
     isMatchingActive = true;
     isBotMatch = false;
     matchSearchSeconds = 0;
 
     openModal('modalMatch');
-    document.getElementById('matchModalTitle').innerText = `🔍 ${mode} 실시간 무작위 매칭`;
-    document.getElementById('matchText').innerText = '상대 플레이어를 찾는 중입니다...';
+    document.getElementById('matchModalTitle').innerText = `🔍 2인 협동 실시간 매칭`;
+    document.getElementById('matchText').innerText = '함께할 동료 소환사를 찾는 중입니다...';
     document.getElementById('matchBotOption').style.display = 'none';
 
     broadcastMyPresence();
@@ -933,7 +938,7 @@ function attemptAutoMatch(opponent) {
     if (!isMatchingActive || !myPeerIdStr || !opponent.peerId) return;
 
     if (myUniqueId < opponent.uid) {
-        document.getElementById('matchText').innerText = `${opponent.nickname}님과 매칭되었습니다! 연결 중...`;
+        document.getElementById('matchText').innerText = `${opponent.nickname}님과 매칭되었습니다! 협동 게임 시작 중...`;
         isMatchingActive = false;
         
         setTimeout(() => {
@@ -942,7 +947,7 @@ function attemptAutoMatch(opponent) {
             setupConnection('HOST');
         }, 300);
     } else {
-        document.getElementById('matchText').innerText = `매칭 성사! 방에 입장하는 중...`;
+        document.getElementById('matchText').innerText = `매칭 성사! 협동 게임에 입장하는 중...`;
         isMatchingActive = false;
     }
 }
@@ -954,7 +959,7 @@ function startBotMatch() {
     document.getElementById('main-lobby').style.display = 'none';
     document.getElementById('btnOpenMulti').style.display = 'none';
     startGame();
-    addChatLog(`[시스템] 🤖 AI 봇과의 ${currentGameMode} 대전이 시작되었습니다!`, true);
+    addChatLog(`[시스템] 🤖 AI 봇 동료와의 2인 협동 모드가 시작되었습니다!`, true);
 }
 
 function cancelMatchmaking() {
@@ -964,14 +969,30 @@ function cancelMatchmaking() {
     broadcastMyPresence();
 }
 
-function challengePlayer(targetPeerId, targetName) {
+function invitePlayerCoop(targetPeerId, targetName) {
     if (!targetPeerId) return;
-    currentGameMode = 'PVP';
+    currentGameMode = 'COOP';
+
+    const invitePayload = {
+        _lobby: true,
+        type: 'invite_coop',
+        fromName: myNickname,
+        fromPeerId: myPeerIdStr,
+        targetPeerId: targetPeerId
+    };
+
+    if (isLobbyHub) {
+        for (const cl of clientConns) {
+            if (cl.open) { try { cl.send(invitePayload); } catch(e){} }
+        }
+    } else if (hubConn && hubConn.open) {
+        try { hubConn.send(invitePayload); } catch(e){}
+    }
 
     conn = peer.connect(targetPeerId, { reliable: true });
     isHost = true;
     setupConnection('HOST');
-    addChatLog(`[멀티] ${targetName}님에게 대결을 신청했습니다...`, true);
+    addChatLog(`[멀티] ${targetName}님에게 협동 모드 초대를 보냈습니다...`, true);
 }
 
 // ╔══════════════════════════════════════════════════════════╗
@@ -981,33 +1002,34 @@ function setupConnection(role) {
     isHost = (role === 'HOST');
     isBotMatch = false;
     isMulti = true;
+    currentGameMode = 'COOP';
 
-    // 상대방 초기 위치 생성
+    // 동료 플레이어 초기 위치
     peerPlayer = {
-        x: CW / 2,
-        y: currentGameMode === 'PVP' ? 120 : CH - 120,
+        x: CW / 2 + 35,
+        y: CH - 120,
         hp: 200, maxHp: 200,
-        nickname: '상대방',
+        nickname: '동료',
         round: 1,
         qBuffTimer: 0,
         wBuffTimer: 0
     };
 
     conn.on('open', () => {
-        setMultiStatus('✅ 상대방과 실시간 P2P 연결 성공!');
-        addChatLog(`[멀티] ${isHost ? 'HOST' : 'GUEST'}로 게임에 참가했습니다!`, true);
+        setMultiStatus('✅ 동료 소환사와 실시간 P2P 연결 성공!');
+        addChatLog(`[협동] ${isHost ? 'HOST' : 'GUEST'}로 게임에 참가했습니다!`, true);
         isMulti = true;
         isMatchingActive = false;
 
         if (isHost) {
             setTimeout(() => {
                 if (conn && conn.open) {
-                    conn.send({ type:'start_game', mode: currentGameMode });
+                    conn.send({ type:'start_game', mode: 'COOP' });
                     closeAllModals();
                     document.getElementById('main-lobby').style.display = 'none';
                     document.getElementById('btnOpenMulti').style.display = 'flex';
                     startGame();
-                    addChatLog(`[시스템] ${currentGameMode} 멀티 게임 시작!`, true);
+                    addChatLog(`[시스템] 2인 협동 게임 시작!`, true);
                 }
             }, 300);
         }
@@ -1017,7 +1039,7 @@ function setupConnection(role) {
     conn.on('data', handleNetworkData);
 
     conn.on('close', () => {
-        addChatLog('[시스템] 상대방 연결이 끊어졌습니다.', true);
+        addChatLog('[시스템] 동료 연결이 끊어졌습니다.', true);
         isMulti = false;
         peerPlayer = null;
         updateEnemyPanel();
@@ -1031,60 +1053,41 @@ function handleNetworkData(data) {
     switch (data.type) {
         case 'start_game':
             if (!isHost) {
-                currentGameMode = data.mode;
+                currentGameMode = 'COOP';
                 closeAllModals();
                 document.getElementById('main-lobby').style.display = 'none';
                 document.getElementById('btnOpenMulti').style.display = 'flex';
                 startGame();
-                addChatLog(`[시스템] ${currentGameMode} 멀티 게임 시작!`, true);
+                addChatLog(`[시스템] 2인 협동 게임 시작!`, true);
                 startNetSync();
             }
             break;
 
         case 'state':
             if (!peerPlayer) {
-                peerPlayer = { x: CW/2, y: CH/2, hp: 200, maxHp: 200, nickname: '상대방', round: 1 };
+                peerPlayer = { x: CW/2 + 35, y: CH-120, hp: 200, maxHp: 200, nickname: '동료', round: 1 };
             }
             if (peerPlayer) {
-                // PVP 모드에서는 상대방 좌표를 화면 상단 반전 좌표로 매핑!
-                if (currentGameMode === 'PVP') {
-                    peerPlayer.x = CW - data.x;
-                    peerPlayer.y = (CH - data.y) * 0.45 + 30; // 상단 진영에 배치
-                } else {
-                    // 협동 모드에서는 실제 위치 그대로
-                    peerPlayer.x = data.x;
-                    peerPlayer.y = data.y;
-                }
+                peerPlayer.x = data.x;
+                peerPlayer.y = data.y;
                 peerPlayer.hp = data.hp;
                 peerPlayer.maxHp = data.maxHp;
                 peerPlayer.round = data.round;
-                peerPlayer.nickname = data.nickname || '상대방';
+                peerPlayer.nickname = data.nickname || '동료';
                 peerPlayer.qBuffTimer = data.qBuffTimer || 0;
                 peerPlayer.wBuffTimer = data.wBuffTimer || 0;
-
-                // 적 타워 상태 (PVP)
-                if (data.towerHp !== undefined) {
-                    enemyTower.hp = data.towerHp;
-                    enemyTower.maxHp = data.towerMaxHp || 1500;
-                }
                 updateEnemyPanel();
             }
             break;
 
         case 'shoot':
-            // 상대방이 발사한 투사체 렌더링
-            if (peerPlayer) {
-                const sx = currentGameMode === 'PVP' ? CW - data.x : data.x;
-                const sy = currentGameMode === 'PVP' ? (CH - data.y) * 0.45 + 30 : data.y;
-                let targetObj = { x: player.x, y: player.y };
-                if (currentGameMode === 'PVP') {
-                    targetObj = { x: player.x, y: player.y };
-                }
-                enemyProjectiles.push({
-                    x: sx, y: sy,
-                    target: targetObj,
+            // 동료가 발사한 투사체 렌더링 (아군은 절대 안 맞음)
+            if (data.targetIdx !== undefined && minions[data.targetIdx]) {
+                peerProjectiles.push({
+                    x: data.x, y: data.y,
+                    target: minions[data.targetIdx],
                     damage: data.damage || 20,
-                    speed: 680,
+                    speed: 720,
                     color: '#9b59b6',
                     radius: 5
                 });
@@ -1092,14 +1095,15 @@ function handleNetworkData(data) {
             break;
 
         case 'minion_hit':
-            if (data.idx !== undefined && minions[data.idx]) {
+            // 오직 미니언 피격만 처리! (플레이어 피격 idx < 0 은 100% 무시하여 아군 무적!)
+            if (data.idx !== undefined && data.idx >= 0 && minions[data.idx]) {
                 minions[data.idx].hp -= data.dmg;
                 floatingTexts.push(new FloatingText(`-${data.dmg}`, minions[data.idx].x, minions[data.idx].y - 10, '#9b59b6'));
             }
             break;
 
         case 'chat':
-            addChatLog(`[상대] ${data.msg}`);
+            addChatLog(`[동료] ${data.msg}`);
             break;
 
         case 'ping':
@@ -1114,16 +1118,15 @@ function handleNetworkData(data) {
 
         case 'game_over':
             if (!isGameOver) {
-                addChatLog('[시스템] 상대방 패배! 🏆 당신의 승리입니다!', true);
-                document.getElementById('game-msg').style.color = '#2ecc71';
-                document.getElementById('game-msg').innerText = '🏆 승리!';
+                addChatLog('[시스템] 타워가 파괴되어 패배했습니다...', true);
+                document.getElementById('game-msg').innerText = '패배!';
                 document.getElementById('game-msg').style.display = 'block';
                 isGameOver = true;
             }
             break;
 
         case 'dice_used':
-            addChatLog(`[상대] 다이스 사용: ${data.result}`, true);
+            addChatLog(`[동료] 다이스 사용: ${data.result}`, true);
             break;
     }
 }
@@ -1141,25 +1144,26 @@ function startNetSync() {
             round: round,
             nickname: myNickname,
             qBuffTimer: player.qBuffTimer,
-            wBuffTimer: player.wBuffTimer,
-            towerHp: tower.hp,
-            towerMaxHp: tower.maxHp
+            wBuffTimer: player.wBuffTimer
         });
-    }, 45); // 45ms마다 초고속 위치 동기화
+    }, 45);
 
     setInterval(() => {
         if (conn && conn.open) conn.send({ type:'ping', ts: Date.now() });
     }, 3000);
 }
 
-function sendShootEvent(x, y, damage) {
+function sendShootEvent(x, y, damage, targetIdx) {
     if (conn && conn.open) {
-        conn.send({ type: 'shoot', x, y, damage });
+        conn.send({ type: 'shoot', x, y, damage, targetIdx });
     }
 }
 
 function sendMinionHit(idx, dmg) {
-    if (conn && conn.open && idx >= 0) conn.send({ type:'minion_hit', idx, dmg });
+    // 오직 미니언 타격만 전송!
+    if (conn && conn.open && idx >= 0) {
+        conn.send({ type:'minion_hit', idx, dmg });
+    }
 }
 
 function updateEnemyPanel() {
@@ -1168,13 +1172,13 @@ function updateEnemyPanel() {
     p.style.display = 'flex';
 
     if (isBotMatch) {
-        document.getElementById('enemy-name').textContent = '🤖 AI 봇';
+        document.getElementById('enemy-name').textContent = '🤖 AI 봇 동료';
         document.getElementById('enemyHpBar').style.width = '100%';
         document.getElementById('enemyHpText').textContent = '200/200';
         document.getElementById('enemy-round-info').textContent = `R${round}`;
         document.getElementById('ping-indicator').textContent = '핑: 1ms';
     } else {
-        document.getElementById('enemy-name').textContent     = peerPlayer.nickname || '상대방';
+        document.getElementById('enemy-name').textContent     = peerPlayer.nickname || '동료';
         document.getElementById('enemyHpBar').style.width     = Math.max(0,(peerPlayer.hp/peerPlayer.maxHp)*100)+'%';
         document.getElementById('enemyHpText').textContent    = `${Math.ceil(Math.max(0,peerPlayer.hp))}/${peerPlayer.maxHp}`;
         document.getElementById('enemy-round-info').textContent = `R${peerPlayer.round||1}`;
@@ -1185,13 +1189,13 @@ function updateEnemyPanel() {
 // ║              FRIEND ROOM MODAL LOGIC                     ║
 // ╚══════════════════════════════════════════════════════════╝
 function openFriendRoomModal(mode) {
-    currentGameMode = mode;
+    currentGameMode = 'COOP';
     openModal('modalMulti');
     document.getElementById('myPeerId').innerText = myPeerIdStr || '생성 중...';
 }
 
 function createHostRoom() {
-    setMultiStatus(`✅ 방 생성 완료! 친구에게 이 코드를 알려주세요:\n${myPeerIdStr}`);
+    setMultiStatus(`✅ 협동 방 생성 완료! 친구에게 이 코드를 알려주세요:\n${myPeerIdStr}`);
 }
 
 function connectToPeer() {
@@ -1300,7 +1304,7 @@ function addDevDice() {
 function openModal(id) { document.getElementById(id).style.display = 'flex'; }
 function closeModal(id) { document.getElementById(id).style.display = 'none'; }
 function closeAllModals() {
-    ['modalPvpSelect','modalCoopSelect','modalMulti','modalMatch','modalStat','modalShop','modalNotice','modalSettings']
+    ['modalCoopSelect','modalMulti','modalMatch','modalStat','modalShop','modalNotice','modalSettings']
         .forEach(closeModal);
 }
 
@@ -1421,8 +1425,7 @@ function resetGameState() {
     player.eCooldown = 0;
 
     tower.hp = tower.maxHp;
-    enemyTower.hp = enemyTower.maxHp;
-    minions=[]; projectiles=[]; enemyProjectiles=[]; floatingTexts=[]; explosions=[]; scopeEffects=[]; shockwaves=[];
+    minions=[]; projectiles=[]; peerProjectiles=[]; floatingTexts=[]; explosions=[]; scopeEffects=[]; shockwaves=[];
     gold = 0; round = 1;
     isWaveActive = false; isGameOver = false;
     myDice = []; diceRollCost = 50; freeDiceThisRound = false;
@@ -1485,7 +1488,7 @@ document.getElementById('btnE').addEventListener('pointerdown', (e) => {
         player.eCooldown = 8;
         shockwaves.push({ x:player.x, y:player.y, radius:10, alpha:1 });
         
-        // 몬스터 데미지
+        // 오직 몬스터만 타격! (아군 100% 무적)
         for (let i = minions.length-1; i >= 0; i--) {
             const m = minions[i];
             if (Math.hypot(m.x-player.x, m.y-player.y) <= 160) {
@@ -1493,15 +1496,6 @@ document.getElementById('btnE').addEventListener('pointerdown', (e) => {
                 m.hp -= dmg;
                 floatingTexts.push(new FloatingText(`-${dmg}`, m.x, m.y-15, '#f1c40f'));
                 sendMinionHit(i, dmg);
-            }
-        }
-
-        // PVP 적 챔피언 데미지
-        if (isMulti && currentGameMode === 'PVP' && peerPlayer) {
-            if (Math.hypot(peerPlayer.x - player.x, peerPlayer.y - player.y) <= 160) {
-                const dmg = Math.floor(player.attackPower * 2);
-                floatingTexts.push(new FloatingText(`-${dmg}`, peerPlayer.x, peerPlayer.y-15, '#e74c3c'));
-                if (conn && conn.open) conn.send({ type:'minion_hit', idx: -1, dmg });
             }
         }
     }
@@ -1616,7 +1610,7 @@ function gameLoop(timestamp) {
     ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(0, MID_Y); ctx.lineTo(CW, MID_Y); ctx.stroke();
 
-    // 웨이브 체크 (솔로 및 협동 모드)
+    // 웨이브 체크
     if (!isWaveActive && minions.length === 0) {
         freeDiceThisRound = false;
         startNextWave();
@@ -1638,25 +1632,16 @@ function gameLoop(timestamp) {
         player.x += (dx/dist)*move; player.y += (dy/dist)*move;
     }
 
-    // ─── 자동 공격 ───
+    // ─── 자동 공격 (오직 몬스터만 타겟팅) ───
     const cd = player.qBuffTimer > 0
         ? Math.max(0.03, player.attackBaseCooldown * 0.08)
         : player.attackBaseCooldown;
     if (player.attackCooldown > 0) player.attackCooldown = Math.max(0, player.attackCooldown - dt);
 
     if (player.attackCooldown <= 0) {
-        // 타겟팅 리스트
         let targets = minions
             .filter(m => Math.hypot(m.x-player.x, m.y-player.y) <= player.attackRange)
             .sort((a,b) => Math.hypot(a.x-player.x,a.y-player.y) - Math.hypot(b.x-player.x,b.y-player.y));
-
-        // PVP 모드: 상대 플레이어가 사거리 내에 있으면 타겟팅 추가!
-        if (isMulti && currentGameMode === 'PVP' && peerPlayer) {
-            const distToEnemy = Math.hypot(peerPlayer.x - player.x, peerPlayer.y - player.y);
-            if (distToEnemy <= player.attackRange) {
-                targets.unshift({ x: peerPlayer.x, y: peerPlayer.y, isEnemyPlayer: true });
-            }
-        }
 
         if (targets.length > 0) {
             const shots = Math.min(player.multiShot || 1, targets.length);
@@ -1667,8 +1652,9 @@ function gameLoop(timestamp) {
                     dmg = Math.floor(dmg * 2.2);
                     color = '#f1c40f';
                 }
+                const targetIdx = minions.indexOf(targets[s]);
                 projectiles.push({ x:player.x, y:player.y, target:targets[s], speed:720, damage:dmg, color, radius:5 });
-                sendShootEvent(player.x, player.y, dmg);
+                sendShootEvent(player.x, player.y, dmg, targetIdx);
             }
 
             // 조준경 탄
@@ -1682,45 +1668,30 @@ function gameLoop(timestamp) {
         }
     }
 
-    // ─── [PVP] 적 타워 렌더 (상단) ───
-    if (isMulti && currentGameMode === 'PVP') {
-        ctx.save();
-        ctx.fillStyle = '#9b59b6';
-        ctx.beginPath(); ctx.arc(enemyTower.x, enemyTower.y, enemyTower.radius, 0, Math.PI*2); ctx.fill();
-        ctx.strokeStyle = 'rgba(255,255,255,0.4)'; ctx.lineWidth = 2; ctx.stroke();
-        ctx.fillStyle = '#fff'; ctx.font = 'bold 8px Arial'; ctx.textAlign = 'center';
-        ctx.fillText(`적 타워 ${Math.ceil(enemyTower.hp)}`, enemyTower.x, enemyTower.y - enemyTower.radius - 4);
-        ctx.restore();
-    }
-
-    // ─── [멀티] 상대방 플레이어 렌더링 ───
+    // ─── [멀티] 동료 플레이어 렌더링 ───
     if (isMulti && peerPlayer) {
         ctx.save();
-        // 상대방 Q 버프 오라
         if (peerPlayer.qBuffTimer > 0) {
             ctx.strokeStyle = '#f1c40f'; ctx.lineWidth = 3;
             ctx.beginPath(); ctx.arc(peerPlayer.x, peerPlayer.y, player.radius + 4, 0, Math.PI * 2); ctx.stroke();
         }
-        // 상대방 W 버프 오라
         if (peerPlayer.wBuffTimer > 0) {
-            ctx.strokeStyle = '#e74c3c'; ctx.lineWidth = 3;
+            ctx.strokeStyle = '#3498db'; ctx.lineWidth = 3;
             ctx.beginPath(); ctx.arc(peerPlayer.x, peerPlayer.y, player.radius + 7, 0, Math.PI * 2); ctx.stroke();
         }
 
-        // 상대방 본체 원
-        ctx.fillStyle = currentGameMode === 'PVP' ? '#e74c3c' : '#9b59b6';
+        ctx.fillStyle = '#9b59b6';
         ctx.beginPath(); ctx.arc(peerPlayer.x, peerPlayer.y, player.radius, 0, Math.PI * 2); ctx.fill();
         ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
 
-        // 닉네임 및 HP 텍스트
         ctx.fillStyle = '#fff'; ctx.font = 'bold 10px Outfit,Arial'; ctx.textAlign = 'center';
-        ctx.fillText(peerPlayer.nickname || '상대방', peerPlayer.x, peerPlayer.y - player.radius - 8);
+        ctx.fillText(peerPlayer.nickname || '동료', peerPlayer.x, peerPlayer.y - player.radius - 8);
 
-        // 상대방 머리 위 HP 바
+        // 동료 HP 바
         const ehpW = 40, ehpH = 4;
         ctx.fillStyle = 'rgba(0,0,0,0.6)';
         ctx.fillRect(peerPlayer.x - ehpW/2, peerPlayer.y - player.radius - 6, ehpW, ehpH);
-        ctx.fillStyle = '#e74c3c';
+        ctx.fillStyle = '#2ecc71';
         ctx.fillRect(peerPlayer.x - ehpW/2, peerPlayer.y - player.radius - 6, Math.max(0, (peerPlayer.hp / peerPlayer.maxHp) * ehpW), ehpH);
 
         ctx.restore();
@@ -1836,31 +1807,30 @@ function gameLoop(timestamp) {
         }
     }
 
-    // ─── 내 투사체 업데이트 ───
+    // ─── 내 투사체 업데이트 (오직 몬스터만 타격) ───
     for (let i = projectiles.length-1; i >= 0; i--) {
         const p = projectiles[i];
         if (!p.target || (p.target.hp !== undefined && p.target.hp <= 0)) { projectiles.splice(i,1); continue; }
         const d = Math.hypot(p.target.x-p.x, p.target.y-p.y);
         const mv = p.speed*dt;
         if (d <= mv) {
-            if (p.target.isEnemyPlayer) {
-                // 적 플레이어 명중
-                floatingTexts.push(new FloatingText(`-${p.damage}`, p.target.x, p.target.y-10, '#e74c3c'));
-                if (conn && conn.open) conn.send({ type:'minion_hit', idx: -1, dmg: p.damage });
-            } else {
-                // 미니언 명중
-                const idx = minions.indexOf(p.target);
+            const idx = minions.indexOf(p.target);
+            if (idx >= 0) {
                 p.target.hp -= p.damage;
                 if (player.lifesteal > 0) player.hp = Math.min(player.maxHp, player.hp+player.lifesteal);
                 floatingTexts.push(new FloatingText(`-${p.damage}`, p.target.x, p.target.y-10, p.color));
-                if (isMulti && idx >= 0) sendMinionHit(idx, p.damage);
+                sendMinionHit(idx, p.damage);
             }
 
+            // 폭발 범위 공격 (오직 몬스터만 타격)
             if ((player.explosionChance||0) > 0 && Math.random() < player.explosionChance) {
                 explosions.push({ x:p.target.x, y:p.target.y, radius:55, timer:0.22 });
-                minions.forEach(nm => {
-                    if (nm !== p.target && Math.hypot(nm.x-p.target.x,nm.y-p.target.y) <= 55)
-                        nm.hp -= Math.floor(p.damage*0.6);
+                minions.forEach((nm, nIdx) => {
+                    if (nm !== p.target && Math.hypot(nm.x-p.target.x,nm.y-p.target.y) <= 55) {
+                        const splashDmg = Math.floor(p.damage*0.6);
+                        nm.hp -= splashDmg;
+                        sendMinionHit(nIdx, splashDmg);
+                    }
                 });
             }
             projectiles.splice(i,1);
@@ -1871,15 +1841,14 @@ function gameLoop(timestamp) {
         }
     }
 
-    // ─── 상대방 투사체 렌더링 ───
-    for (let i = enemyProjectiles.length-1; i >= 0; i--) {
-        const ep = enemyProjectiles[i];
+    // ─── 동료 투사체 렌더링 (몬스터 타격 시 시각 효과만, 플레이어 무적) ───
+    for (let i = peerProjectiles.length-1; i >= 0; i--) {
+        const ep = peerProjectiles[i];
+        if (!ep.target || ep.target.hp <= 0) { peerProjectiles.splice(i, 1); continue; }
         const d = Math.hypot(ep.target.x - ep.x, ep.target.y - ep.y);
         const mv = ep.speed * dt;
         if (d <= mv) {
-            player.hp -= ep.damage;
-            floatingTexts.push(new FloatingText(`-${ep.damage}`, player.x, player.y - 10, '#e74c3c'));
-            enemyProjectiles.splice(i, 1);
+            peerProjectiles.splice(i, 1);
         } else {
             ep.x += ((ep.target.x - ep.x)/d) * mv;
             ep.y += ((ep.target.y - ep.y)/d) * mv;
