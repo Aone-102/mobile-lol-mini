@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-    <title>모바일 LOL: 하이퍼 어택 Ultra</title>
+    <title>모바일 LOL: 하이퍼 어택 Ultra (WebRTC Multi)</title>
+    <!-- PeerJS CDN 추가 -->
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         * {
             box-sizing: border-box;
@@ -111,12 +113,6 @@
         .btn-buy { background: #2ecc71; color: #fff; border: none; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 10px; cursor: pointer; }
         .btn-bought { background: #7f8c8d !important; cursor: not-allowed; }
         .btn-close { background: #e74c3c; color: #fff; border: none; padding: 6px; border-radius: 6px; font-weight: bold; margin-top: 5px; cursor: pointer; }
-        
-        #game-msg {
-            position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%);
-            background: rgba(0,0,0,0.85); padding: 20px; border-radius: 10px;
-            font-size: 22px; font-weight: bold; color: #e74c3c; display: none; z-index: 200; text-align: center;
-        }
     </style>
 </head>
 <body>
@@ -146,7 +142,6 @@
     </div>
 
     <canvas id="gameCanvas"></canvas>
-    <div id="game-msg">게임 오버!</div>
 
     <div id="chat-container">
         <div id="chat-logs">
@@ -185,15 +180,15 @@
 
     <!-- 멀티 모달 -->
     <div class="modal" id="modalMulti">
-        <div class="modal-title">멀티플레이 세션</div>
+        <div class="modal-title">실시간 P2P 멀티플레이</div>
         <div class="modal-content">
-            <p style="margin-bottom:8px;">다른 플레이어와 함께 플레이합니다.</p>
+            <p style="margin-bottom:8px; color:#aaa;">다른 창이나 기기에서 동일한 방 코드로 접속하세요.</p>
             <button class="btn-buy" style="width:100%; margin-bottom:8px;" onclick="createMultiRoom()">방 생성 (Host)</button>
             <div style="display:flex; gap:4px;">
-                <input type="text" id="roomCodeInput" placeholder="방 코드 입력" style="flex:1; background:#222; border:1px solid #555; color:#fff; padding:4px;">
+                <input type="text" id="roomCodeInput" placeholder="4자리 방 코드" style="flex:1; background:#222; border:1px solid #555; color:#fff; padding:4px;">
                 <button class="btn-buy" onclick="joinMultiRoom()">참가</button>
             </div>
-            <p id="multiStatus" style="color:#f1c40f; margin-top:8px;"></p>
+            <p id="multiStatus" style="color:#f1c40f; margin-top:8px; word-break:break-all;"></p>
         </div>
         <button class="btn-close" onclick="closeModal('modalMulti')">닫기</button>
     </div>
@@ -218,10 +213,11 @@
         let roundBannerTimer = 0;
         let roundBannerText = "";
 
-        // 멀티플레이 관련 정보
-        let isMulti = false;
-        let isHost = false;
-        let peerPlayer = null;
+        // WebRTC P2P 변수
+        let peer = null;
+        let peerConn = null;
+        let isMultiActive = false;
+        let remotePlayer = null; // 상대방 위치 정보
 
         const player = {
             x: canvasWidth / 2, y: canvasHeight - 120,
@@ -232,7 +228,7 @@
             attackRange: 170,
             qBuffTimer: 0, qCooldown: 0,
             wBuffTimer: 0, wCooldown: 0,
-            eCooldown: 0, eEffectTimer: 0,
+            eCooldown: 0,
             lifesteal: 0,
             scopeChance: 0.25,
             explosionChance: 0
@@ -263,6 +259,7 @@
         let scopeEffects = [];
         let shockwaves = [];
 
+        // 채팅 및 메시지 핸들러
         function handleChatKey(e) {
             if (e.key === 'Enter') {
                 const input = document.getElementById('chat-input');
@@ -270,6 +267,9 @@
                 if (!val) return;
 
                 addChatLog(`나: ${val}`);
+                if (peerConn && peerConn.open) {
+                    peerConn.send({ type: 'CHAT', msg: val });
+                }
 
                 if (val === "개발자모드") {
                     const code = prompt("코드를 입력하라:");
@@ -400,23 +400,74 @@
         
         function closeModal(id) { document.getElementById(id).style.display = 'none'; }
 
-        // 멀티플레이 가상 기능
+        // ================= WebRTC 멀티플레이 로직 =================
+        function initPeer(customId = null) {
+            if (peer) peer.destroy();
+            peer = customId ? new Peer(customId) : new Peer();
+
+            peer.on('open', (id) => {
+                document.getElementById('multiStatus').innerText = `내 ID: ${id}\n연결 대기 중...`;
+            });
+
+            peer.on('connection', (conn) => {
+                peerConn = conn;
+                setupConnection();
+            });
+
+            peer.on('error', (err) => {
+                document.getElementById('multiStatus').innerText = `오류 발생: ${err.type}`;
+            });
+        }
+
         function createMultiRoom() {
-            const roomCode = Math.floor(1000 + Math.random() * 9000);
-            document.getElementById('multiStatus').innerText = `방이 생성되었습니다! 코드: ${roomCode}`;
-            isMulti = true; isHost = true;
-            peerPlayer = { x: canvasWidth / 2 - 40, y: canvasHeight - 120, hp: 200, maxHp: 200 };
-            addChatLog(`[멀티] 방 생성 완료 (코드: ${roomCode})`, true);
+            const code = "room-" + Math.floor(1000 + Math.random() * 9000);
+            initPeer(code);
+            document.getElementById('multiStatus').innerText = `방 생성 완료!\n코드: ${code}`;
         }
 
         function joinMultiRoom() {
-            const code = document.getElementById('roomCodeInput').value;
-            if (code) {
-                document.getElementById('multiStatus').innerText = `방(${code})에 입장하셨습니다!`;
-                isMulti = true; isHost = false;
-                peerPlayer = { x: canvasWidth / 2 + 40, y: canvasHeight - 120, hp: 200, maxHp: 200 };
-                addChatLog(`[멀티] ${code}번 방에 연동되었습니다.`, true);
-            }
+            const inputVal = document.getElementById('roomCodeInput').value.trim();
+            const targetId = inputVal.startsWith('room-') ? inputVal : 'room-' + inputVal;
+            if (!peer) initPeer();
+
+            setTimeout(() => {
+                peerConn = peer.connect(targetId);
+                setupConnection();
+            }, 500);
+        }
+
+        function setupConnection() {
+            peerConn.on('open', () => {
+                isMultiActive = true;
+                remotePlayer = { x: canvasWidth / 2 + 30, y: canvasHeight - 120, hp: 200, maxHp: 200 };
+                document.getElementById('multiStatus').innerText = "상대방과 성공적으로 동기화 되었습니다!";
+                addChatLog("[멀티] 플레이어가 게임에 접속했습니다.", true);
+                closeModal('modalMulti');
+            });
+
+            peerConn.on('data', (data) => {
+                if (data.type === 'POS') {
+                    if (!remotePlayer) remotePlayer = {};
+                    remotePlayer.x = data.x;
+                    remotePlayer.y = data.y;
+                    remotePlayer.hp = data.hp;
+                    remotePlayer.maxHp = data.maxHp;
+                } else if (data.type === 'CHAT') {
+                    addChatLog(`상대: ${data.msg}`);
+                } else if (data.type === 'SHOOT') {
+                    // 상대방 사격 시 시각적 투사체 생성
+                    projectiles.push({
+                        x: data.x, y: data.y, target: minions[data.targetIdx] || { x: data.tx, y: data.ty, hp: 10 },
+                        speed: 12, damage: data.damage, color: '#9b59b6', radius: 5
+                    });
+                }
+            });
+
+            peerConn.on('close', () => {
+                isMultiActive = false;
+                remotePlayer = null;
+                addChatLog("[멀티] 상대방과의 연결이 끊겼습니다.", true);
+            });
         }
 
         class FloatingText {
@@ -494,6 +545,17 @@
                     player.y += (dy / dist) * currentSpeed;
                 }
 
+                // 멀티 데이터 전송 (내 위치 공유)
+                if (isMultiActive && peerConn && peerConn.open) {
+                    peerConn.send({
+                        type: 'POS',
+                        x: player.x,
+                        y: player.y,
+                        hp: player.hp,
+                        maxHp: player.maxHp
+                    });
+                }
+
                 let currentCooldown = player.attackBaseCooldown;
                 if (player.qBuffTimer > 0) {
                     currentCooldown = Math.max(1, Math.floor(player.attackBaseCooldown * 0.1));
@@ -506,30 +568,35 @@
                                          .sort((a, b) => Math.hypot(a.x - player.x, a.y - player.y) - Math.hypot(b.x - player.x, b.y - player.y));
 
                     if (targets.length > 0) {
+                        const targetIdx = minions.indexOf(targets[0]);
                         projectiles.push({
                             x: player.x, y: player.y, target: targets[0], speed: 12,
                             damage: player.attackPower, color: '#2ecc71', radius: 5
                         });
 
-                        // 🔍 조준경 발동 (이펙트는 플레이어 위치에 표시, 0.7초 지속)
+                        // 멀티 사격 동기화
+                        if (isMultiActive && peerConn && peerConn.open) {
+                            peerConn.send({
+                                type: 'SHOOT', x: player.x, y: player.y,
+                                targetIdx: targetIdx, tx: targets[0].x, ty: targets[0].y,
+                                damage: player.attackPower
+                            });
+                        }
+
+                        // 조준경 발동 이펙트
                         if (Math.random() < player.scopeChance) {
                             const scopeTarget = targets.length > 1 ? targets[1] : targets[0];
                             projectiles.push({
                                 x: player.x, y: player.y, target: scopeTarget, speed: 15,
                                 damage: Math.floor(player.attackPower * 0.8), color: '#a55eea', radius: 4
                             });
-
-                            // 조준경 이펙트를 플레이어 위치에 부여 (42프레임 = 0.7초)
-                            scopeEffects.push({
-                                progress: 0,
-                                maxTime: 42
-                            });
+                            scopeEffects.push({ progress: 0, maxTime: 42 });
                         }
                         player.attackCooldown = currentCooldown;
                     }
                 }
 
-                // 플레이어 그리기 & 버프 효과 연출
+                // 내 플레이어 그리기
                 ctx.save();
                 if (player.qBuffTimer > 0) {
                     ctx.strokeStyle = '#f1c40f'; ctx.lineWidth = 4;
@@ -542,30 +609,36 @@
                 ctx.fillStyle = '#3498db'; ctx.beginPath(); ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2); ctx.fill();
                 ctx.restore();
 
-                // 멀티 플레이어 동료 그리기
-                if (isMulti && peerPlayer) {
-                    ctx.fillStyle = '#9b59b6';
-                    ctx.beginPath(); ctx.arc(peerPlayer.x, peerPlayer.y, player.radius, 0, Math.PI * 2); ctx.fill();
+                // 🟣 [실시간 멀티 플레이어 동료 렌더링]
+                if (isMultiActive && remotePlayer) {
+                    ctx.save();
+                    ctx.fillStyle = '#9b59b6'; // 보라색 2P
+                    ctx.beginPath(); ctx.arc(remotePlayer.x, remotePlayer.y, player.radius, 0, Math.PI * 2); ctx.fill();
+
+                    // 2P 머리 위 닉네임 및 HP
+                    ctx.font = 'bold 10px Arial';
+                    ctx.fillStyle = '#e056fd';
+                    ctx.textAlign = 'center';
+                    ctx.fillText("PLAYER 2", remotePlayer.x, remotePlayer.y - player.radius - 8);
+                    ctx.restore();
                 }
 
                 // 타워
                 ctx.fillStyle = '#e74c3c'; ctx.beginPath(); ctx.arc(tower.x, tower.y, tower.radius, 0, Math.PI * 2); ctx.fill();
 
-                // 🎯 조준경 이펙트 애니메이션 (플레이어 위치 기반, 0.7초간 커짐)
+                // 조준경 이펙트
                 for (let i = scopeEffects.length - 1; i >= 0; i--) {
                     const sc = scopeEffects[i];
                     sc.progress += 1;
-                    const scale = (sc.progress / sc.maxTime); // 0 -> 1 커짐
-                    const curRadius = 10 + scale * 30; // 작았다가 바로 커짐
+                    const scale = (sc.progress / sc.maxTime);
+                    const curRadius = 10 + scale * 30;
                     const alpha = 1 - scale;
 
                     ctx.save();
                     ctx.strokeStyle = `rgba(165, 94, 234, ${alpha})`;
                     ctx.lineWidth = 2;
 
-                    ctx.beginPath();
-                    ctx.arc(player.x, player.y, curRadius, 0, Math.PI * 2);
-                    ctx.stroke();
+                    ctx.beginPath(); ctx.arc(player.x, player.y, curRadius, 0, Math.PI * 2); ctx.stroke();
 
                     const innerGap = 4 + scale * 4;
                     const outerLen = curRadius + 6;
@@ -578,11 +651,10 @@
                     ctx.stroke();
 
                     ctx.restore();
-
                     if (sc.progress >= sc.maxTime) scopeEffects.splice(i, 1);
                 }
 
-                // 충격파 스킬(E) 애니메이션
+                // 충격파 스킬(E)
                 for (let i = shockwaves.length - 1; i >= 0; i--) {
                     const sw = shockwaves[i];
                     sw.radius += 8;
@@ -595,7 +667,7 @@
                     if (sw.alpha <= 0) shockwaves.splice(i, 1);
                 }
 
-                // 미니언 & 체력바/숫자 렌더링
+                // 미니언 & 체력바
                 for (let i = minions.length - 1; i >= 0; i--) {
                     const m = minions[i];
                     if (m.isChaser) {
@@ -620,7 +692,6 @@
                     ctx.fillStyle = m.isBoss ? '#8e44ad' : (m.isChaser ? '#e67e22' : '#e74c3c');
                     ctx.beginPath(); ctx.arc(m.x, m.y, m.radius, 0, Math.PI * 2); ctx.fill();
 
-                    // 👾 미니언 머리 위 체력바 및 숫자 표시
                     const hpBarW = 36;
                     const hpBarH = 6;
                     const hpBarX = m.x - hpBarW / 2;
@@ -673,7 +744,7 @@
                     }
                 }
 
-                // 폭발 이펙트
+                // 폭발 및 텍스트 애니메이션
                 for (let i = explosions.length - 1; i >= 0; i--) {
                     const exp = explosions[i];
                     ctx.fillStyle = `rgba(230, 126, 34, ${exp.timer / 12 * 0.6})`;
@@ -681,7 +752,6 @@
                     if (--exp.timer <= 0) explosions.splice(i, 1);
                 }
 
-                // Floating Text
                 for (let i = floatingTexts.length - 1; i >= 0; i--) {
                     floatingTexts[i].update(); floatingTexts[i].draw();
                     if (floatingTexts[i].alpha <= 0) floatingTexts.splice(i, 1);
