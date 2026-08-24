@@ -691,7 +691,7 @@ ID: <b id="my-peer-short" style="color:var(--green);">생성중...</b> 📋
 
 </div>
 
-<div style="font-size:10px;color:#555;">v5.10 — 개발자 모드 & 협동 초대 수정 패치</div>
+<div style="font-size:10px;color:#555;">v5.11 — 솔로 READY & 협동 매칭 안정화 패치</div>
 
 </div>
 
@@ -1164,6 +1164,9 @@ let isMatchingActive = false;
 let matchSearchSeconds = 0;
 
 let matchTimerInterval = null;
+let matchingPeerUid = null;
+let matchConnectTimeout = null;
+let invitePendingPeerId = null;
 
 // ─── 게임 세션 / READY 상태 ───
 let gameSessionId = 0;
@@ -1858,40 +1861,73 @@ lastSeen: Date.now()
 
 } else if (data.type === 'invite_coop' && data.targetPeerId === myPeerIdStr) {
 
-if (confirm(`${data.fromName}님이 2인 협동 모드를 신청했습니다! 수락하시겠습니까?`)) {
+if (pendingCoopInvite) return;
+pendingCoopInvite = { fromPeerId: data.fromPeerId, fromName: data.fromName || '소환사' };
 
-currentGameMode = 'COOP';
+const accepted = confirm(`${pendingCoopInvite.fromName}님이 2인 협동 모드를 신청했습니다!\n\n수락하면 협동 게임 연결을 시작합니다.`);
 
-const guestConn = peer.connect(data.fromPeerId, { reliable: true });
-conn = guestConn;
-isHost = false;
-
-pendingCoopInvite = { fromPeerId: data.fromPeerId, fromName: data.fromName };
-
-guestConn.on('open', () => {
-  try { guestConn.send({ _lobby:true, type:'invite_accept', targetPeerId:data.fromPeerId, fromPeerId:myPeerIdStr, fromName:myNickname }); } catch(e) {}
-  setupConnection('GUEST');
-});
-
+if (accepted) {
+  const acceptPayload = {
+    _lobby:true,
+    type:'invite_accept',
+    targetPeerId:data.fromPeerId,
+    fromPeerId:myPeerIdStr,
+    fromName:myNickname,
+    ts:Date.now()
+  };
+  if (localChannel) { try { localChannel.postMessage(acceptPayload); } catch(e) {} }
+  if (isLobbyHub) {
+    for (const cl of clientConns) { if (cl.open) { try { cl.send(acceptPayload); } catch(e) {} } }
+  } else if (hubConn && hubConn.open) {
+    try { hubConn.send(acceptPayload); } catch(e) {}
+  }
+  addLobbyChatLog(`[시스템] ${pendingCoopInvite.fromName}님의 초대를 수락했습니다. 연결을 기다리는 중...`, true);
 } else {
-  addLobbyChatLog(`[시스템] ${data.fromName || '상대'}님의 협동 초대를 거절했습니다.`, true);
+  addLobbyChatLog(`[시스템] ${pendingCoopInvite.fromName}님의 협동 초대를 거절했습니다.`, true);
+  pendingCoopInvite = null;
 }
 
 } else if (data.type === 'invite_accept' && data.targetPeerId === myPeerIdStr) {
 
+// 상대방이 실제로 수락한 뒤에만 P2P 게임 연결을 생성합니다.
+if (invitePendingPeerId) return;
+invitePendingPeerId = data.fromPeerId;
+pendingCoopInvite = null;
 currentGameMode = 'COOP';
+isMatchingActive = false;
+
 const acceptedPeer = data.fromPeerId;
 const target = data.fromName || '동료';
-conn = peer.connect(acceptedPeer, { reliable:true });
-isHost = true;
-conn.on('open', () => {
-  setupConnection('HOST');
-  addChatLog(`[멀티] ${target}님이 초대를 수락했습니다.`, true);
-});
+addLobbyChatLog(`[시스템] ${target}님이 초대를 수락했습니다. 게임 연결 중...`, true);
 
+try {
+  conn = peer.connect(acceptedPeer, { reliable:true });
+  isHost = true;
+  const timeout = setTimeout(() => {
+    if (invitePendingPeerId === acceptedPeer && (!conn || !conn.open)) {
+      invitePendingPeerId = null;
+      conn = null;
+      addLobbyChatLog('[시스템] 초대 연결 시간이 초과되었습니다. 다시 초대해주세요.', true);
+    }
+  }, 10000);
+  conn.on('open', () => {
+    clearTimeout(timeout);
+    invitePendingPeerId = null;
+    setupConnection('HOST');
+    addChatLog(`[멀티] ${target}님이 초대를 수락했습니다.`, true);
+  });
+  conn.on('error', () => {
+    clearTimeout(timeout);
+    invitePendingPeerId = null;
+    conn = null;
+    addLobbyChatLog('[시스템] 초대 연결에 실패했습니다. 상대방에게 다시 초대해주세요.', true);
+  });
+} catch(e) {
+  invitePendingPeerId = null;
+  conn = null;
+  addLobbyChatLog('[시스템] 초대 연결에 실패했습니다.', true);
 }
-
-
+}
 
 renderLobbyPlayerList();
 
@@ -2099,86 +2135,81 @@ ${actionBtn}
 // ╚══════════════════════════════════════════════════════════╝
 
 function startMatchmaking(mode) {
-
 currentGameMode = 'COOP';
-
 isMatchingActive = true;
-
 isBotMatch = false;
-
 matchSearchSeconds = 0;
-
-
+matchingPeerUid = null;
+if (matchConnectTimeout) { clearTimeout(matchConnectTimeout); matchConnectTimeout = null; }
 
 openModal('modalMatch');
-
 document.getElementById('matchModalTitle').innerText = `🔍 2인 협동 실시간 매칭`;
-
 document.getElementById('matchText').innerText = '함께할 동료 소환사를 찾는 중입니다...';
-
 document.getElementById('matchBotOption').style.display = 'none';
-
-
 
 broadcastMyPresence();
 
-
-
 if (matchTimerInterval) clearInterval(matchTimerInterval);
-
 matchTimerInterval = setInterval(() => {
-
 if (!isMatchingActive) { clearInterval(matchTimerInterval); return; }
-
 matchSearchSeconds++;
-
 document.getElementById('matchTimeElapsed').innerText = `매칭 대기: ${matchSearchSeconds}초`;
-
-if (matchSearchSeconds >= 4) {
-
-document.getElementById('matchBotOption').style.display = 'block';
-
-}
-
+if (matchSearchSeconds >= 4) document.getElementById('matchBotOption').style.display = 'block';
 }, 1000);
-
 }
-
-
 
 function attemptAutoMatch(opponent) {
-
 if (!isMatchingActive || !myPeerIdStr || !opponent.peerId) return;
+if (matchingPeerUid && matchingPeerUid !== opponent.uid) return;
+if (opponent.uid === myUniqueId) return;
 
-
+// 같은 두 플레이어가 여러 heartbeat에서 중복 매칭되지 않도록 한 번만 고정합니다.
+matchingPeerUid = opponent.uid;
+document.getElementById('matchBotOption').style.display = 'none';
 
 if (myUniqueId < opponent.uid) {
+  document.getElementById('matchText').innerText = `${opponent.nickname}님과 매칭되었습니다. 연결을 준비하는 중...`;
+  isMatchingActive = false;
+  if (matchTimerInterval) clearInterval(matchTimerInterval);
 
-document.getElementById('matchText').innerText = `${opponent.nickname}님과 매칭되었습니다! 협동 게임 시작 중...`;
-
-isMatchingActive = false;
-
-
-setTimeout(() => {
-
-conn = peer.connect(opponent.peerId, { reliable: true });
-
-isHost = true;
-
-setupConnection('HOST');
-
-}, 300);
-
+  try {
+    conn = peer.connect(opponent.peerId, { reliable:true });
+    isHost = true;
+    matchConnectTimeout = setTimeout(() => {
+      if (matchingPeerUid === opponent.uid && (!conn || !conn.open)) {
+        matchingPeerUid = null;
+        conn = null;
+        isMatchingActive = true;
+        document.getElementById('matchText').innerText = '연결이 지연되고 있습니다. 다시 상대를 찾는 중...';
+        broadcastMyPresence();
+      }
+    }, 10000);
+    conn.on('open', () => {
+      if (matchConnectTimeout) clearTimeout(matchConnectTimeout);
+      matchConnectTimeout = null;
+      matchingPeerUid = null;
+      setupConnection('HOST');
+    });
+    conn.on('error', () => {
+      if (matchConnectTimeout) clearTimeout(matchConnectTimeout);
+      matchConnectTimeout = null;
+      matchingPeerUid = null;
+      conn = null;
+      isMatchingActive = true;
+      document.getElementById('matchText').innerText = '연결에 실패했습니다. 다시 상대를 찾는 중...';
+      broadcastMyPresence();
+    });
+  } catch(e) {
+    matchingPeerUid = null;
+    conn = null;
+    isMatchingActive = true;
+    broadcastMyPresence();
+  }
 } else {
-
-document.getElementById('matchText').innerText = `매칭 성사! 협동 게임에 입장하는 중...`;
-
-isMatchingActive = false;
-
+  // 낮은 UID 플레이어가 연결을 시작하고, 높은 UID 플레이어는 incoming connection을 기다립니다.
+  document.getElementById('matchText').innerText = `${opponent.nickname}님과 매칭되었습니다. 상대의 연결을 기다리는 중...`;
 }
-
 }
-
 
 
 function startBotMatch() {
@@ -2210,11 +2241,11 @@ addChatLog(`[시스템] 🤖 AI 봇 동료와의 2인 협동 모드입니다. �
 function cancelMatchmaking() {
 
 isMatchingActive = false;
-
+matchingPeerUid = null;
+if (matchConnectTimeout) { clearTimeout(matchConnectTimeout); matchConnectTimeout = null; }
 if (matchTimerInterval) clearInterval(matchTimerInterval);
 
 closeModal('modalMatch');
-
 broadcastMyPresence();
 
 }
@@ -2359,6 +2390,9 @@ btn.textContent = 'READY';
 if (role === 'BOT') {
 title.textContent = '🤖 전투 준비';
 status.textContent = 'AI 봇 동료가 준비되었습니다.\n준비 버튼을 누르면 1라운드가 시작됩니다.';
+} else if (role === 'SOLO') {
+title.textContent = '👤 전투 준비';
+status.textContent = 'READY를 누르면 1라운드가 시작됩니다.';
 } else {
 title.textContent = '🤝 전투 준비';
 status.textContent = '두 플레이어 모두 READY를 눌러야\n1라운드가 시작됩니다.';
@@ -2384,6 +2418,8 @@ if (isBotMatch) {
 status.textContent = localReady
 ? 'AI 봇 동료 준비 완료! 전투를 시작합니다...'
 : 'AI 봇 동료가 준비되었습니다.\n준비 버튼을 눌러 1라운드에 입장하세요.';
+} else if (currentGameMode === 'SOLO' || readyRole === 'SOLO') {
+status.textContent = localReady ? '✅ 준비 완료! 1라운드를 시작합니다...' : 'READY를 누르면 1라운드가 시작됩니다.';
 } else {
 status.textContent = `나: ${localReady ? '✅ READY' : '⏳ 대기 중'}\n동료: ${peerReady ? '✅ READY' : '⏳ 준비 중...'}`;
 }
@@ -2401,7 +2437,7 @@ if (!readyWaiting || localReady) return;
 localReady = true;
 updateReadyScreen();
 
-if (isBotMatch) {
+if (isBotMatch || currentGameMode === 'SOLO' || readyRole === 'SOLO') {
 startPreparedGame();
 return;
 }
