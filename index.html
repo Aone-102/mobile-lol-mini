@@ -97,6 +97,11 @@ box-shadow:0 0 16px rgba(155,89,182,.15);
 .dev-menu-btn { width:100%; margin-top:7px; padding:10px; border-radius:7px; border:1px solid var(--border); background:rgba(255,255,255,.07); color:#fff; cursor:pointer; font-weight:700; }
 .dev-menu-btn:hover { background:rgba(155,89,182,.2); }
 
+/* v5.12 긴급 공지 */
+#lobby-emergency-notice { width:100%; max-width:420px; display:none; background:linear-gradient(90deg,rgba(192,57,43,.28),rgba(243,156,18,.22)); border:1.5px solid rgba(231,76,60,.7); border-radius:10px; padding:9px 0; overflow:hidden; white-space:nowrap; box-shadow:0 0 18px rgba(231,76,60,.18); }
+#lobby-emergency-notice .emergency-label { display:inline-block; margin-left:10px; margin-right:10px; color:#ff7675; font-weight:900; font-size:11px; vertical-align:middle; }
+#lobby-emergency-notice-text { display:inline-block; min-width:max-content; color:#fff; font-size:11px; font-weight:700; animation:lobbyEmergencyMarquee 16s linear infinite; }
+@keyframes lobbyEmergencyMarquee { from { transform:translateX(20px); } to { transform:translateX(-100%); } }
 .social-tabs { display:flex; gap:6px; width:100%; max-width:320px; }
 .social-tabs .btn-lobby { flex:1; padding:9px; font-size:12px; }
 .lobby-chat-box {
@@ -670,7 +675,7 @@ ID: <b id="my-peer-short" style="color:var(--green);">생성중...</b> 📋
 
 
 
-<div id="lobby-dev-notice">🛠️ <b>개발자 모드</b> <span id="lobby-dev-notice-text">활성화됨</span></div>
+<div id="lobby-emergency-notice"> <span class="emergency-label">🚨 긴급 공지</span><span id="lobby-emergency-notice-text"></span></div>
 
 <div class="social-tabs">
 <button class="btn-lobby btn-sub-action" onclick="openModal('modalSocial')">👥 소셜 / 로비 채팅</button>
@@ -691,7 +696,7 @@ ID: <b id="my-peer-short" style="color:var(--green);">생성중...</b> 📋
 
 </div>
 
-<div style="font-size:10px;color:#555;">v5.11 — 솔로 READY & 협동 매칭 안정화 패치</div>
+<div style="font-size:10px;color:#555;">v5.12 — 긴급 공지 & 협동 매칭 안정화 패치</div>
 
 </div>
 
@@ -1855,6 +1860,7 @@ lastSeen: Date.now()
 }
 
 }
+updateLobbyDevNotice();
 
 } else if (data.type === 'lobby_chat') {
   if (data.uid !== myUniqueId) addLobbyChatLog(`[${data.nickname || '소환사'}] ${data.msg || ''}`);
@@ -1955,21 +1961,18 @@ renderLobbyPlayerList();
 
 
 
-function updateLobbyDevNotice() {
-const box = document.getElementById('lobby-dev-notice');
-const text = document.getElementById('lobby-dev-notice-text');
-if (!box || !text) return;
-const devs = [];
-if (isDevMode) devs.push(lobbyDevAnnouncement || `${myNickname}님이 개발자 모드를 활성화했습니다.`);
-for (const p of lobbyPeersMap.values()) {
-if (p.devMode) devs.push(p.devAnnouncement || `${p.nickname || '소환사'}님이 개발자 모드를 활성화했습니다.`);
-}
-if (devs.length) {
-box.style.display = 'block';
-text.textContent = [...new Set(devs)].join('  •  ');
-} else {
-box.style.display = 'none';
-}
+function updateLobbyDevNotice(){
+ const box=document.getElementById('lobby-emergency-notice');
+ const text=document.getElementById('lobby-emergency-notice-text');
+ if(!box||!text)return;
+ const notices=[];
+ if(lobbyDevAnnouncement) notices.push(`[개발자 공지] ${lobbyDevAnnouncement}`);
+ for(const p of lobbyPeersMap.values()){
+   if(p.devAnnouncement) notices.push(`[${p.nickname||'개발자'}] ${p.devAnnouncement}`);
+ }
+ const unique=[...new Set(notices)];
+ if(unique.length){ box.style.display='block'; text.textContent=unique.join('     •     '); }
+ else { box.style.display='none'; text.textContent=''; }
 }
 
 function renderSocialPlayerList() {
@@ -2013,14 +2016,13 @@ isDevMode=true;
 lobbyDevAnnouncement='';
 // 개발자 모드 활성화 자체는 중간 팝업/공지로 알리지 않습니다.
 document.getElementById('dev-panel').style.display = 'flex';
-addLobbyChatLog('[시스템] 개발자 모드가 활성화되었습니다.',true);
 broadcastMyPresence();
 updateLobbyDevNotice();
 }
 
 function openDevAnnouncementPrompt(){
 closeModal('modalDev');
-const msg=prompt('로비 상단에 띄울 공지를 입력하세요.\n입력한 문구가 왼쪽에서 오른쪽으로 이동합니다.','');
+const msg=prompt('🚨 긴급 공지 내용을 입력하세요.\n모든 로비 이용자 화면 중앙의 긴급 공지칸에 표시됩니다.','');
 if(msg===null) return;
 lobbyDevAnnouncement=msg.trim();
 if(!lobbyDevAnnouncement){
@@ -2158,57 +2160,57 @@ if (matchSearchSeconds >= 4) document.getElementById('matchBotOption').style.dis
 }, 1000);
 }
 
-function attemptAutoMatch(opponent) {
-if (!isMatchingActive || !myPeerIdStr || !opponent.peerId) return;
-if (matchingPeerUid && matchingPeerUid !== opponent.uid) return;
-if (opponent.uid === myUniqueId) return;
+function attemptAutoMatch(opponent){
+ if(!isMatchingActive||!myPeerIdStr||!opponent.peerId||opponent.uid===myUniqueId)return;
+ if(opponent.status!=='matching' || !opponent.matching)return;
+ if(matchingPeerUid && matchingPeerUid!==opponent.uid)return;
 
-// 같은 두 플레이어가 여러 heartbeat에서 중복 매칭되지 않도록 한 번만 고정합니다.
-matchingPeerUid = opponent.uid;
-document.getElementById('matchBotOption').style.display = 'none';
+ // 여러 명이 동시에 매칭될 때 항상 가장 낮은 UID 두 명만 한 쌍으로 확정합니다.
+ const candidates=Array.from(lobbyPeersMap.values())
+   .filter(p=>p.uid!==myUniqueId && p.matching && p.status==='matching' && p.peerId)
+   .sort((a,b)=>String(a.uid).localeCompare(String(b.uid)));
+ if(!candidates.length)return;
+ const smallest=[myUniqueId,...candidates.map(p=>p.uid)].sort()[0];
+ if(smallest!==myUniqueId){
+   // 내가 이번 매칭의 선두가 아니면 상대의 연결을 기다립니다.
+   matchingPeerUid=candidates[0]?.uid||null;
+   document.getElementById('matchText').innerText=`${candidates[0]?.nickname||'상대'}님의 연결을 기다리는 중...`;
+   return;
+ }
+ const target=candidates[0];
+ if(matchingPeerUid && matchingPeerUid!==target.uid)return;
+ matchingPeerUid=target.uid;
+ document.getElementById('matchBotOption').style.display='none';
+ document.getElementById('matchText').innerText=`${target.nickname}님과 매칭되었습니다. 연결을 준비하는 중...`;
+ isMatchingActive=false;
+ if(matchTimerInterval)clearInterval(matchTimerInterval);
+ if(matchConnectTimeout)clearTimeout(matchConnectTimeout);
 
-if (myUniqueId < opponent.uid) {
-  document.getElementById('matchText').innerText = `${opponent.nickname}님과 매칭되었습니다. 연결을 준비하는 중...`;
-  isMatchingActive = false;
-  if (matchTimerInterval) clearInterval(matchTimerInterval);
-
-  try {
-    conn = peer.connect(opponent.peerId, { reliable:true });
-    isHost = true;
-    matchConnectTimeout = setTimeout(() => {
-      if (matchingPeerUid === opponent.uid && (!conn || !conn.open)) {
-        matchingPeerUid = null;
-        conn = null;
-        isMatchingActive = true;
-        document.getElementById('matchText').innerText = '연결이 지연되고 있습니다. 다시 상대를 찾는 중...';
-        broadcastMyPresence();
-      }
-    }, 10000);
-    conn.on('open', () => {
-      if (matchConnectTimeout) clearTimeout(matchConnectTimeout);
-      matchConnectTimeout = null;
-      matchingPeerUid = null;
-      setupConnection('HOST');
-    });
-    conn.on('error', () => {
-      if (matchConnectTimeout) clearTimeout(matchConnectTimeout);
-      matchConnectTimeout = null;
-      matchingPeerUid = null;
-      conn = null;
-      isMatchingActive = true;
-      document.getElementById('matchText').innerText = '연결에 실패했습니다. 다시 상대를 찾는 중...';
-      broadcastMyPresence();
-    });
-  } catch(e) {
-    matchingPeerUid = null;
-    conn = null;
-    isMatchingActive = true;
-    broadcastMyPresence();
-  }
-} else {
-  // 낮은 UID 플레이어가 연결을 시작하고, 높은 UID 플레이어는 incoming connection을 기다립니다.
-  document.getElementById('matchText').innerText = `${opponent.nickname}님과 매칭되었습니다. 상대의 연결을 기다리는 중...`;
-}
+ try{
+   conn=peer.connect(target.peerId,{reliable:true});
+   isHost=true;
+   matchConnectTimeout=setTimeout(()=>{
+     if(matchingPeerUid===target.uid&&(!conn||!conn.open)){
+       matchingPeerUid=null; conn=null; isMatchingActive=true;
+       document.getElementById('matchText').innerText='연결이 지연되었습니다. 다른 상대를 다시 찾는 중...';
+       broadcastMyPresence();
+     }
+   },10000);
+   conn.on('open',()=>{
+     if(matchConnectTimeout)clearTimeout(matchConnectTimeout);
+     matchConnectTimeout=null; matchingPeerUid=null; setupConnection('HOST');
+   });
+   conn.on('error',()=>{
+     if(matchConnectTimeout)clearTimeout(matchConnectTimeout);
+     matchConnectTimeout=null; matchingPeerUid=null; conn=null; isMatchingActive=true;
+     document.getElementById('matchText').innerText='연결에 실패했습니다. 다른 상대를 다시 찾는 중...';
+     broadcastMyPresence();
+   });
+ }catch(e){
+   matchingPeerUid=null; conn=null; isMatchingActive=true;
+   document.getElementById('matchText').innerText='매칭 연결에 실패했습니다. 다시 찾는 중...';
+   broadcastMyPresence();
+ }
 }
 
 
