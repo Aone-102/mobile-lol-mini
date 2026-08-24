@@ -91,7 +91,11 @@ box-shadow:0 0 16px rgba(155,89,182,.15);
 #lobby-dev-notice b { color:#f1c40f; }
 #lobby-dev-notice { overflow:hidden; white-space:nowrap; }
 #lobby-dev-notice-text { display:inline-block; padding-left:100%; animation:lobbyNoticeMarquee 14s linear infinite; }
-@keyframes lobbyNoticeMarquee { from { transform:translateX(0); } to { transform:translateX(-100%); } }
+@keyframes lobbyNoticeMarquee { from { transform:translateX(-100%); } to { transform:translateX(0); } }
+
+#modalDev .modal-content { padding-top:8px; }
+.dev-menu-btn { width:100%; margin-top:7px; padding:10px; border-radius:7px; border:1px solid var(--border); background:rgba(255,255,255,.07); color:#fff; cursor:pointer; font-weight:700; }
+.dev-menu-btn:hover { background:rgba(155,89,182,.2); }
 
 .social-tabs { display:flex; gap:6px; width:100%; max-width:320px; }
 .social-tabs .btn-lobby { flex:1; padding:9px; font-size:12px; }
@@ -687,7 +691,7 @@ ID: <b id="my-peer-short" style="color:var(--green);">생성중...</b> 📋
 
 </div>
 
-<div style="font-size:10px;color:#555;">v5.8 — 로비 채팅 & 개발자 공지 & 협동 초대 안정화 패치</div>
+<div style="font-size:10px;color:#555;">v5.10 — 개발자 모드 & 협동 초대 수정 패치</div>
 
 </div>
 
@@ -976,6 +980,16 @@ style="flex:1;background:rgba(255,255,255,.07);border:1px solid var(--border);co
 <button class="btn-close" onclick="closeModal('modalSocial')">닫기</button>
 </div>
 
+<div class="modal" id="modalDev">
+<div class="modal-title">🛠️ 개발자 모드</div>
+<div class="modal-content">
+<div style="font-size:11px;color:#aaa;margin-bottom:8px;">개발자 모드가 활성화되어 있습니다.</div>
+<button class="dev-menu-btn" onclick="openDevAnnouncementPrompt()">📢 공지하기</button>
+<button class="dev-menu-btn" onclick="disableLobbyDevMode()" style="color:#e74c3c;">🛑 개발자 모드 끄기</button>
+</div>
+<button class="btn-close" onclick="closeModal('modalDev')">닫기</button>
+</div>
+
 <div class="modal" id="modalNotice">
 
 <div class="modal-title">📢 공지사항</div>
@@ -1012,13 +1026,13 @@ style="flex:1;background:rgba(255,255,255,.07);border:1px solid var(--border);co
 </div>
 
 <div style="margin-bottom:10px;border-bottom:1px solid #333;padding-bottom:8px;">
-<b style="color:#9b59b6;">[v5.8] 로비 채팅 & 개발자 공지 & 협동 초대 안정화 패치</b><br>
-- 💬 <b>로비 채팅 연동 수정</b>: 로비 채팅이 허브를 통해 모든 접속자에게 정상 전달되도록 수정했습니다.<br>
-- 🛠️ <b>개발자 모드</b>: 로비에서 개발자 모드 버튼을 누르면 코드 인증 후 개발자 공지 목록/입력 기능을 사용할 수 있습니다.<br>
-- 📢 <b>가로 이동 공지</b>: 개발자 공지는 로비 상단에서 왼쪽→오른쪽으로 이동하는 전광판 형태로 표시됩니다.<br>
-- 👤 <b>개발자 표시</b>: 현재 개발자 모드를 켠 사람이 누구인지 소셜/접속자 목록과 공지에서 확인할 수 있습니다.<br>
-- 🤝 <b>협동 초대 수정</b>: 실시간 접속자에서 초대한 뒤 상대가 수락해야만 협동 게임에 입장하도록 수정했습니다.<br>
-- 📨 <b>초대 수락 연동</b>: 수락한 상대와 P2P 연결을 만든 뒤 READY 화면으로 정상 진입합니다.
+<b style="color:#f1c40f;">[v5.10] 개발자 모드 & 협동 초대 수정 패치</b><br>
+- 🛠️ <b>개발자 모드 활성화 안내 변경</b>: 개발자 모드를 켜도 화면 중앙에 "000님이 개발자모드를 활성화" 같은 별도 안내가 뜨지 않습니다.<br>
+- 📋 <b>개발자 모드 메뉴</b>: 개발자 모드를 활성화한 뒤 로비의 <b>개발자 모드</b> 버튼을 다시 누르면 메뉴가 열립니다.<br>
+- 📢 <b>공지하기</b>: 메뉴에서 공지를 입력하면 로비 상단에서 <b>왼쪽 → 오른쪽</b>으로 이동하는 전광판으로 표시됩니다.<br>
+- 🛑 <b>개발자 모드 끄기</b>: 같은 메뉴에서 개발자 모드를 바로 끌 수 있습니다.<br>
+- 🤝 <b>협동 초대 수정</b>: 이제 초대 버튼을 눌러도 초대한 사람이 즉시 게임에 들어가지 않습니다. 상대방이 초대창에서 <b>수락</b>해야만 게임 연결 및 READY 화면으로 진입합니다.<br>
+- ❌ <b>초대 거절</b>: 상대가 거절하면 게임에 입장하지 않고 로비에 그대로 남습니다.
 </div>
 
 <div>
@@ -1955,19 +1969,44 @@ inp.value='';
 
 function toggleLobbyDevMode(){
 if(isDevMode){
-if(!confirm('개발자 모드를 끄시겠습니까?')) return;
-isDevMode=false; lobbyDevAnnouncement='';
-document.getElementById('dev-panel').style.display = 'none';
-addLobbyChatLog('[시스템] 개발자 모드 OFF',true);
-broadcastMyPresence(); updateLobbyDevNotice(); return;
+  openModal('modalDev');
+  return;
 }
 if(prompt('개발자 모드 코드:') !== '물게피스') return;
-const msg=prompt('로비 상단에 표시할 개발자 공지를 입력하세요.', `${myNickname}님이 개발자 모드를 활성화했습니다.`);
-isDevMode=true; lobbyDevAnnouncement=(msg||`${myNickname}님이 개발자 모드를 활성화했습니다.`).trim();
+isDevMode=true;
+lobbyDevAnnouncement='';
+// 개발자 모드 활성화 자체는 중간 팝업/공지로 알리지 않습니다.
+document.getElementById('dev-panel').style.display = 'flex';
+addLobbyChatLog('[시스템] 개발자 모드가 활성화되었습니다.',true);
+broadcastMyPresence();
 updateLobbyDevNotice();
-addLobbyChatLog(`[시스템] 🛠️ ${lobbyDevAnnouncement}`,true);
+}
+
+function openDevAnnouncementPrompt(){
+closeModal('modalDev');
+const msg=prompt('로비 상단에 띄울 공지를 입력하세요.\n입력한 문구가 왼쪽에서 오른쪽으로 이동합니다.','');
+if(msg===null) return;
+lobbyDevAnnouncement=msg.trim();
+if(!lobbyDevAnnouncement){
+  updateLobbyDevNotice();
+  broadcastMyPresence();
+  return;
+}
+updateLobbyDevNotice();
+addLobbyChatLog(`[개발자 공지] ${lobbyDevAnnouncement}`,true);
 broadcastMyPresence();
 }
+
+function disableLobbyDevMode(){
+closeModal('modalDev');
+isDevMode=false;
+lobbyDevAnnouncement='';
+document.getElementById('dev-panel').style.display='none';
+addLobbyChatLog('[시스템] 개발자 모드가 비활성화되었습니다.',true);
+broadcastMyPresence();
+updateLobbyDevNotice();
+}
+
 
 function renderLobbyPlayerList() {
 
@@ -2222,13 +2261,9 @@ try { hubConn.send(invitePayload); } catch(e){}
 
 
 
-conn = peer.connect(targetPeerId, { reliable: true });
-
-isHost = true;
-
-setupConnection('HOST');
-
-addChatLog(`[멀티] ${targetName}님에게 협동 모드 초대를 보냈습니다...`, true);
+// 상대방이 수락하기 전에는 절대로 게임 연결을 만들지 않습니다.
+// invite_accept 수신 시에만 연결합니다.
+addLobbyChatLog(`[시스템] ${targetName}님에게 협동 모드 초대를 보냈습니다. 상대가 수락하면 게임에 입장합니다.`, true);
 
 }
 
@@ -2969,7 +3004,7 @@ function closeModal(id) { document.getElementById(id).style.display = 'none'; }
 
 function closeAllModals() {
 
-['modalCoopSelect','modalMulti','modalMatch','modalStat','modalShop','modalNotice','modalSettings','modalSocial']
+['modalCoopSelect','modalMulti','modalMatch','modalStat','modalShop','modalNotice','modalSettings','modalSocial','modalDev']
 
 .forEach(closeModal);
 
@@ -3046,7 +3081,7 @@ if (val === '개발자모드') {
 if (prompt('코드:') === '물게피스') {
 
 isDevMode = true;
-lobbyDevAnnouncement = `${myNickname}님이 개발자 모드를 활성화했습니다.`;
+lobbyDevAnnouncement = '';
 document.getElementById('dev-panel').style.display = 'flex';
 addChatLog('[시스템] 개발자 모드 ON', true);
 broadcastMyPresence();
