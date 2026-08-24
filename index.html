@@ -1,1909 +1,4143 @@
 <!DOCTYPE html>
+
 <html lang="ko">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-    <title>⚔️ 하이퍼 어택 Ultra — LOL × 랜덤다이스</title>
-    <!-- WebRTC P2P 엔진 (PeerJS 공식 글로벌 서버) -->
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;700;900&display=swap');
 
-        :root {
-            --gold: #f39c12;
-            --blue: #3498db;
-            --green: #2ecc71;
-            --red: #e74c3c;
-            --purple: #9b59b6;
-            --bg: #0a0d13;
-            --surface: rgba(255,255,255,0.05);
-            --border: rgba(255,255,255,0.1);
-        }
+<meta charset="UTF-8">
 
-        * { box-sizing:border-box; user-select:none; -webkit-user-select:none;
-            touch-action:none; margin:0; padding:0;
-            font-family:'Outfit','Segoe UI',sans-serif; }
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
 
-        body { background:var(--bg); color:#fff;
-            display:flex; flex-direction:column;
-            align-items:center; justify-content:center;
-            min-height:100vh; overflow:hidden; }
+<title>⚔️ 하이퍼 어택 Ultra — LOL × 랜덤다이스</title>
 
-        /* ══════════ LOBBY ══════════ */
-        #main-lobby {
-            position:fixed; inset:0;
-            background:linear-gradient(160deg,#0a0d13 0%,#0d1f35 55%,#0a0d13 100%);
-            display:flex; flex-direction:column; align-items:center;
-            justify-content:space-between; padding:24px 16px 16px;
-            z-index:500; overflow-y:auto; gap:12px;
-        }
+<!-- WebRTC P2P 엔진 (PeerJS 공식 글로벌 서버) -->
 
-        .lobby-header { text-align:center; }
-        .lobby-title {
-            font-size:24px; font-weight:900; color:var(--gold);
-            text-shadow:0 0 20px rgba(243,156,18,.7), 0 2px 4px #000;
-        }
-        .lobby-badge {
-            display:inline-block; margin-top:3px;
-            font-size:10px; font-weight:700; letter-spacing:1px;
-            background:linear-gradient(90deg,#8e44ad,#3498db);
-            padding:2px 10px; border-radius:20px; color:#fff;
-        }
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 
-        /* 내 프로필 정보 바 */
-        .my-info-bar {
-            width:100%; max-width:320px;
-            background:rgba(0,0,0,0.45);
-            border:1px solid rgba(243,156,18,0.35);
-            border-radius:10px; padding:8px 12px;
-            display:flex; justify-content:space-between; align-items:center;
-            font-size:11px;
-        }
-        .my-info-name { font-weight:700; color:var(--gold); display:flex; align-items:center; gap:6px; }
-        .my-info-id { color:#aaa; font-size:10px; cursor:pointer; background:rgba(255,255,255,0.08); padding:3px 6px; border-radius:4px; }
-        .my-info-id:hover { color:#fff; background:rgba(255,255,255,0.15); }
+<style>
 
-        /* 실시간 접속자 패널 */
-        .lobby-panel {
-            width:100%; max-width:320px;
-            background:var(--surface);
-            border:1px solid var(--border);
-            border-radius:14px; padding:12px;
-        }
-        .panel-title {
-            font-size:11px; font-weight:700; color:var(--gold);
-            text-transform:uppercase; letter-spacing:1px;
-            margin-bottom:8px; display:flex; align-items:center; justify-content:space-between;
-        }
-        .live-tag { display:flex; align-items:center; gap:5px; }
-        .live-dot { width:7px; height:7px; border-radius:50%;
-            background:var(--green); animation:blink 1.2s infinite; }
-        @keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;700;900&display=swap');
 
-        #player-list { display:flex; flex-direction:column; gap:5px;
-            max-height:130px; overflow-y:auto; }
-        .pli { display:flex; align-items:center; gap:8px;
-            padding:6px 8px; background:rgba(255,255,255,0.04);
-            border-radius:8px; font-size:12px; }
-        .pli-avatar { width:26px; height:26px; border-radius:50%;
-            display:flex; align-items:center; justify-content:center;
-            font-size:13px; flex-shrink:0; }
-        .pli-name { flex:1; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-        .pli-status { font-size:10px; padding:2px 7px;
-            border-radius:20px; font-weight:700; }
-        .st-wait { background:rgba(52,152,219,.2); color:var(--blue); }
-        .st-play { background:rgba(231,76,60,.2); color:var(--red); }
-        .st-match { background:rgba(241,196,15,.2); color:var(--gold); }
-        .pli-connect { font-size:10px; padding:3px 8px; border-radius:5px;
-            border:none; background:var(--green); color:#fff;
-            cursor:pointer; font-weight:700; }
-        .pli-connect:hover { background:#27ae60; }
 
-        /* 메뉴 버튼 */
-        .lobby-menu { display:flex; flex-direction:column; gap:8px;
-            width:100%; max-width:320px; }
-        .btn-lobby { padding:12px; border-radius:10px;
-            border:1.5px solid rgba(243,156,18,0.4);
-            background:rgba(44,62,80,0.6); backdrop-filter:blur(8px);
-            color:#fff; font-size:14px; font-weight:700;
-            cursor:pointer; text-align:center; transition:all .18s; }
-        .btn-lobby:active { transform:scale(.96); background:rgba(243,156,18,.2); }
-        .btn-start { background:linear-gradient(135deg,#27ae60,#1e8449);
-            border-color:var(--green); font-size:15px;
-            box-shadow:0 4px 18px rgba(46,204,113,.3); }
-        .btn-dice { background:linear-gradient(135deg,#8e44ad,#6c3483);
-            border-color:var(--purple); }
-        .btn-disabled {
-            background:rgba(100,100,100,0.35) !important;
-            border-color:rgba(255,255,255,0.2) !important;
-            color:#888 !important;
-            cursor:not-allowed !important;
-        }
-        .btn-sub-action { background:rgba(41,128,185,0.35); border-color:var(--blue);
-            margin-top:4px; padding:10px; font-size:13px; }
 
-        /* ══════════ IN-GAME TOP UI ══════════ */
-        #top-ui {
-            display:flex; justify-content:space-between; align-items:center;
-            width:100%; max-width:480px; padding:5px 10px;
-            background:rgba(10,13,19,.95); backdrop-filter:blur(8px);
-            font-size:11px; font-weight:700;
-            border-bottom:1px solid var(--border);
-            position:fixed; top:0; z-index:10;
-        }
-        .ui-group { display:flex; gap:5px; align-items:center; flex-wrap:wrap; }
-        .hp-bar-container { width:60px; height:11px;
-            background:rgba(255,255,255,0.1);
-            border:1px solid rgba(255,255,255,0.15);
-            border-radius:6px; overflow:hidden; position:relative; }
-        .hp-bar-fill { height:100%; transition:width .15s linear; border-radius:6px; }
-        .hp-player { background:linear-gradient(90deg,#2980b9,#3498db); }
-        .hp-tower  { background:linear-gradient(90deg,#c0392b,#e74c3c); }
-        .hp-enemy  { background:linear-gradient(90deg,#8e44ad,#9b59b6); }
-        .hp-bar-text { position:absolute; inset:0; font-size:7px;
-            text-align:center; line-height:11px; color:#fff;
-            font-weight:700; text-shadow:0 0 2px #000; }
+:root {
 
-        /* 인게임 동료 패널 */
-        #enemy-ui-panel {
-            display:none; position:fixed; top:34px; right:6px;
-            background:rgba(142,68,173,.22);
-            border:1.5px solid rgba(155,89,182,.7);
-            border-radius:8px; padding:6px 10px;
-            font-size:10px; z-index:12; gap:3px; flex-direction:column; min-width:120px;
-        }
-        .enemy-panel-title { color:var(--purple); font-weight:700; font-size:10px; }
+--gold: #f39c12;
 
-        /* 다이스 UI */
-        #dice-panel {
-            display:none; position:fixed; top:34px; left:6px;
-            background:rgba(142,68,173,.18);
-            border:1px solid rgba(155,89,182,.5);
-            border-radius:8px; padding:6px 8px;
-            font-size:10px; z-index:12; gap:4px; flex-direction:column; min-width:100px;
-        }
-        .dice-title { color:var(--purple); font-weight:700; font-size:10px; margin-bottom:2px; }
-        .dice-slots { display:flex; gap:4px; flex-wrap:wrap; }
-        .dice-slot {
-            width:32px; height:32px; border-radius:6px;
-            border:1.5px solid rgba(255,255,255,0.2);
-            display:flex; align-items:center; justify-content:center;
-            font-size:16px; cursor:pointer; background:rgba(255,255,255,0.05);
-            transition:transform .1s;
-        }
-        .dice-slot:active { transform:scale(.9); }
-        .dice-slot.empty { color:#444; border-style:dashed; }
-        #btn-roll-dice {
-            background:linear-gradient(135deg,#8e44ad,#6c3483);
-            color:#fff; border:none; border-radius:6px;
-            padding:4px 8px; font-size:10px; font-weight:700;
-            cursor:pointer; width:100%; margin-top:2px;
-        }
-        #dice-cost { font-size:9px; color:#aaa; text-align:center; }
+--blue: #3498db;
 
-        #dev-panel {
-            display:none; position:fixed; top:34px; z-index:15;
-            background:rgba(142,68,173,.9); padding:4px 8px;
-            border-radius:0 0 8px 8px; gap:6px; align-items:center; }
-        .btn-dev { background:#27ae60; color:#fff; border:none;
-            padding:3px 8px; border-radius:4px; font-weight:700;
-            font-size:11px; cursor:pointer; }
+--green: #2ecc71;
 
-        canvas { background:#0a0f14; box-shadow:0 4px 30px rgba(0,0,0,.9); margin-top:34px; }
+--red: #e74c3c;
 
-        #chat-container {
-            position:absolute; bottom:82px; left:10px; width:200px;
-            background:rgba(0,0,0,.55); border:1px solid var(--border);
-            border-radius:8px; padding:6px; display:flex;
-            flex-direction:column; gap:4px; z-index:20; backdrop-filter:blur(4px);
-        }
-        #chat-logs { height:65px; overflow-y:auto; font-size:11px;
-            display:flex; flex-direction:column; gap:2px; }
-        .chat-msg { color:#ccc; word-break:break-all; }
-        .chat-sys { color:var(--gold); font-weight:700; }
-        #chat-input-box { display:flex; gap:4px; }
-        #chat-input { flex:1; background:rgba(255,255,255,.08);
-            border:1px solid var(--border); color:#fff;
-            border-radius:4px; padding:3px 6px; font-size:11px; }
+--purple: #9b59b6;
 
-        #controls-overlay { position:absolute; bottom:15px; right:10px;
-            display:flex; gap:7px; z-index:10; }
-        #menu-overlay { position:absolute; bottom:15px; left:10px;
-            display:flex; gap:5px; z-index:10; }
+--bg: #0a0d13;
 
-        .btn-ui { width:48px; height:48px; border-radius:50%;
-            border:2px solid var(--gold); background:rgba(44,62,80,.85);
-            backdrop-filter:blur(6px); color:#fff; font-weight:700; font-size:11px;
-            display:flex; flex-direction:column; align-items:center;
-            justify-content:center; cursor:pointer; transition:transform .1s; }
-        .btn-ui:active { transform:scale(.88); }
-        .btn-stat { border-color:var(--blue); }
-        .btn-shop { border-color:var(--green); }
-        .btn-multi { border-color:var(--purple); }
-        .btn-exit  { border-color:var(--red); background:rgba(192,57,43,.7); }
-        .btn-skill-cd { font-size:8px; color:var(--gold); margin-top:2px; }
+--surface: rgba(255,255,255,0.05);
 
-        /* ══════════ MODAL ══════════ */
-        .modal {
-            position:fixed; top:50%; left:50%;
-            transform:translate(-50%,-50%);
-            width:90%; max-width:360px; max-height:88vh; overflow-y:auto;
-            background:rgba(10,13,19,.97);
-            border:1.5px solid rgba(243,156,18,.45);
-            border-radius:14px; padding:18px;
-            display:none; flex-direction:column; gap:10px;
-            z-index:600; backdrop-filter:blur(16px);
-            box-shadow:0 20px 60px rgba(0,0,0,.8);
-        }
-        .modal-title { font-size:15px; font-weight:700; text-align:center;
-            color:var(--gold); border-bottom:1px solid var(--border); padding-bottom:8px; }
-        .modal-content { font-size:12px; line-height:1.6; }
-        .shop-section-title { font-size:12px; color:var(--gold); font-weight:700;
-            margin:8px 0 4px; border-left:3px solid var(--gold); padding-left:6px; }
-        .shop-item { display:flex; justify-content:space-between; align-items:center;
-            background:rgba(255,255,255,.04); padding:7px 8px;
-            border-radius:7px; margin-bottom:5px; }
-        .btn-buy { background:var(--green); color:#fff; border:none;
-            padding:5px 10px; border-radius:5px; font-weight:700;
-            font-size:10px; cursor:pointer; }
-        .btn-bought { background:#555!important; cursor:not-allowed; }
-        .btn-close { background:rgba(231,76,60,.6); color:#fff;
-            border:1px solid var(--red); padding:8px; border-radius:8px;
-            font-weight:700; cursor:pointer; }
+--border: rgba(255,255,255,0.1);
 
-        #game-msg {
-            position:absolute; top:40%; left:50%;
-            transform:translate(-50%,-50%);
-            background:rgba(0,0,0,.92); border:2px solid var(--red);
-            padding:22px 30px; border-radius:12px;
-            font-size:22px; font-weight:900; color:var(--red);
-            display:none; z-index:200; text-align:center;
-            box-shadow:0 0 30px rgba(231,76,60,.5);
-        }
+}
 
-        .setting-row { display:flex; justify-content:space-between;
-            align-items:center; margin-bottom:12px; }
-        .mode-desc { background:var(--surface); padding:10px; border-radius:7px;
-            margin-bottom:10px; font-size:12px; color:#bbb; }
 
-        @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
 
-        /* 다이스 결과 오버레이 */
-        #dice-result-overlay {
-            position:absolute; top:50%; left:50%;
-            transform:translate(-50%,-50%);
-            background:rgba(0,0,0,.85); border:2px solid var(--purple);
-            border-radius:12px; padding:16px 24px;
-            display:none; z-index:180; text-align:center; pointer-events:none;
-        }
-        .dice-result-text { font-size:20px; font-weight:900; }
-    </style>
+* { box-sizing:border-box; user-select:none; -webkit-user-select:none;
+
+touch-action:none; margin:0; padding:0;
+
+font-family:'Outfit','Segoe UI',sans-serif; }
+
+
+
+body { background:var(--bg); color:#fff;
+
+display:flex; flex-direction:column;
+
+align-items:center; justify-content:center;
+
+min-height:100vh; overflow:hidden; }
+
+
+
+/* ══════════ LOBBY ══════════ */
+
+#main-lobby {
+
+position:fixed; inset:0;
+
+background:linear-gradient(160deg,#0a0d13 0%,#0d1f35 55%,#0a0d13 100%);
+
+display:flex; flex-direction:column; align-items:center;
+
+justify-content:space-between; padding:24px 16px 16px;
+
+z-index:500; overflow-y:auto; gap:12px;
+
+}
+
+
+
+.lobby-header { text-align:center; }
+
+.lobby-title {
+
+font-size:24px; font-weight:900; color:var(--gold);
+
+text-shadow:0 0 20px rgba(243,156,18,.7), 0 2px 4px #000;
+
+}
+
+.lobby-badge {
+
+display:inline-block; margin-top:3px;
+
+font-size:10px; font-weight:700; letter-spacing:1px;
+
+background:linear-gradient(90deg,#8e44ad,#3498db);
+
+padding:2px 10px; border-radius:20px; color:#fff;
+
+}
+
+
+
+/* 내 프로필 정보 바 */
+
+.my-info-bar {
+
+width:100%; max-width:320px;
+
+background:rgba(0,0,0,0.45);
+
+border:1px solid rgba(243,156,18,0.35);
+
+border-radius:10px; padding:8px 12px;
+
+display:flex; justify-content:space-between; align-items:center;
+
+font-size:11px;
+
+}
+
+.my-info-name { font-weight:700; color:var(--gold); display:flex; align-items:center; gap:6px; }
+
+.my-info-id { color:#aaa; font-size:10px; cursor:pointer; background:rgba(255,255,255,0.08); padding:3px 6px; border-radius:4px; }
+
+.my-info-id:hover { color:#fff; background:rgba(255,255,255,0.15); }
+
+
+
+/* 실시간 접속자 패널 */
+
+.lobby-panel {
+
+width:100%; max-width:320px;
+
+background:var(--surface);
+
+border:1px solid var(--border);
+
+border-radius:14px; padding:12px;
+
+}
+
+.panel-title {
+
+font-size:11px; font-weight:700; color:var(--gold);
+
+text-transform:uppercase; letter-spacing:1px;
+
+margin-bottom:8px; display:flex; align-items:center; justify-content:space-between;
+
+}
+
+.live-tag { display:flex; align-items:center; gap:5px; }
+
+.live-dot { width:7px; height:7px; border-radius:50%;
+
+background:var(--green); animation:blink 1.2s infinite; }
+
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+
+
+
+#player-list { display:flex; flex-direction:column; gap:5px;
+
+max-height:130px; overflow-y:auto; }
+
+.pli { display:flex; align-items:center; gap:8px;
+
+padding:6px 8px; background:rgba(255,255,255,0.04);
+
+border-radius:8px; font-size:12px; }
+
+.pli-avatar { width:26px; height:26px; border-radius:50%;
+
+display:flex; align-items:center; justify-content:center;
+
+font-size:13px; flex-shrink:0; }
+
+.pli-name { flex:1; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+.pli-status { font-size:10px; padding:2px 7px;
+
+border-radius:20px; font-weight:700; }
+
+.st-wait { background:rgba(52,152,219,.2); color:var(--blue); }
+
+.st-play { background:rgba(231,76,60,.2); color:var(--red); }
+
+.st-match { background:rgba(241,196,15,.2); color:var(--gold); }
+
+.pli-connect { font-size:10px; padding:3px 8px; border-radius:5px;
+
+border:none; background:var(--green); color:#fff;
+
+cursor:pointer; font-weight:700; }
+
+.pli-connect:hover { background:#27ae60; }
+
+
+
+/* 메뉴 버튼 */
+
+.lobby-menu { display:flex; flex-direction:column; gap:8px;
+
+width:100%; max-width:320px; }
+
+.btn-lobby { padding:12px; border-radius:10px;
+
+border:1.5px solid rgba(243,156,18,0.4);
+
+background:rgba(44,62,80,0.6); backdrop-filter:blur(8px);
+
+color:#fff; font-size:14px; font-weight:700;
+
+cursor:pointer; text-align:center; transition:all .18s; }
+
+.btn-lobby:active { transform:scale(.96); background:rgba(243,156,18,.2); }
+
+.btn-start { background:linear-gradient(135deg,#27ae60,#1e8449);
+
+border-color:var(--green); font-size:15px;
+
+box-shadow:0 4px 18px rgba(46,204,113,.3); }
+
+.btn-dice { background:linear-gradient(135deg,#8e44ad,#6c3483);
+
+border-color:var(--purple); }
+
+.btn-disabled {
+
+background:rgba(100,100,100,0.35) !important;
+
+border-color:rgba(255,255,255,0.2) !important;
+
+color:#888 !important;
+
+cursor:not-allowed !important;
+
+}
+
+.btn-sub-action { background:rgba(41,128,185,0.35); border-color:var(--blue);
+
+margin-top:4px; padding:10px; font-size:13px; }
+
+
+
+/* ══════════ IN-GAME TOP UI ══════════ */
+
+#top-ui {
+
+display:flex; justify-content:space-between; align-items:center;
+
+width:100%; max-width:480px; padding:5px 10px;
+
+background:rgba(10,13,19,.95); backdrop-filter:blur(8px);
+
+font-size:11px; font-weight:700;
+
+border-bottom:1px solid var(--border);
+
+position:fixed; top:0; z-index:10;
+
+}
+
+.ui-group { display:flex; gap:5px; align-items:center; flex-wrap:wrap; }
+
+.hp-bar-container { width:60px; height:11px;
+
+background:rgba(255,255,255,0.1);
+
+border:1px solid rgba(255,255,255,0.15);
+
+border-radius:6px; overflow:hidden; position:relative; }
+
+.hp-bar-fill { height:100%; transition:width .15s linear; border-radius:6px; }
+
+.hp-player { background:linear-gradient(90deg,#2980b9,#3498db); }
+
+.hp-tower { background:linear-gradient(90deg,#c0392b,#e74c3c); }
+
+.hp-enemy { background:linear-gradient(90deg,#8e44ad,#9b59b6); }
+
+.hp-bar-text { position:absolute; inset:0; font-size:7px;
+
+text-align:center; line-height:11px; color:#fff;
+
+font-weight:700; text-shadow:0 0 2px #000; }
+
+
+
+/* 인게임 동료 패널 */
+
+#enemy-ui-panel {
+
+display:none; position:fixed; top:34px; right:6px;
+
+background:rgba(142,68,173,.22);
+
+border:1.5px solid rgba(155,89,182,.7);
+
+border-radius:8px; padding:6px 10px;
+
+font-size:10px; z-index:12; gap:3px; flex-direction:column; min-width:120px;
+
+}
+
+.enemy-panel-title { color:var(--purple); font-weight:700; font-size:10px; }
+
+
+
+/* 다이스 UI */
+
+#dice-panel {
+
+display:none; position:fixed; top:34px; left:6px;
+
+background:rgba(142,68,173,.18);
+
+border:1px solid rgba(155,89,182,.5);
+
+border-radius:8px; padding:6px 8px;
+
+font-size:10px; z-index:12; gap:4px; flex-direction:column; min-width:100px;
+
+}
+
+.dice-title { color:var(--purple); font-weight:700; font-size:10px; margin-bottom:2px; }
+
+.dice-slots { display:flex; gap:4px; flex-wrap:wrap; }
+
+.dice-slot {
+
+width:32px; height:32px; border-radius:6px;
+
+border:1.5px solid rgba(255,255,255,0.2);
+
+display:flex; align-items:center; justify-content:center;
+
+font-size:16px; cursor:pointer; background:rgba(255,255,255,0.05);
+
+transition:transform .1s;
+
+}
+
+.dice-slot:active { transform:scale(.9); }
+
+.dice-slot.empty { color:#444; border-style:dashed; }
+
+#btn-roll-dice {
+
+background:linear-gradient(135deg,#8e44ad,#6c3483);
+
+color:#fff; border:none; border-radius:6px;
+
+padding:4px 8px; font-size:10px; font-weight:700;
+
+cursor:pointer; width:100%; margin-top:2px;
+
+}
+
+#dice-cost { font-size:9px; color:#aaa; text-align:center; }
+
+
+
+#dev-panel {
+
+display:none; position:fixed; top:34px; z-index:15;
+
+background:rgba(142,68,173,.9); padding:4px 8px;
+
+border-radius:0 0 8px 8px; gap:6px; align-items:center; }
+
+.btn-dev { background:#27ae60; color:#fff; border:none;
+
+padding:3px 8px; border-radius:4px; font-weight:700;
+
+font-size:11px; cursor:pointer; }
+
+
+
+canvas { background:#0a0f14; box-shadow:0 4px 30px rgba(0,0,0,.9); margin-top:34px; }
+
+
+
+#chat-container {
+
+position:absolute; bottom:82px; left:10px; width:200px;
+
+background:rgba(0,0,0,.55); border:1px solid var(--border);
+
+border-radius:8px; padding:6px; display:flex;
+
+flex-direction:column; gap:4px; z-index:20; backdrop-filter:blur(4px);
+
+}
+
+#chat-logs { height:65px; overflow-y:auto; font-size:11px;
+
+display:flex; flex-direction:column; gap:2px; }
+
+.chat-msg { color:#ccc; word-break:break-all; }
+
+.chat-sys { color:var(--gold); font-weight:700; }
+
+#chat-input-box { display:flex; gap:4px; }
+
+#chat-input { flex:1; background:rgba(255,255,255,.08);
+
+border:1px solid var(--border); color:#fff;
+
+border-radius:4px; padding:3px 6px; font-size:11px; }
+
+
+
+#controls-overlay { position:absolute; bottom:15px; right:10px;
+
+display:flex; gap:7px; z-index:10; }
+
+#menu-overlay { position:absolute; bottom:15px; left:10px;
+
+display:flex; gap:5px; z-index:10; }
+
+
+
+.btn-ui { width:48px; height:48px; border-radius:50%;
+
+border:2px solid var(--gold); background:rgba(44,62,80,.85);
+
+backdrop-filter:blur(6px); color:#fff; font-weight:700; font-size:11px;
+
+display:flex; flex-direction:column; align-items:center;
+
+justify-content:center; cursor:pointer; transition:transform .1s; }
+
+.btn-ui:active { transform:scale(.88); }
+
+.btn-stat { border-color:var(--blue); }
+
+.btn-shop { border-color:var(--green); }
+
+.btn-multi { border-color:var(--purple); }
+
+.btn-exit { border-color:var(--red); background:rgba(192,57,43,.7); }
+
+.btn-skill-cd { font-size:8px; color:var(--gold); margin-top:2px; }
+
+
+
+/* ══════════ MODAL ══════════ */
+
+.modal {
+
+position:fixed; top:50%; left:50%;
+
+transform:translate(-50%,-50%);
+
+width:90%; max-width:360px; max-height:88vh; overflow-y:auto;
+
+background:rgba(10,13,19,.97);
+
+border:1.5px solid rgba(243,156,18,.45);
+
+border-radius:14px; padding:18px;
+
+display:none; flex-direction:column; gap:10px;
+
+z-index:600; backdrop-filter:blur(16px);
+
+box-shadow:0 20px 60px rgba(0,0,0,.8);
+
+}
+
+.modal-title { font-size:15px; font-weight:700; text-align:center;
+
+color:var(--gold); border-bottom:1px solid var(--border); padding-bottom:8px; }
+
+.modal-content { font-size:12px; line-height:1.6; }
+
+.shop-section-title { font-size:12px; color:var(--gold); font-weight:700;
+
+margin:8px 0 4px; border-left:3px solid var(--gold); padding-left:6px; }
+
+.shop-item { display:flex; justify-content:space-between; align-items:center;
+
+background:rgba(255,255,255,.04); padding:7px 8px;
+
+border-radius:7px; margin-bottom:5px; }
+
+.btn-buy { background:var(--green); color:#fff; border:none;
+
+padding:5px 10px; border-radius:5px; font-weight:700;
+
+font-size:10px; cursor:pointer; }
+
+.btn-bought { background:#555!important; cursor:not-allowed; }
+
+.btn-close { background:rgba(231,76,60,.6); color:#fff;
+
+border:1px solid var(--red); padding:8px; border-radius:8px;
+
+font-weight:700; cursor:pointer; }
+
+
+
+#ready-overlay {
+position:absolute; top:50%; left:50%;
+transform:translate(-50%,-50%);
+background:rgba(10,13,19,.96);
+border:2px solid var(--gold);
+padding:22px 26px; border-radius:14px;
+font-size:16px; font-weight:700; color:#fff;
+display:none; z-index:210; text-align:center;
+min-width:250px; box-shadow:0 0 35px rgba(243,156,18,.35);
+}
+#ready-title { font-size:22px; color:var(--gold); margin-bottom:8px; }
+#ready-status { font-size:12px; color:#aaa; line-height:1.6; margin-bottom:14px; }
+#btn-ready {
+background:linear-gradient(135deg,#27ae60,#1e8449);
+border:1px solid var(--green); color:#fff;
+padding:11px 28px; border-radius:9px;
+font-size:15px; font-weight:900; cursor:pointer;
+box-shadow:0 4px 16px rgba(46,204,113,.3);
+}
+#btn-ready.ready-done { background:#555; border-color:#777; cursor:default; }
+
+#game-msg {
+
+position:absolute; top:40%; left:50%;
+
+transform:translate(-50%,-50%);
+
+background:rgba(0,0,0,.92); border:2px solid var(--red);
+
+padding:22px 30px; border-radius:12px;
+
+font-size:22px; font-weight:900; color:var(--red);
+
+display:none; z-index:200; text-align:center;
+
+box-shadow:0 0 30px rgba(231,76,60,.5);
+
+}
+
+
+
+.setting-row { display:flex; justify-content:space-between;
+
+align-items:center; margin-bottom:12px; }
+
+.mode-desc { background:var(--surface); padding:10px; border-radius:7px;
+
+margin-bottom:10px; font-size:12px; color:#bbb; }
+
+
+
+@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+
+
+
+/* 다이스 결과 오버레이 */
+
+#dice-result-overlay {
+
+position:absolute; top:50%; left:50%;
+
+transform:translate(-50%,-50%);
+
+background:rgba(0,0,0,.85); border:2px solid var(--purple);
+
+border-radius:12px; padding:16px 24px;
+
+display:none; z-index:180; text-align:center; pointer-events:none;
+
+}
+
+.dice-result-text { font-size:20px; font-weight:900; }
+
+</style>
+
 </head>
+
 <body>
 
+
+
 <!-- ══════════════════ LOBBY ══════════════════ -->
+
 <div id="main-lobby">
-    <div class="lobby-header">
-        <div class="lobby-title">⚔️ 하이퍼 어택 Ultra</div>
-        <span class="lobby-badge">LOL × 랜덤다이스 Fusion</span>
-    </div>
 
-    <!-- 내 프로필 정보 바 -->
-    <div class="my-info-bar">
-        <div class="my-info-name">
-            <span class="live-dot" id="server-status-dot" title="접속 완료"></span>
-            <span id="lobby-my-name">용사</span>
-        </div>
-        <div class="my-info-id" onclick="copyMyId()" title="클릭 시 내 접속 ID 복사">
-            ID: <b id="my-peer-short" style="color:var(--green);">생성중...</b> 📋
-        </div>
-    </div>
+<div class="lobby-header">
 
-    <!-- 실시간 접속자 목록 패널 -->
-    <div class="lobby-panel">
-        <div class="panel-title">
-            <div class="live-tag">
-                <span class="live-dot"></span>실시간 접속자
-            </div>
-            <span id="online-count" style="color:#7f8c8d;font-weight:400;font-size:10px;">(1명 접속 중)</span>
-        </div>
-        <div id="player-list"></div>
-    </div>
+<div class="lobby-title">⚔️ 하이퍼 어택 Ultra</div>
 
-    <div class="lobby-menu">
-        <button class="btn-lobby btn-start" onclick="startSoloPlay()">👤 솔로 플레이</button>
-        <button class="btn-lobby btn-dice" onclick="openModal('modalCoopSelect')">🤝 협동 모드 (2인 플레이)</button>
-        <button class="btn-lobby btn-disabled" onclick="alertPvpClosed()">⚔️ PVP 대전 모드 [임시 점검]</button>
-        <button class="btn-lobby" onclick="openModal('modalNotice')">📢 공지사항</button>
-        <button class="btn-lobby" onclick="openModal('modalSettings')">⚙️ 설정</button>
-    </div>
-    <div style="font-size:10px;color:#555;">v5.5 — 협동 전용 모드 & 아군 무적 안전 패치</div>
+<span class="lobby-badge">LOL × 랜덤다이스 Fusion</span>
+
 </div>
+
+
+
+<!-- 내 프로필 정보 바 -->
+
+<div class="my-info-bar">
+
+<div class="my-info-name">
+
+<span class="live-dot" id="server-status-dot" title="접속 완료"></span>
+
+<span id="lobby-my-name">용사</span>
+
+</div>
+
+<div class="my-info-id" onclick="copyMyId()" title="클릭 시 내 접속 ID 복사">
+
+ID: <b id="my-peer-short" style="color:var(--green);">생성중...</b> 📋
+
+</div>
+
+</div>
+
+
+
+<!-- 실시간 접속자 목록 패널 -->
+
+<div class="lobby-panel">
+
+<div class="panel-title">
+
+<div class="live-tag">
+
+<span class="live-dot"></span>실시간 접속자
+
+</div>
+
+<span id="online-count" style="color:#7f8c8d;font-weight:400;font-size:10px;">(1명 접속 중)</span>
+
+</div>
+
+<div id="player-list"></div>
+
+</div>
+
+
+
+<div class="lobby-menu">
+
+<button class="btn-lobby btn-start" onclick="startSoloPlay()">👤 솔로 플레이</button>
+
+<button class="btn-lobby btn-dice" onclick="openModal('modalCoopSelect')">🤝 협동 모드 (2인 플레이)</button>
+
+<button class="btn-lobby btn-disabled" onclick="alertPvpClosed()">⚔️ PVP 대전 모드 [임시 점검]</button>
+
+<button class="btn-lobby" onclick="openModal('modalNotice')">📢 공지사항</button>
+
+<button class="btn-lobby" onclick="openModal('modalSettings')">⚙️ 설정</button>
+
+</div>
+
+<div style="font-size:10px;color:#555;">v5.5 — 협동 전용 모드 & 아군 무적 안전 패치</div>
+
+</div>
+
+
 
 <!-- ══════════════════ IN-GAME UI ══════════════════ -->
+
 <div id="top-ui">
-    <div class="ui-group">
-        <div>🚩R<span id="round">1</span></div>
-        <div>💰<span id="gold">0</span>G</div>
-        <div id="dice-count-ui" style="color:#9b59b6;">🎲<span id="diceCountEl">0</span></div>
-    </div>
-    <div class="ui-group">
-        <span>👤</span>
-        <div class="hp-bar-container">
-            <div class="hp-bar-fill hp-player" id="playerHpBar"></div>
-            <div class="hp-bar-text" id="playerHpText">200/200</div>
-        </div>
-        <span>🏰</span>
-        <div class="hp-bar-container">
-            <div class="hp-bar-fill hp-tower" id="towerHpBar"></div>
-            <div class="hp-bar-text" id="towerHpText">1500</div>
-        </div>
-    </div>
+
+<div class="ui-group">
+
+<div>🚩R<span id="round">1</span></div>
+
+<div>💰<span id="gold">0</span>G</div>
+
+<div id="dice-count-ui" style="color:#9b59b6;">🎲<span id="diceCountEl">0</span></div>
+
 </div>
+
+<div class="ui-group">
+
+<span>👤</span>
+
+<div class="hp-bar-container">
+
+<div class="hp-bar-fill hp-player" id="playerHpBar"></div>
+
+<div class="hp-bar-text" id="playerHpText">200/200</div>
+
+</div>
+
+<span>🏰</span>
+
+<div class="hp-bar-container">
+
+<div class="hp-bar-fill hp-tower" id="towerHpBar"></div>
+
+<div class="hp-bar-text" id="towerHpText">1500</div>
+
+</div>
+
+</div>
+
+</div>
+
+
 
 <!-- 동료 패널 (멀티) -->
+
 <div id="enemy-ui-panel">
-    <div class="enemy-panel-title">🤝 <span id="enemy-name">동료 소환사</span></div>
-    <div class="ui-group">
-        <span>HP</span>
-        <div class="hp-bar-container" style="width:80px;">
-            <div class="hp-bar-fill hp-enemy" id="enemyHpBar"></div>
-            <div class="hp-bar-text" id="enemyHpText">200/200</div>
-        </div>
-    </div>
-    <div id="enemy-round-info" style="font-size:9px;color:#aaa;">R1</div>
-    <div id="ping-indicator" style="font-size:9px;color:var(--green);">핑: --ms</div>
+
+<div class="enemy-panel-title">🤝 <span id="enemy-name">동료 소환사</span></div>
+
+<div class="ui-group">
+
+<span>HP</span>
+
+<div class="hp-bar-container" style="width:80px;">
+
+<div class="hp-bar-fill hp-enemy" id="enemyHpBar"></div>
+
+<div class="hp-bar-text" id="enemyHpText">200/200</div>
+
 </div>
+
+</div>
+
+<div id="enemy-round-info" style="font-size:9px;color:#aaa;">R1</div>
+
+<div id="ping-indicator" style="font-size:9px;color:var(--green);">핑: --ms</div>
+
+</div>
+
+
 
 <!-- 다이스 패널 -->
+
 <div id="dice-panel">
-    <div class="dice-title">🎲 내 다이스</div>
-    <div class="dice-slots" id="dice-slots-container"></div>
-    <button id="btn-roll-dice" onclick="rollDice()">주사위 뽑기</button>
-    <div id="dice-cost">비용: <span id="dice-roll-cost">50</span>G</div>
+
+<div class="dice-title">🎲 내 다이스</div>
+
+<div class="dice-slots" id="dice-slots-container"></div>
+
+<button id="btn-roll-dice" onclick="rollDice()">주사위 뽑기</button>
+
+<div id="dice-cost">비용: <span id="dice-roll-cost">50</span>G</div>
+
 </div>
+
+
 
 <div id="dev-panel">
-    <button class="btn-dev" onclick="addDevGold()">+10,000G</button>
-    <button class="btn-dev" onclick="toggleGameSpeed()">배속:<span id="speed-label">1x</span></button>
-    <button class="btn-dev" onclick="addDevDice()">+다이스</button>
+
+<button class="btn-dev" onclick="addDevGold()">+10,000G</button>
+
+<button class="btn-dev" onclick="toggleGameSpeed()">배속:<span id="speed-label">1x</span></button>
+
+<button class="btn-dev" onclick="addDevDice()">+다이스</button>
+
 </div>
+
+
 
 <canvas id="gameCanvas"></canvas>
+
+<div id="ready-overlay">
+<div id="ready-title">⚔️ 전투 준비</div>
+<div id="ready-status">준비 버튼을 누르면 전투가 시작됩니다.</div>
+<button id="btn-ready" onclick="confirmReady()">READY</button>
+</div>
+
 <div id="game-msg">게임 오버!</div>
+
 <div id="dice-result-overlay"><div class="dice-result-text" id="dice-result-text"></div></div>
 
+
+
 <div id="chat-container">
-    <div id="chat-logs"><div class="chat-msg chat-sys">[시스템] 게임 접속 완료.</div></div>
-    <div id="chat-input-box">
-        <input type="text" id="chat-input" placeholder="메시지..." onkeypress="handleChatKey(event)">
-    </div>
+
+<div id="chat-logs"><div class="chat-msg chat-sys">[시스템] 게임 접속 완료.</div></div>
+
+<div id="chat-input-box">
+
+<input type="text" id="chat-input" placeholder="메시지..." onkeypress="handleChatKey(event)">
+
 </div>
+
+</div>
+
+
 
 <div id="menu-overlay">
-    <button class="btn-ui btn-stat" id="btnOpenStat">스탯</button>
-    <button class="btn-ui btn-shop" id="btnOpenShop">상점</button>
-    <button class="btn-ui btn-multi" id="btnOpenMulti">멀티</button>
-    <button class="btn-ui btn-exit" onclick="returnToLobby()">나가기</button>
+
+<button class="btn-ui btn-stat" id="btnOpenStat">스탯</button>
+
+<button class="btn-ui btn-shop" id="btnOpenShop">상점</button>
+
+<button class="btn-ui btn-multi" id="btnOpenMulti">멀티</button>
+
+<button class="btn-ui btn-exit" onclick="returnToLobby()">나가기</button>
+
 </div>
+
 <div id="controls-overlay">
-    <button class="btn-ui" id="btnQ">Q<span class="btn-skill-cd" id="cdQ">READY</span></button>
-    <button class="btn-ui" id="btnW">W<span class="btn-skill-cd" id="cdW">READY</span></button>
-    <button class="btn-ui" id="btnE">E<span class="btn-skill-cd" id="cdE">READY</span></button>
+
+<button class="btn-ui" id="btnQ">Q<span class="btn-skill-cd" id="cdQ">READY</span></button>
+
+<button class="btn-ui" id="btnW">W<span class="btn-skill-cd" id="cdW">READY</span></button>
+
+<button class="btn-ui" id="btnE">E<span class="btn-skill-cd" id="cdE">READY</span></button>
+
 </div>
+
+
 
 <!-- ══════ MODALS ══════ -->
+
 <div class="modal" id="modalCoopSelect">
-    <div class="modal-title">🤝 협동 모드</div>
-    <div class="modal-content">
-        <div class="mode-desc">2인 협동으로 몰려오는 몬스터 웨이브를 함께 막아내세요! (아군끼리는 완전 무적입니다)</div>
-        <button class="btn-lobby btn-sub-action" onclick="closeModal('modalCoopSelect');startMatchmaking('COOP');">🔍 실시간 협동 매칭</button>
-        <button class="btn-lobby btn-sub-action" onclick="closeModal('modalCoopSelect');openFriendRoomModal('COOP');">👥 친구랑 하기 (코드 생성/입력)</button>
-    </div>
-    <button class="btn-close" onclick="closeModal('modalCoopSelect')">닫기</button>
+
+<div class="modal-title">🤝 협동 모드</div>
+
+<div class="modal-content">
+
+<div class="mode-desc">2인 협동으로 몰려오는 몬스터 웨이브를 함께 막아내세요! (아군끼리는 완전 무적입니다)</div>
+
+<button class="btn-lobby btn-sub-action" onclick="closeModal('modalCoopSelect');startMatchmaking('COOP');">🔍 실시간 협동 매칭</button>
+
+<button class="btn-lobby btn-sub-action" onclick="closeModal('modalCoopSelect');openFriendRoomModal('COOP');">👥 친구랑 하기 (코드 생성/입력)</button>
+
 </div>
+
+<button class="btn-close" onclick="closeModal('modalCoopSelect')">닫기</button>
+
+</div>
+
+
 
 <div class="modal" id="modalMulti">
-    <div class="modal-title">👥 친구와 함께하기</div>
-    <div class="modal-content">
-        <p style="color:#aaa;font-size:12px;margin-bottom:10px;">내 코드를 친구에게 전달하거나, 친구의 코드를 입력하세요.</p>
-        <div style="background:rgba(0,0,0,.4);padding:10px;border-radius:8px;margin-bottom:10px;">
-            <div style="font-size:11px;color:#aaa;margin-bottom:4px;">내 접속 코드 (클릭 시 복사)</div>
-            <div style="display:flex;align-items:center;gap:6px;">
-                <b id="myPeerId" style="color:var(--green);font-size:12px;word-break:break-all;flex:1;">생성 중...</b>
-                <button class="btn-dev" onclick="copyMyId()" style="padding:4px 8px;font-size:10px;">복사</button>
-            </div>
-        </div>
-        <button class="btn-buy" style="width:100%;margin-bottom:10px;padding:10px;font-size:13px;" onclick="createHostRoom()">🏠 방 생성 및 친구 대기 (Host)</button>
-        <div style="display:flex;gap:6px;">
-            <input type="text" id="roomCodeInput" placeholder="친구 접속 코드 입력"
-                style="flex:1;background:rgba(255,255,255,.07);border:1px solid var(--border);color:#fff;padding:8px;border-radius:6px;font-size:12px;">
-            <button class="btn-buy" onclick="connectToPeer()" style="padding:8px 12px;">참가</button>
-        </div>
-        <p id="multiStatus" style="color:var(--gold);margin-top:10px;word-break:break-all;font-weight:700;font-size:12px;white-space:pre-wrap;"></p>
-    </div>
-    <button class="btn-close" onclick="closeModal('modalMulti')">닫기</button>
+
+<div class="modal-title">👥 친구와 함께하기</div>
+
+<div class="modal-content">
+
+<p style="color:#aaa;font-size:12px;margin-bottom:10px;">내 코드를 친구에게 전달하거나, 친구의 코드를 입력하세요.</p>
+
+<div style="background:rgba(0,0,0,.4);padding:10px;border-radius:8px;margin-bottom:10px;">
+
+<div style="font-size:11px;color:#aaa;margin-bottom:4px;">내 접속 코드 (클릭 시 복사)</div>
+
+<div style="display:flex;align-items:center;gap:6px;">
+
+<b id="myPeerId" style="color:var(--green);font-size:12px;word-break:break-all;flex:1;">생성 중...</b>
+
+<button class="btn-dev" onclick="copyMyId()" style="padding:4px 8px;font-size:10px;">복사</button>
+
 </div>
+
+</div>
+
+<button class="btn-buy" style="width:100%;margin-bottom:10px;padding:10px;font-size:13px;" onclick="createHostRoom()">🏠 방 생성 및 친구 대기 (Host)</button>
+
+<div style="display:flex;gap:6px;">
+
+<input type="text" id="roomCodeInput" placeholder="친구 접속 코드 입력"
+
+style="flex:1;background:rgba(255,255,255,.07);border:1px solid var(--border);color:#fff;padding:8px;border-radius:6px;font-size:12px;">
+
+<button class="btn-buy" onclick="connectToPeer()" style="padding:8px 12px;">참가</button>
+
+</div>
+
+<p id="multiStatus" style="color:var(--gold);margin-top:10px;word-break:break-all;font-weight:700;font-size:12px;white-space:pre-wrap;"></p>
+
+</div>
+
+<button class="btn-close" onclick="closeModal('modalMulti')">닫기</button>
+
+</div>
+
+
 
 <div class="modal" id="modalMatch">
-    <div class="modal-title" id="matchModalTitle">🔍 실시간 협동 매칭</div>
-    <div class="modal-content" style="text-align:center;padding:8px 0;">
-        <p id="matchText" style="color:#aaa;margin-bottom:8px;font-size:13px;">함께할 동료 소환사를 찾는 중입니다...</p>
-        <div style="font-size:32px;margin:12px 0;display:inline-block;animation:spin 2s linear infinite;">⏳</div>
-        <div id="matchTimeElapsed" style="font-size:12px;color:var(--gold);margin-bottom:8px;">매칭 대기: 0초</div>
-        <div id="matchBotOption" style="display:none;margin-top:10px;">
-            <button class="btn-buy" style="background:#8e44ad;padding:8px 16px;" onclick="startBotMatch()">🤖 AI 봇 동료와 지금 시작</button>
-        </div>
-    </div>
-    <button class="btn-close" onclick="cancelMatchmaking()">매칭 취소</button>
+
+<div class="modal-title" id="matchModalTitle">🔍 실시간 협동 매칭</div>
+
+<div class="modal-content" style="text-align:center;padding:8px 0;">
+
+<p id="matchText" style="color:#aaa;margin-bottom:8px;font-size:13px;">함께할 동료 소환사를 찾는 중입니다...</p>
+
+<div style="font-size:32px;margin:12px 0;display:inline-block;animation:spin 2s linear infinite;">⏳</div>
+
+<div id="matchTimeElapsed" style="font-size:12px;color:var(--gold);margin-bottom:8px;">매칭 대기: 0초</div>
+
+<div id="matchBotOption" style="display:none;margin-top:10px;">
+
+<button class="btn-buy" style="background:#8e44ad;padding:8px 16px;" onclick="startBotMatch()">🤖 AI 봇 동료와 지금 시작</button>
+
 </div>
+
+</div>
+
+<button class="btn-close" onclick="cancelMatchmaking()">매칭 취소</button>
+
+</div>
+
+
 
 <div class="modal" id="modalStat">
-    <div class="modal-title">챔피언 스탯</div>
-    <div class="modal-content" id="statContent"></div>
-    <button class="btn-close" onclick="closeModal('modalStat')">닫기</button>
+
+<div class="modal-title">챔피언 스탯</div>
+
+<div class="modal-content" id="statContent"></div>
+
+<button class="btn-close" onclick="closeModal('modalStat')">닫기</button>
+
 </div>
+
+
 
 <div class="modal" id="modalShop">
-    <div class="modal-title">🛒 아이템 상점</div>
-    <div class="modal-content" id="shopContent"></div>
-    <button class="btn-close" onclick="closeModal('modalShop')">닫기</button>
+
+<div class="modal-title">🛒 아이템 상점</div>
+
+<div class="modal-content" id="shopContent"></div>
+
+<button class="btn-close" onclick="closeModal('modalShop')">닫기</button>
+
 </div>
+
+
 
 <div class="modal" id="modalNotice">
-    <div class="modal-title">📢 공지사항</div>
-    <div class="modal-content">
-        <div style="margin-bottom:10px;border-bottom:1px solid #333;padding-bottom:8px;">
-            <b style="color:var(--red);">[긴급 공지] PVP 대전 모드 임시 폐쇄 안내</b><br>
-            - 현재 PVP 대전 모드는 맵 크기가 협소하고 밸런스 조정이 필요하여 <b>잠시 폐쇄</b>되었습니다.<br>
-            - 추후 맵 확장 및 밸런스 전면 리워크 후 더욱 완성도 높게 오픈될 예정입니다.
-        </div>
-        <div style="margin-bottom:10px;border-bottom:1px solid #333;padding-bottom:8px;">
-            <b style="color:var(--green);">[v5.5] 협동 모드 아군 피격 완전 방지 패치</b><br>
-            - 🛡️ <b>아군 무적 시스템</b>: 조준경, 폭발, 멀티샷, E 스킬 충격파 등 모든 공격에서 <b>동료 소환사 타격 무효화 및 무적 판정</b> 적용.<br>
-            - 몬스터 공격에만 100% 데미지가 들어가며 팀킬이 완전히 차단되었습니다.
-        </div>
-        <div>
-            <b style="color:var(--gold);">[핵심 시스템]</b><br>
-            - 🎲 <b>10종 랜덤다이스 & 라운드 무료 주사위</b><br>
-            - ⏱️ <b>Delta-Time 물리 엔진</b> (기기별 속도 완벽 통일)
-        </div>
-    </div>
-    <button class="btn-close" onclick="closeModal('modalNotice')">닫기</button>
+
+<div class="modal-title">📢 공지사항</div>
+
+<div class="modal-content">
+
+<div style="margin-bottom:10px;border-bottom:1px solid #333;padding-bottom:8px;">
+
+<b style="color:var(--red);">[긴급 공지] PVP 대전 모드 임시 폐쇄 안내</b><br>
+
+- 현재 PVP 대전 모드는 맵 크기가 협소하고 밸런스 조정이 필요하여 <b>잠시 폐쇄</b>되었습니다.<br>
+
+- 추후 맵 확장 및 밸런스 전면 리워크 후 더욱 완성도 높게 오픈될 예정입니다.
+
 </div>
+
+<div style="margin-bottom:10px;border-bottom:1px solid #333;padding-bottom:8px;">
+
+<b style="color:var(--green);">[v5.5] 협동 모드 아군 피격 완전 방지 패치</b><br>
+
+- 🛡️ <b>아군 무적 시스템</b>: 조준경, 폭발, 멀티샷, E 스킬 충격파 등 모든 공격에서 <b>동료 소환사 타격 무효화 및 무적 판정</b> 적용.<br>
+
+- 몬스터 공격에만 100% 데미지가 들어가며 팀킬이 완전히 차단되었습니다.
+
+</div>
+
+<div style="margin-bottom:10px;border-bottom:1px solid #333;padding-bottom:8px;">
+<b style="color:var(--blue);">[v5.6] 게임 재입장 & READY 시스템 패치</b><br>
+- 🔄 <b>게임 초기화 강화</b>: 솔로/협동 모드에서 나간 뒤 다시 들어와도 이전 라운드, 몬스터, 골드, 다이스, 투사체가 남지 않습니다.<br>
+- 🧹 <b>이전 게임 정리</b>: 나가기 시 예약된 몬스터 생성과 게임 루프까지 함께 초기화되어 새 게임이 완전히 새로 시작됩니다.<br>
+- 🚩 <b>1라운드 연출 개선</b>: 게임에 들어오면 먼저 <b>ROUND 1</b> 배너가 표시되고 잠시 후 몬스터가 등장합니다.<br>
+- 🤝 <b>협동 READY 시스템</b>: 두 플레이어가 모두 READY를 눌러야 협동 전투가 시작됩니다. 한 명이 준비하지 않았으면 몬스터가 먼저 나오지 않습니다.<br>
+- 🤖 <b>AI 봇 협동</b>: 봇 모드도 READY 화면을 거친 뒤 전투를 시작합니다.
+</div>
+
+<div>
+<b style="color:var(--gold);">[핵심 시스템]</b><br>
+- 🎲 <b>10종 랜덤다이스 & 라운드 무료 주사위</b><br>
+- ⏱️ <b>Delta-Time 물리 엔진</b> (기기별 속도 완벽 통일)
+</div>
+
+</div>
+
+<button class="btn-close" onclick="closeModal('modalNotice')">닫기</button>
+
+</div>
+
+
 
 <div class="modal" id="modalSettings">
-    <div class="modal-title">⚙️ 설정</div>
-    <div class="modal-content">
-        <div class="setting-row">
-            <span>닉네임</span>
-            <input type="text" id="setNickname"
-                style="background:rgba(255,255,255,.08);border:1px solid var(--border);color:#fff;padding:4px 8px;border-radius:5px;width:130px;font-size:12px;">
-        </div>
-        <div class="setting-row"><span>사운드</span><input type="checkbox" checked id="setSound"></div>
-        <div class="setting-row"><span>화면 진동</span><input type="checkbox" checked id="setShake"></div>
-        <button class="btn-lobby" style="width:100%;margin-top:8px;background:rgba(231,76,60,.4);border-color:#c0392b;" onclick="returnToLobby()">로비로 나가기</button>
-    </div>
-    <button class="btn-close" onclick="saveSettings()">저장 및 닫기</button>
+
+<div class="modal-title">⚙️ 설정</div>
+
+<div class="modal-content">
+
+<div class="setting-row">
+
+<span>닉네임</span>
+
+<input type="text" id="setNickname"
+
+style="background:rgba(255,255,255,.08);border:1px solid var(--border);color:#fff;padding:4px 8px;border-radius:5px;width:130px;font-size:12px;">
+
 </div>
 
+<div class="setting-row"><span>사운드</span><input type="checkbox" checked id="setSound"></div>
+
+<div class="setting-row"><span>화면 진동</span><input type="checkbox" checked id="setShake"></div>
+
+<button class="btn-lobby" style="width:100%;margin-top:8px;background:rgba(231,76,60,.4);border-color:#c0392b;" onclick="returnToLobby()">로비로 나가기</button>
+
+</div>
+
+<button class="btn-close" onclick="saveSettings()">저장 및 닫기</button>
+
+</div>
+
+
+
 <script>
+
 // ╔══════════════════════════════════════════════════════════╗
-// ║              CORE CONFIG & STATE                         ║
+
+// ║ CORE CONFIG & STATE ║
+
 // ╚══════════════════════════════════════════════════════════╝
+
 const canvas = document.getElementById('gameCanvas');
-const ctx    = canvas.getContext('2d');
+
+const ctx = canvas.getContext('2d');
+
+
 
 const CW = Math.min(window.innerWidth, 480);
+
 const CH = Math.min(window.innerHeight - 34, 640);
-canvas.width  = CW;
+
+canvas.width = CW;
+
 canvas.height = CH;
+
 const MID_Y = CH * 0.45;
 
+
+
 // ─── 닉네임 ───
+
 let myNickname = localStorage.getItem('nickname') || ('소환사_' + Math.floor(Math.random()*900+100));
+
 document.getElementById('setNickname').value = myNickname;
+
 document.getElementById('lobby-my-name').innerText = myNickname;
 
+
+
 // ─── 게임 상태 ───
+
 let gold = 0, round = 1;
+
 let isGameOver = false, gameRunning = false;
+
 let gameSpeed = 1;
+
 let isDevMode = false;
+
 let roundBannerTimer = 0, roundBannerText = '';
+
 let lastTimestamp = 0;
 
+
+
 // ─── 멀티플레이 ───
+
 let currentGameMode = 'COOP';
+
 let isMulti = false, isHost = false, isBotMatch = false;
+
 let peer = null, conn = null;
+
 let peerPlayer = null;
+
 let peerProjectiles = [];
+
 let netSendInterval = null;
+
 let currentPing = 0;
 
+
+
 // ─── 실시간 P2P 로비 네트워크 ───
+
 const lobbyPeersMap = new Map();
+
 const myUniqueId = 'u_' + Math.random().toString(36).substring(2, 9);
+
 let myPeerIdStr = '';
+
 let isMatchingActive = false;
+
 let matchSearchSeconds = 0;
+
 let matchTimerInterval = null;
 
+// ─── 게임 세션 / READY 상태 ───
+let gameSessionId = 0;
+let animationFrameId = null;
+let waveSpawnTimers = [];
+let localReady = false;
+let peerReady = false;
+let readyWaiting = false;
+let readyRole = '';
+
+
+
 // P2P 로비 허브 연결 관리
+
 const LOBBY_HUB_BASE_ID = 'minilol_global_hub_v5';
+
 let hubConn = null;
+
 let isLobbyHub = false;
+
 const clientConns = new Set();
 
+
+
 // 로컬 탭 브로드캐스트
+
 let localChannel = null;
+
 try { localChannel = new BroadcastChannel('minilol_local_bc_v5'); } catch(e) {}
 
+
+
 // ─── 랜덤다이스 ───
+
 const DICE_TYPES = [
-    { id:'atk',   emoji:'⚔️',  name:'공격 주사위',  rarity:'common',   color:'#e74c3c', effect: ()=>{ player.attackPower += 20; return '+공격력 20'; } },
-    { id:'spd',   emoji:'💨',  name:'속도 주사위',  rarity:'common',   color:'#3498db', effect: ()=>{ player.moveSpeed += 60; return '+이동속도'; } },
-    { id:'hp',    emoji:'❤️',  name:'체력 주사위',  rarity:'common',   color:'#e74c3c', effect: ()=>{ player.maxHp += 80; player.hp = Math.min(player.maxHp, player.hp+80); return '+체력 80'; } },
-    { id:'vamp',  emoji:'🩸',  name:'흡혈 주사위',  rarity:'rare',     color:'#8e44ad', effect: ()=>{ player.lifesteal += 8; return '+흡혈 8'; } },
-    { id:'crit',  emoji:'💥',  name:'크리 주사위',  rarity:'rare',     color:'#f39c12', effect: ()=>{ player.critChance = Math.min(0.8, (player.critChance||0)+0.15); return '+치명타15%'; } },
-    { id:'tower', emoji:'🏰',  name:'타워 주사위',  rarity:'rare',     color:'#27ae60', effect: ()=>{ tower.maxHp += 400; tower.hp = Math.min(tower.maxHp, tower.hp+400); return '+타워체력400'; } },
-    { id:'multi', emoji:'🔱',  name:'멀티샷 주사위',rarity:'epic',     color:'#9b59b6', effect: ()=>{ player.multiShot = (player.multiShot||1)+1; return '+멀티샷 1발'; } },
-    { id:'bomb',  emoji:'💣',  name:'폭탄 주사위',  rarity:'epic',     color:'#e67e22', effect: ()=>{ player.explosionChance = Math.min(0.9, (player.explosionChance||0)+0.25); return '+폭발25%'; } },
-    { id:'scope', emoji:'🔭',  name:'조준경 주사위',rarity:'epic',     color:'#1abc9c', effect: ()=>{ player.scopeChance = Math.min(0.9, (player.scopeChance||0.25)+0.2); return '+조준경20%'; } },
-    { id:'legend',emoji:'⭐',  name:'전설 주사위',  rarity:'legendary',color:'#f1c40f', effect: ()=>{ player.attackPower+=40; player.maxHp+=120; player.hp=Math.min(player.maxHp,player.hp+120); return '⭐전설 초강화!'; } },
+
+{ id:'atk', emoji:'⚔️', name:'공격 주사위', rarity:'common', color:'#e74c3c', effect: ()=>{ player.attackPower += 20; return '+공격력 20'; } },
+
+{ id:'spd', emoji:'💨', name:'속도 주사위', rarity:'common', color:'#3498db', effect: ()=>{ player.moveSpeed += 60; return '+이동속도'; } },
+
+{ id:'hp', emoji:'❤️', name:'체력 주사위', rarity:'common', color:'#e74c3c', effect: ()=>{ player.maxHp += 80; player.hp = Math.min(player.maxHp, player.hp+80); return '+체력 80'; } },
+
+{ id:'vamp', emoji:'🩸', name:'흡혈 주사위', rarity:'rare', color:'#8e44ad', effect: ()=>{ player.lifesteal += 8; return '+흡혈 8'; } },
+
+{ id:'crit', emoji:'💥', name:'크리 주사위', rarity:'rare', color:'#f39c12', effect: ()=>{ player.critChance = Math.min(0.8, (player.critChance||0)+0.15); return '+치명타15%'; } },
+
+{ id:'tower', emoji:'🏰', name:'타워 주사위', rarity:'rare', color:'#27ae60', effect: ()=>{ tower.maxHp += 400; tower.hp = Math.min(tower.maxHp, tower.hp+400); return '+타워체력400'; } },
+
+{ id:'multi', emoji:'🔱', name:'멀티샷 주사위',rarity:'epic', color:'#9b59b6', effect: ()=>{ player.multiShot = (player.multiShot||1)+1; return '+멀티샷 1발'; } },
+
+{ id:'bomb', emoji:'💣', name:'폭탄 주사위', rarity:'epic', color:'#e67e22', effect: ()=>{ player.explosionChance = Math.min(0.9, (player.explosionChance||0)+0.25); return '+폭발25%'; } },
+
+{ id:'scope', emoji:'🔭', name:'조준경 주사위',rarity:'epic', color:'#1abc9c', effect: ()=>{ player.scopeChance = Math.min(0.9, (player.scopeChance||0.25)+0.2); return '+조준경20%'; } },
+
+{ id:'legend',emoji:'⭐', name:'전설 주사위', rarity:'legendary',color:'#f1c40f', effect: ()=>{ player.attackPower+=40; player.maxHp+=120; player.hp=Math.min(player.maxHp,player.hp+120); return '⭐전설 초강화!'; } },
+
 ];
+
 const DICE_RARITY_WEIGHT = { common:50, rare:30, epic:15, legendary:5 };
 
+
+
 let myDice = [];
+
 let diceRollCost = 50;
+
 let freeDiceThisRound = false;
 
+
+
 // ─── 플레이어 스탯 ───
+
 const player = {
-    x: CW/2, y: CH-120,
-    targetX: CW/2, targetY: CH-120,
-    radius: 18, moveSpeed: 228,
-    hp: 200, maxHp: 200,
-    attackPower: 30,
-    attackBaseCooldown: 0.25,
-    attackCooldown: 0,
-    attackRange: 170,
-    qBuffTimer:0, qCooldown:0,
-    wBuffTimer:0, wCooldown:0,
-    eCooldown:0,
-    lifesteal:0, scopeChance:0.25,
-    explosionChance:0, critChance:0, multiShot:1
+
+x: CW/2, y: CH-120,
+
+targetX: CW/2, targetY: CH-120,
+
+radius: 18, moveSpeed: 228,
+
+hp: 200, maxHp: 200,
+
+attackPower: 30,
+
+attackBaseCooldown: 0.25,
+
+attackCooldown: 0,
+
+attackRange: 170,
+
+qBuffTimer:0, qCooldown:0,
+
+wBuffTimer:0, wCooldown:0,
+
+eCooldown:0,
+
+lifesteal:0, scopeChance:0.25,
+
+explosionChance:0, critChance:0, multiShot:1
+
 };
+
+
 
 const tower = { x:CW/2, y:CH-40, radius:30, hp:1500, maxHp:1500 };
 
+
+
 // ─── 상점 아이템 ───
+
 const statUpgrades = {
-    atk: { level:0, basePrice:50, priceMult:1.4 },
-    spd: { level:0, basePrice:70, priceMult:1.5 }
+
+atk: { level:0, basePrice:50, priceMult:1.4 },
+
+spd: { level:0, basePrice:70, priceMult:1.5 }
+
 };
 
+
+
 const equipmentItems = [
-    { id:'doran',  name:'🗡️ 도란의 검',       desc:'공격력+15, 체력+40',    price:150, bought:false,
-      apply:()=>{ player.attackPower+=15; player.maxHp+=40; player.hp+=40; } },
-    { id:'boots',  name:'👟 광전사의 신발',    desc:'이속+1, 공속+15%',      price:220, bought:false,
-      apply:()=>{ player.moveSpeed+=60; player.attackBaseCooldown=Math.max(0.05,player.attackBaseCooldown*.85); } },
-    { id:'vamp',   name:'🩸 흡혈의 낫',        desc:'타격시 체력+6 회복',    price:280, bought:false,
-      apply:()=>{ player.lifesteal+=6; } },
-    { id:'expOrb', name:'💥 폭발의 구슬',      desc:'30% 확률 폭발',         price:300, bought:false,
-      apply:()=>{ player.explosionChance=Math.min(0.9,(player.explosionChance||0)+0.3); } },
-    { id:'warmog', name:'🛡️ 워모그의 갑옷',   desc:'체력+150, 타워+300',    price:350, bought:false,
-      apply:()=>{ player.maxHp+=150; player.hp+=150; tower.maxHp+=300; tower.hp=Math.min(tower.maxHp,tower.hp+300); } },
-    { id:'ie',     name:'♾️ 무한의 대검',      desc:'치명타확률+25%',        price:400, bought:false,
-      apply:()=>{ player.critChance=Math.min(0.8,(player.critChance||0)+0.25); } },
-    { id:'guinsoo',name:'🌀 구인수의 격노검',  desc:'멀티샷+1발 추가',       price:450, bought:false,
-      apply:()=>{ player.multiShot=(player.multiShot||1)+1; } },
+
+{ id:'doran', name:'🗡️ 도란의 검', desc:'공격력+15, 체력+40', price:150, bought:false,
+
+apply:()=>{ player.attackPower+=15; player.maxHp+=40; player.hp+=40; } },
+
+{ id:'boots', name:'👟 광전사의 신발', desc:'이속+1, 공속+15%', price:220, bought:false,
+
+apply:()=>{ player.moveSpeed+=60; player.attackBaseCooldown=Math.max(0.05,player.attackBaseCooldown*.85); } },
+
+{ id:'vamp', name:'🩸 흡혈의 낫', desc:'타격시 체력+6 회복', price:280, bought:false,
+
+apply:()=>{ player.lifesteal+=6; } },
+
+{ id:'expOrb', name:'💥 폭발의 구슬', desc:'30% 확률 폭발', price:300, bought:false,
+
+apply:()=>{ player.explosionChance=Math.min(0.9,(player.explosionChance||0)+0.3); } },
+
+{ id:'warmog', name:'🛡️ 워모그의 갑옷', desc:'체력+150, 타워+300', price:350, bought:false,
+
+apply:()=>{ player.maxHp+=150; player.hp+=150; tower.maxHp+=300; tower.hp=Math.min(tower.maxHp,tower.hp+300); } },
+
+{ id:'ie', name:'♾️ 무한의 대검', desc:'치명타확률+25%', price:400, bought:false,
+
+apply:()=>{ player.critChance=Math.min(0.8,(player.critChance||0)+0.25); } },
+
+{ id:'guinsoo',name:'🌀 구인수의 격노검', desc:'멀티샷+1발 추가', price:450, bought:false,
+
+apply:()=>{ player.multiShot=(player.multiShot||1)+1; } },
+
 ];
 
+
+
 let minions=[], projectiles=[], floatingTexts=[], explosions=[], scopeEffects=[], shockwaves=[];
+
 let isWaveActive=false;
 
+
+
 function alertPvpClosed() {
-    alert("⚔️ PVP 대전 모드는 맵 확장 및 밸런스 리워크를 위해 임시 폐쇄되었습니다.\n더욱 완성도 높은 대전 모드로 돌아오겠습니다!");
+
+alert("⚔️ PVP 대전 모드는 맵 확장 및 밸런스 리워크를 위해 임시 폐쇄되었습니다.\n더욱 완성도 높은 대전 모드로 돌아오겠습니다!");
+
 }
+
+
 
 // ╔══════════════════════════════════════════════════════════╗
-// ║              P2P MESH LOBBY HUB ENGINE                   ║
+
+// ║ P2P MESH LOBBY HUB ENGINE ║
+
 // ╚══════════════════════════════════════════════════════════╝
+
 function initP2PLobbySystem() {
-    renderLobbyPlayerList();
-    attemptBeHubOrClient();
 
-    if (localChannel) {
-        localChannel.onmessage = (e) => {
-            handleLobbyMsg(e.data);
-        };
-    }
+renderLobbyPlayerList();
 
-    setInterval(sendHeartbeatToHubOrClients, 1500);
-    setInterval(cleanupStaleLobbyPeers, 3000);
+attemptBeHubOrClient();
+
+
+
+if (localChannel) {
+
+localChannel.onmessage = (e) => {
+
+handleLobbyMsg(e.data);
+
+};
+
 }
+
+
+
+setInterval(sendHeartbeatToHubOrClients, 1500);
+
+setInterval(cleanupStaleLobbyPeers, 3000);
+
+}
+
+
 
 function attemptBeHubOrClient() {
-    const testPeer = new Peer(LOBBY_HUB_BASE_ID, {
-        config: {
-            iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' },
-                { urls: 'stun:stun.cloudflare.com:3478' }
-            ]
-        }
-    });
 
-    testPeer.on('open', (id) => {
-        peer = testPeer;
-        isLobbyHub = true;
-        myPeerIdStr = id;
-        setupPeerListeners(peer);
-        document.getElementById('myPeerId').innerText = id;
-        document.getElementById('my-peer-short').innerText = '방장_HUB';
-        broadcastMyPresence();
-    });
+const testPeer = new Peer(LOBBY_HUB_BASE_ID, {
 
-    testPeer.on('error', (err) => {
-        testPeer.destroy();
-        isLobbyHub = false;
-        createClientPeerAndConnectHub();
-    });
+config: {
+
+iceServers: [
+
+{ urls: 'stun:stun.l.google.com:19302' },
+
+{ urls: 'stun:stun1.l.google.com:19302' },
+
+{ urls: 'stun:stun.cloudflare.com:3478' }
+
+]
+
 }
+
+});
+
+
+
+testPeer.on('open', (id) => {
+
+peer = testPeer;
+
+isLobbyHub = true;
+
+myPeerIdStr = id;
+
+setupPeerListeners(peer);
+
+document.getElementById('myPeerId').innerText = id;
+
+document.getElementById('my-peer-short').innerText = '방장_HUB';
+
+broadcastMyPresence();
+
+});
+
+
+
+testPeer.on('error', (err) => {
+
+testPeer.destroy();
+
+isLobbyHub = false;
+
+createClientPeerAndConnectHub();
+
+});
+
+}
+
+
 
 function createClientPeerAndConnectHub() {
-    peer = new Peer(undefined, {
-        config: {
-            iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' },
-                { urls: 'stun:stun.cloudflare.com:3478' }
-            ]
-        }
-    });
 
-    peer.on('open', (id) => {
-        myPeerIdStr = id;
-        setupPeerListeners(peer);
-        document.getElementById('myPeerId').innerText = id;
-        document.getElementById('my-peer-short').innerText = id.substring(0, 6) + '...';
-        connectToLobbyHub();
-        broadcastMyPresence();
-    });
+peer = new Peer(undefined, {
 
-    peer.on('error', (err) => {
-        console.warn('[Client Peer]', err);
-    });
+config: {
+
+iceServers: [
+
+{ urls: 'stun:stun.l.google.com:19302' },
+
+{ urls: 'stun:stun1.l.google.com:19302' },
+
+{ urls: 'stun:stun.cloudflare.com:3478' }
+
+]
+
 }
+
+});
+
+
+
+peer.on('open', (id) => {
+
+myPeerIdStr = id;
+
+setupPeerListeners(peer);
+
+document.getElementById('myPeerId').innerText = id;
+
+document.getElementById('my-peer-short').innerText = id.substring(0, 6) + '...';
+
+connectToLobbyHub();
+
+broadcastMyPresence();
+
+});
+
+
+
+peer.on('error', (err) => {
+
+console.warn('[Client Peer]', err);
+
+});
+
+}
+
+
 
 function connectToLobbyHub() {
-    if (!peer || isLobbyHub) return;
-    try {
-        hubConn = peer.connect(LOBBY_HUB_BASE_ID, { reliable: true });
-        
-        hubConn.on('open', () => {
-            sendHeartbeatToHub();
-        });
 
-        hubConn.on('data', (data) => {
-            handleLobbyMsg(data);
-        });
+if (!peer || isLobbyHub) return;
 
-        hubConn.on('close', () => {
-            hubConn = null;
-            setTimeout(attemptBeHubOrClient, 1000);
-        });
+try {
 
-        hubConn.on('error', () => {});
-    } catch(e) {}
+hubConn = peer.connect(LOBBY_HUB_BASE_ID, { reliable: true });
+
+
+hubConn.on('open', () => {
+
+sendHeartbeatToHub();
+
+});
+
+
+
+hubConn.on('data', (data) => {
+
+handleLobbyMsg(data);
+
+});
+
+
+
+hubConn.on('close', () => {
+
+hubConn = null;
+
+setTimeout(attemptBeHubOrClient, 1000);
+
+});
+
+
+
+hubConn.on('error', () => {});
+
+} catch(e) {}
+
 }
+
+
 
 function setupPeerListeners(targetPeer) {
-    targetPeer.on('connection', (c) => {
-        c.on('open', () => {
-            if (isLobbyHub) {
-                clientConns.add(c);
-                broadcastFullLobbyList();
-            }
-        });
 
-        c.on('data', (data) => {
-            if (data && data._lobby) {
-                handleLobbyMsg(data);
-                if (isLobbyHub) {
-                    for (const cl of clientConns) {
-                        if (cl !== c && cl.open) {
-                            try { cl.send(data); } catch(e){}
-                        }
-                    }
-                }
-            } else {
-                if (!conn || conn !== c) {
-                    conn = c;
-                    isHost = false;
-                    isMulti = true;
-                }
-                handleNetworkData(data);
-            }
-        });
+targetPeer.on('connection', (c) => {
 
-        c.on('close', () => {
-            if (isLobbyHub) clientConns.delete(c);
-            if (conn === c) {
-                isMulti = false;
-                peerPlayer = null;
-                updateEnemyPanel();
-            }
-        });
-    });
+c.on('open', () => {
+
+if (isLobbyHub) {
+
+clientConns.add(c);
+
+broadcastFullLobbyList();
+
+} else {
+
+// 자동 매칭/초대에서 상대가 먼저 연결한 GUEST 처리
+conn = c;
+isHost = false;
+isMulti = true;
+isBotMatch = false;
+currentGameMode = 'COOP';
+
+localReady = false;
+peerReady = false;
+readyWaiting = true;
+readyRole = 'GUEST';
+
+peerPlayer = {
+x: CW / 2 + 35,
+y: CH - 120,
+hp: 200, maxHp: 200,
+nickname: '동료', round: 1,
+qBuffTimer: 0, wBuffTimer: 0
+};
+
+closeAllModals();
+document.getElementById('main-lobby').style.display = 'none';
+document.getElementById('btnOpenMulti').style.display = 'flex';
+
+showReadyScreen('GUEST');
+sendReadyState();
+startNetSync();
+
+addChatLog('[협동] 동료의 연결을 확인했습니다. 두 플레이어가 READY를 눌러주세요!', true);
+
 }
+
+});
+
+
+
+c.on('data', (data) => {
+
+if (data && data._lobby) {
+
+handleLobbyMsg(data);
+
+if (isLobbyHub) {
+
+for (const cl of clientConns) {
+
+if (cl !== c && cl.open) {
+
+try { cl.send(data); } catch(e){}
+
+}
+
+}
+
+}
+
+} else {
+
+if (!conn || conn !== c) {
+
+conn = c;
+
+isHost = false;
+
+isMulti = true;
+
+}
+
+handleNetworkData(data);
+
+}
+
+});
+
+
+
+c.on('close', () => {
+
+if (isLobbyHub) clientConns.delete(c);
+
+if (conn === c) {
+
+isMulti = false;
+peerPlayer = null;
+localReady = false;
+peerReady = false;
+readyWaiting = false;
+hideReadyScreen();
+
+if (netSendInterval) {
+clearInterval(netSendInterval);
+netSendInterval = null;
+}
+
+updateEnemyPanel();
+
+}
+
+});
+
+});
+
+}
+
+
 
 function sendHeartbeatToHubOrClients() {
-    broadcastMyPresence();
+
+broadcastMyPresence();
+
 }
+
+
 
 function sendHeartbeatToHub() {
-    if (hubConn && hubConn.open) {
-        const payload = {
-            _lobby: true,
-            type: 'heartbeat',
-            uid: myUniqueId,
-            nickname: myNickname,
-            peerId: myPeerIdStr,
-            status: gameRunning ? 'playing' : (isMatchingActive ? 'matching' : 'lobby'),
-            mode: 'COOP',
-            matching: isMatchingActive,
-            ts: Date.now()
-        };
-        try { hubConn.send(payload); } catch(e){}
-    }
+
+if (hubConn && hubConn.open) {
+
+const payload = {
+
+_lobby: true,
+
+type: 'heartbeat',
+
+uid: myUniqueId,
+
+nickname: myNickname,
+
+peerId: myPeerIdStr,
+
+status: gameRunning ? 'playing' : (isMatchingActive ? 'matching' : 'lobby'),
+
+mode: 'COOP',
+
+matching: isMatchingActive,
+
+ts: Date.now()
+
+};
+
+try { hubConn.send(payload); } catch(e){}
+
 }
+
+}
+
+
 
 function broadcastMyPresence() {
-    const payload = {
-        _lobby: true,
-        type: 'heartbeat',
-        uid: myUniqueId,
-        nickname: myNickname,
-        peerId: myPeerIdStr,
-        status: gameRunning ? 'playing' : (isMatchingActive ? 'matching' : 'lobby'),
-        mode: 'COOP',
-        matching: isMatchingActive,
-        ts: Date.now()
-    };
 
-    if (localChannel) {
-        try { localChannel.postMessage(payload); } catch(e){}
-    }
+const payload = {
 
-    if (isLobbyHub) {
-        for (const cl of clientConns) {
-            if (cl.open) {
-                try { cl.send(payload); } catch(e){}
-            }
-        }
-    } else {
-        sendHeartbeatToHub();
-    }
+_lobby: true,
 
-    renderLobbyPlayerList();
+type: 'heartbeat',
+
+uid: myUniqueId,
+
+nickname: myNickname,
+
+peerId: myPeerIdStr,
+
+status: gameRunning ? 'playing' : (isMatchingActive ? 'matching' : 'lobby'),
+
+mode: 'COOP',
+
+matching: isMatchingActive,
+
+ts: Date.now()
+
+};
+
+
+
+if (localChannel) {
+
+try { localChannel.postMessage(payload); } catch(e){}
+
 }
+
+
+
+if (isLobbyHub) {
+
+for (const cl of clientConns) {
+
+if (cl.open) {
+
+try { cl.send(payload); } catch(e){}
+
+}
+
+}
+
+} else {
+
+sendHeartbeatToHub();
+
+}
+
+
+
+renderLobbyPlayerList();
+
+}
+
+
 
 function broadcastFullLobbyList() {
-    if (!isLobbyHub) return;
-    const list = Array.from(lobbyPeersMap.values());
-    list.push({
-        uid: myUniqueId,
-        nickname: myNickname,
-        peerId: myPeerIdStr,
-        status: gameRunning ? 'playing' : (isMatchingActive ? 'matching' : 'lobby'),
-        mode: 'COOP',
-        matching: isMatchingActive,
-        ts: Date.now()
-    });
 
-    const payload = {
-        _lobby: true,
-        type: 'full_list',
-        list: list
-    };
+if (!isLobbyHub) return;
 
-    for (const cl of clientConns) {
-        if (cl.open) {
-            try { cl.send(payload); } catch(e){}
-        }
-    }
+const list = Array.from(lobbyPeersMap.values());
+
+list.push({
+
+uid: myUniqueId,
+
+nickname: myNickname,
+
+peerId: myPeerIdStr,
+
+status: gameRunning ? 'playing' : (isMatchingActive ? 'matching' : 'lobby'),
+
+mode: 'COOP',
+
+matching: isMatchingActive,
+
+ts: Date.now()
+
+});
+
+
+
+const payload = {
+
+_lobby: true,
+
+type: 'full_list',
+
+list: list
+
+};
+
+
+
+for (const cl of clientConns) {
+
+if (cl.open) {
+
+try { cl.send(payload); } catch(e){}
+
 }
+
+}
+
+}
+
+
 
 function handleLobbyMsg(data) {
-    if (!data) return;
 
-    if (data.type === 'heartbeat' && data.uid !== myUniqueId) {
-        lobbyPeersMap.set(data.uid, {
-            uid: data.uid,
-            nickname: data.nickname || '소환사',
-            peerId: data.peerId || '',
-            status: data.status || 'lobby',
-            mode: 'COOP',
-            matching: !!data.matching,
-            lastSeen: Date.now()
-        });
+if (!data) return;
 
-        if (isMatchingActive && data.matching && data.peerId && myPeerIdStr) {
-            attemptAutoMatch(data);
-        }
-    } else if (data.type === 'full_list' && Array.isArray(data.list)) {
-        for (const p of data.list) {
-            if (p.uid !== myUniqueId) {
-                lobbyPeersMap.set(p.uid, {
-                    ...p,
-                    lastSeen: Date.now()
-                });
-            }
-        }
-    } else if (data.type === 'invite_coop' && data.targetPeerId === myPeerIdStr) {
-        if (confirm(`${data.fromName}님이 2인 협동 모드를 신청했습니다! 수락하시겠습니까?`)) {
-            currentGameMode = 'COOP';
-            conn = peer.connect(data.fromPeerId, { reliable: true });
-            isHost = false;
-            setupConnection('GUEST');
-        }
-    }
 
-    renderLobbyPlayerList();
+
+if (data.type === 'heartbeat' && data.uid !== myUniqueId) {
+
+lobbyPeersMap.set(data.uid, {
+
+uid: data.uid,
+
+nickname: data.nickname || '소환사',
+
+peerId: data.peerId || '',
+
+status: data.status || 'lobby',
+
+mode: 'COOP',
+
+matching: !!data.matching,
+
+lastSeen: Date.now()
+
+});
+
+
+
+if (isMatchingActive && data.matching && data.peerId && myPeerIdStr) {
+
+attemptAutoMatch(data);
+
 }
+
+} else if (data.type === 'full_list' && Array.isArray(data.list)) {
+
+for (const p of data.list) {
+
+if (p.uid !== myUniqueId) {
+
+lobbyPeersMap.set(p.uid, {
+
+...p,
+
+lastSeen: Date.now()
+
+});
+
+}
+
+}
+
+} else if (data.type === 'invite_coop' && data.targetPeerId === myPeerIdStr) {
+
+if (confirm(`${data.fromName}님이 2인 협동 모드를 신청했습니다! 수락하시겠습니까?`)) {
+
+currentGameMode = 'COOP';
+
+conn = peer.connect(data.fromPeerId, { reliable: true });
+
+isHost = false;
+
+setupConnection('GUEST');
+
+}
+
+}
+
+
+
+renderLobbyPlayerList();
+
+}
+
+
 
 function cleanupStaleLobbyPeers() {
-    const now = Date.now();
-    for (const [uid, p] of lobbyPeersMap.entries()) {
-        if (now - p.lastSeen > 5000) {
-            lobbyPeersMap.delete(uid);
-        }
-    }
-    renderLobbyPlayerList();
+
+const now = Date.now();
+
+for (const [uid, p] of lobbyPeersMap.entries()) {
+
+if (now - p.lastSeen > 5000) {
+
+lobbyPeersMap.delete(uid);
+
 }
+
+}
+
+renderLobbyPlayerList();
+
+}
+
+
 
 function renderLobbyPlayerList() {
-    const listEl = document.getElementById('player-list');
-    const countEl = document.getElementById('online-count');
-    const colors = ['#3498db','#e74c3c','#2ecc71','#f39c12','#9b59b6','#1abc9c'];
 
-    const myEntry = {
-        uid: myUniqueId,
-        nickname: myNickname + ' (나)',
-        peerId: myPeerIdStr,
-        status: gameRunning ? 'playing' : (isMatchingActive ? 'matching' : 'lobby'),
-        isSelf: true
-    };
+const listEl = document.getElementById('player-list');
 
-    const others = Array.from(lobbyPeersMap.values());
-    const all = [myEntry, ...others];
+const countEl = document.getElementById('online-count');
 
-    countEl.innerText = `(${all.length}명 접속 중)`;
+const colors = ['#3498db','#e74c3c','#2ecc71','#f39c12','#9b59b6','#1abc9c'];
 
-    listEl.innerHTML = all.map((p, i) => {
-        const c = colors[i % colors.length];
-        const isPlay = p.status === 'playing';
-        const isMatch = p.status === 'matching';
-        const em = isPlay ? '🎮' : (isMatch ? '⏳' : '🕹️');
-        const stClass = isPlay ? 'st-play' : (isMatch ? 'st-match' : 'st-wait');
-        const stText = isPlay ? '게임중' : (isMatch ? '매칭중' : '대기중');
 
-        let actionBtn = '';
-        if (!p.isSelf && p.peerId && !isPlay) {
-            actionBtn = `<button class="pli-connect" onclick="invitePlayerCoop('${p.peerId}', '${p.nickname}')">초대</button>`;
-        }
 
-        return `
-            <div class="pli">
-                <div class="pli-avatar" style="background:${c}22;border:1px solid ${c};">${em}</div>
-                <div class="pli-name">${p.nickname}</div>
-                <div class="pli-status ${stClass}">${stText}</div>
-                ${actionBtn}
-            </div>
-        `;
-    }).join('');
+const myEntry = {
+
+uid: myUniqueId,
+
+nickname: myNickname + ' (나)',
+
+peerId: myPeerIdStr,
+
+status: gameRunning ? 'playing' : (isMatchingActive ? 'matching' : 'lobby'),
+
+isSelf: true
+
+};
+
+
+
+const others = Array.from(lobbyPeersMap.values());
+
+const all = [myEntry, ...others];
+
+
+
+countEl.innerText = `(${all.length}명 접속 중)`;
+
+
+
+listEl.innerHTML = all.map((p, i) => {
+
+const c = colors[i % colors.length];
+
+const isPlay = p.status === 'playing';
+
+const isMatch = p.status === 'matching';
+
+const em = isPlay ? '🎮' : (isMatch ? '⏳' : '🕹️');
+
+const stClass = isPlay ? 'st-play' : (isMatch ? 'st-match' : 'st-wait');
+
+const stText = isPlay ? '게임중' : (isMatch ? '매칭중' : '대기중');
+
+
+
+let actionBtn = '';
+
+if (!p.isSelf && p.peerId && !isPlay) {
+
+actionBtn = `<button class="pli-connect" onclick="invitePlayerCoop('${p.peerId}', '${p.nickname}')">초대</button>`;
+
 }
+
+
+
+return `
+
+<div class="pli">
+
+<div class="pli-avatar" style="background:${c}22;border:1px solid ${c};">${em}</div>
+
+<div class="pli-name">${p.nickname}</div>
+
+<div class="pli-status ${stClass}">${stText}</div>
+
+${actionBtn}
+
+</div>
+
+`;
+
+}).join('');
+
+}
+
+
 
 // ╔══════════════════════════════════════════════════════════╗
-// ║              MATCHMAKING LOGIC                           ║
+
+// ║ MATCHMAKING LOGIC ║
+
 // ╚══════════════════════════════════════════════════════════╝
+
 function startMatchmaking(mode) {
-    currentGameMode = 'COOP';
-    isMatchingActive = true;
-    isBotMatch = false;
-    matchSearchSeconds = 0;
 
-    openModal('modalMatch');
-    document.getElementById('matchModalTitle').innerText = `🔍 2인 협동 실시간 매칭`;
-    document.getElementById('matchText').innerText = '함께할 동료 소환사를 찾는 중입니다...';
-    document.getElementById('matchBotOption').style.display = 'none';
+currentGameMode = 'COOP';
 
-    broadcastMyPresence();
+isMatchingActive = true;
 
-    if (matchTimerInterval) clearInterval(matchTimerInterval);
-    matchTimerInterval = setInterval(() => {
-        if (!isMatchingActive) { clearInterval(matchTimerInterval); return; }
-        matchSearchSeconds++;
-        document.getElementById('matchTimeElapsed').innerText = `매칭 대기: ${matchSearchSeconds}초`;
-        if (matchSearchSeconds >= 4) {
-            document.getElementById('matchBotOption').style.display = 'block';
-        }
-    }, 1000);
+isBotMatch = false;
+
+matchSearchSeconds = 0;
+
+
+
+openModal('modalMatch');
+
+document.getElementById('matchModalTitle').innerText = `🔍 2인 협동 실시간 매칭`;
+
+document.getElementById('matchText').innerText = '함께할 동료 소환사를 찾는 중입니다...';
+
+document.getElementById('matchBotOption').style.display = 'none';
+
+
+
+broadcastMyPresence();
+
+
+
+if (matchTimerInterval) clearInterval(matchTimerInterval);
+
+matchTimerInterval = setInterval(() => {
+
+if (!isMatchingActive) { clearInterval(matchTimerInterval); return; }
+
+matchSearchSeconds++;
+
+document.getElementById('matchTimeElapsed').innerText = `매칭 대기: ${matchSearchSeconds}초`;
+
+if (matchSearchSeconds >= 4) {
+
+document.getElementById('matchBotOption').style.display = 'block';
+
 }
+
+}, 1000);
+
+}
+
+
 
 function attemptAutoMatch(opponent) {
-    if (!isMatchingActive || !myPeerIdStr || !opponent.peerId) return;
 
-    if (myUniqueId < opponent.uid) {
-        document.getElementById('matchText').innerText = `${opponent.nickname}님과 매칭되었습니다! 협동 게임 시작 중...`;
-        isMatchingActive = false;
-        
-        setTimeout(() => {
-            conn = peer.connect(opponent.peerId, { reliable: true });
-            isHost = true;
-            setupConnection('HOST');
-        }, 300);
-    } else {
-        document.getElementById('matchText').innerText = `매칭 성사! 협동 게임에 입장하는 중...`;
-        isMatchingActive = false;
-    }
+if (!isMatchingActive || !myPeerIdStr || !opponent.peerId) return;
+
+
+
+if (myUniqueId < opponent.uid) {
+
+document.getElementById('matchText').innerText = `${opponent.nickname}님과 매칭되었습니다! 협동 게임 시작 중...`;
+
+isMatchingActive = false;
+
+
+setTimeout(() => {
+
+conn = peer.connect(opponent.peerId, { reliable: true });
+
+isHost = true;
+
+setupConnection('HOST');
+
+}, 300);
+
+} else {
+
+document.getElementById('matchText').innerText = `매칭 성사! 협동 게임에 입장하는 중...`;
+
+isMatchingActive = false;
+
 }
+
+}
+
+
 
 function startBotMatch() {
-    isMatchingActive = false;
-    isBotMatch = true;
-    closeModal('modalMatch');
-    document.getElementById('main-lobby').style.display = 'none';
-    document.getElementById('btnOpenMulti').style.display = 'none';
-    startGame();
-    addChatLog(`[시스템] 🤖 AI 봇 동료와의 2인 협동 모드가 시작되었습니다!`, true);
+
+isMatchingActive = false;
+
+isBotMatch = true;
+isMulti = false;
+peerPlayer = {
+x: CW/2 + 35, y: CH-120,
+hp: 200, maxHp: 200,
+nickname: 'AI 봇 동료', round: 1,
+qBuffTimer: 0, wBuffTimer: 0
+};
+
+closeModal('modalMatch');
+
+document.getElementById('main-lobby').style.display = 'none';
+document.getElementById('btnOpenMulti').style.display = 'none';
+
+showReadyScreen('BOT');
+
+addChatLog(`[시스템] 🤖 AI 봇 동료와의 2인 협동 모드입니다. 준비 버튼을 눌러주세요!`, true);
+
 }
+
+
 
 function cancelMatchmaking() {
-    isMatchingActive = false;
-    if (matchTimerInterval) clearInterval(matchTimerInterval);
-    closeModal('modalMatch');
-    broadcastMyPresence();
+
+isMatchingActive = false;
+
+if (matchTimerInterval) clearInterval(matchTimerInterval);
+
+closeModal('modalMatch');
+
+broadcastMyPresence();
+
 }
+
+
 
 function invitePlayerCoop(targetPeerId, targetName) {
-    if (!targetPeerId) return;
-    currentGameMode = 'COOP';
 
-    const invitePayload = {
-        _lobby: true,
-        type: 'invite_coop',
-        fromName: myNickname,
-        fromPeerId: myPeerIdStr,
-        targetPeerId: targetPeerId
-    };
+if (!targetPeerId) return;
 
-    if (isLobbyHub) {
-        for (const cl of clientConns) {
-            if (cl.open) { try { cl.send(invitePayload); } catch(e){} }
-        }
-    } else if (hubConn && hubConn.open) {
-        try { hubConn.send(invitePayload); } catch(e){}
-    }
+currentGameMode = 'COOP';
 
-    conn = peer.connect(targetPeerId, { reliable: true });
-    isHost = true;
-    setupConnection('HOST');
-    addChatLog(`[멀티] ${targetName}님에게 협동 모드 초대를 보냈습니다...`, true);
+
+
+const invitePayload = {
+
+_lobby: true,
+
+type: 'invite_coop',
+
+fromName: myNickname,
+
+fromPeerId: myPeerIdStr,
+
+targetPeerId: targetPeerId
+
+};
+
+
+
+if (isLobbyHub) {
+
+for (const cl of clientConns) {
+
+if (cl.open) { try { cl.send(invitePayload); } catch(e){} }
+
 }
 
+} else if (hubConn && hubConn.open) {
+
+try { hubConn.send(invitePayload); } catch(e){}
+
+}
+
+
+
+conn = peer.connect(targetPeerId, { reliable: true });
+
+isHost = true;
+
+setupConnection('HOST');
+
+addChatLog(`[멀티] ${targetName}님에게 협동 모드 초대를 보냈습니다...`, true);
+
+}
+
+
+
 // ╔══════════════════════════════════════════════════════════╗
-// ║              PEERJS IN-GAME WEBRTC P2P                   ║
+
+// ║ PEERJS IN-GAME WEBRTC P2P ║
+
 // ╚══════════════════════════════════════════════════════════╝
+
 function setupConnection(role) {
-    isHost = (role === 'HOST');
-    isBotMatch = false;
-    isMulti = true;
-    currentGameMode = 'COOP';
 
-    // 동료 플레이어 초기 위치
-    peerPlayer = {
-        x: CW / 2 + 35,
-        y: CH - 120,
-        hp: 200, maxHp: 200,
-        nickname: '동료',
-        round: 1,
-        qBuffTimer: 0,
-        wBuffTimer: 0
-    };
+isHost = (role === 'HOST');
+isBotMatch = false;
+isMulti = true;
+currentGameMode = 'COOP';
 
-    conn.on('open', () => {
-        setMultiStatus('✅ 동료 소환사와 실시간 P2P 연결 성공!');
-        addChatLog(`[협동] ${isHost ? 'HOST' : 'GUEST'}로 게임에 참가했습니다!`, true);
-        isMulti = true;
-        isMatchingActive = false;
+localReady = false;
+peerReady = false;
+readyWaiting = true;
+readyRole = role;
 
-        if (isHost) {
-            setTimeout(() => {
-                if (conn && conn.open) {
-                    conn.send({ type:'start_game', mode: 'COOP' });
-                    closeAllModals();
-                    document.getElementById('main-lobby').style.display = 'none';
-                    document.getElementById('btnOpenMulti').style.display = 'flex';
-                    startGame();
-                    addChatLog(`[시스템] 2인 협동 게임 시작!`, true);
-                }
-            }, 300);
-        }
-        startNetSync();
-    });
+peerPlayer = {
+x: CW / 2 + 35,
+y: CH - 120,
+hp: 200, maxHp: 200,
+nickname: '동료',
+round: 1,
+qBuffTimer: 0,
+wBuffTimer: 0
+};
 
-    conn.on('data', handleNetworkData);
+conn.on('open', () => {
 
-    conn.on('close', () => {
-        addChatLog('[시스템] 동료 연결이 끊어졌습니다.', true);
-        isMulti = false;
-        peerPlayer = null;
-        updateEnemyPanel();
-        if (netSendInterval) { clearInterval(netSendInterval); netSendInterval = null; }
-    });
+setMultiStatus('✅ 동료 소환사와 실시간 P2P 연결 성공!');
+addChatLog(`[협동] ${isHost ? 'HOST' : 'GUEST'}로 게임에 참가했습니다!`, true);
+
+isMulti = true;
+isMatchingActive = false;
+
+closeAllModals();
+document.getElementById('main-lobby').style.display = 'none';
+document.getElementById('btnOpenMulti').style.display = 'flex';
+
+showReadyScreen(role);
+sendReadyState();
+
+startNetSync();
+
+});
+
+conn.on('data', handleNetworkData);
+
+conn.on('close', () => {
+
+addChatLog('[시스템] 동료 연결이 끊어졌습니다.', true);
+
+isMulti = false;
+peerPlayer = null;
+localReady = false;
+peerReady = false;
+readyWaiting = false;
+
+if (netSendInterval) {
+clearInterval(netSendInterval);
+netSendInterval = null;
+}
+
+hideReadyScreen();
+updateEnemyPanel();
+
+});
+
+}
+
+function showReadyScreen(role) {
+
+readyWaiting = true;
+localReady = false;
+
+document.getElementById('ready-overlay').style.display = 'block';
+document.getElementById('game-msg').style.display = 'none';
+
+const title = document.getElementById('ready-title');
+const status = document.getElementById('ready-status');
+const btn = document.getElementById('btn-ready');
+
+btn.disabled = false;
+btn.classList.remove('ready-done');
+btn.textContent = 'READY';
+
+if (role === 'BOT') {
+title.textContent = '🤖 전투 준비';
+status.textContent = 'AI 봇 동료가 준비되었습니다.\n준비 버튼을 누르면 1라운드가 시작됩니다.';
+} else {
+title.textContent = '🤝 전투 준비';
+status.textContent = '두 플레이어 모두 READY를 눌러야\n1라운드가 시작됩니다.';
+}
+
+}
+
+function hideReadyScreen() {
+
+readyWaiting = false;
+document.getElementById('ready-overlay').style.display = 'none';
+
+}
+
+function updateReadyScreen() {
+
+if (!readyWaiting) return;
+
+const status = document.getElementById('ready-status');
+const btn = document.getElementById('btn-ready');
+
+if (isBotMatch) {
+status.textContent = localReady
+? 'AI 봇 동료 준비 완료! 전투를 시작합니다...'
+: 'AI 봇 동료가 준비되었습니다.\n준비 버튼을 눌러 1라운드에 입장하세요.';
+} else {
+status.textContent = `나: ${localReady ? '✅ READY' : '⏳ 대기 중'}\n동료: ${peerReady ? '✅ READY' : '⏳ 준비 중...'}`;
+}
+
+btn.disabled = localReady;
+btn.classList.toggle('ready-done', localReady);
+btn.textContent = localReady ? 'READY 완료' : 'READY';
+
+}
+
+function confirmReady() {
+
+if (!readyWaiting || localReady) return;
+
+localReady = true;
+updateReadyScreen();
+
+if (isBotMatch) {
+startPreparedGame();
+return;
+}
+
+sendReadyState();
+
+if (isHost && peerReady) {
+startPreparedCoopGame();
+}
+
+}
+
+function sendReadyState() {
+
+if (conn && conn.open) {
+try {
+conn.send({
+type:'ready_state',
+ready: localReady,
+nickname: myNickname
+});
+} catch(e) {}
+}
+
+}
+
+function startPreparedCoopGame() {
+
+if (!isMulti || !isHost || !localReady || !peerReady || !readyWaiting) return;
+
+readyWaiting = false;
+hideReadyScreen();
+
+if (conn && conn.open) {
+try {
+conn.send({ type:'start_game', mode:'COOP' });
+} catch(e) {}
+}
+
+startGame();
+addChatLog('[시스템] 🤝 두 플레이어 모두 준비 완료! 1라운드를 시작합니다.', true);
+
+}
+
+function startPreparedGame() {
+
+if (!localReady || !readyWaiting) return;
+
+readyWaiting = false;
+hideReadyScreen();
+
+startGame();
+addChatLog('[시스템] ⚔️ 준비 완료! 1라운드를 시작합니다.', true);
+
 }
 
 function handleNetworkData(data) {
-    if (!data || !data.type) return;
 
-    switch (data.type) {
-        case 'start_game':
-            if (!isHost) {
-                currentGameMode = 'COOP';
-                closeAllModals();
-                document.getElementById('main-lobby').style.display = 'none';
-                document.getElementById('btnOpenMulti').style.display = 'flex';
-                startGame();
-                addChatLog(`[시스템] 2인 협동 게임 시작!`, true);
-                startNetSync();
-            }
-            break;
+if (!data || !data.type) return;
 
-        case 'state':
-            if (!peerPlayer) {
-                peerPlayer = { x: CW/2 + 35, y: CH-120, hp: 200, maxHp: 200, nickname: '동료', round: 1 };
-            }
-            if (peerPlayer) {
-                peerPlayer.x = data.x;
-                peerPlayer.y = data.y;
-                peerPlayer.hp = data.hp;
-                peerPlayer.maxHp = data.maxHp;
-                peerPlayer.round = data.round;
-                peerPlayer.nickname = data.nickname || '동료';
-                peerPlayer.qBuffTimer = data.qBuffTimer || 0;
-                peerPlayer.wBuffTimer = data.wBuffTimer || 0;
-                updateEnemyPanel();
-            }
-            break;
 
-        case 'shoot':
-            // 동료가 발사한 투사체 렌더링 (아군은 절대 안 맞음)
-            if (data.targetIdx !== undefined && minions[data.targetIdx]) {
-                peerProjectiles.push({
-                    x: data.x, y: data.y,
-                    target: minions[data.targetIdx],
-                    damage: data.damage || 20,
-                    speed: 720,
-                    color: '#9b59b6',
-                    radius: 5
-                });
-            }
-            break;
 
-        case 'minion_hit':
-            // 오직 미니언 피격만 처리! (플레이어 피격 idx < 0 은 100% 무시하여 아군 무적!)
-            if (data.idx !== undefined && data.idx >= 0 && minions[data.idx]) {
-                minions[data.idx].hp -= data.dmg;
-                floatingTexts.push(new FloatingText(`-${data.dmg}`, minions[data.idx].x, minions[data.idx].y - 10, '#9b59b6'));
-            }
-            break;
+switch (data.type) {
 
-        case 'chat':
-            addChatLog(`[동료] ${data.msg}`);
-            break;
+case 'ready_state':
 
-        case 'ping':
-            if (conn && conn.open) conn.send({ type:'pong', ts: data.ts });
-            break;
+peerReady = !!data.ready;
+if (peerPlayer) peerPlayer.nickname = data.nickname || peerPlayer.nickname || '동료';
 
-        case 'pong':
-            currentPing = Date.now() - data.ts;
-            const pi = document.getElementById('ping-indicator');
-            if (pi) pi.textContent = `핑: ${currentPing}ms`;
-            break;
+if (readyWaiting) updateReadyScreen();
 
-        case 'game_over':
-            if (!isGameOver) {
-                addChatLog('[시스템] 타워가 파괴되어 패배했습니다...', true);
-                document.getElementById('game-msg').innerText = '패배!';
-                document.getElementById('game-msg').style.display = 'block';
-                isGameOver = true;
-            }
-            break;
-
-        case 'dice_used':
-            addChatLog(`[동료] 다이스 사용: ${data.result}`, true);
-            break;
-    }
+if (isHost && localReady && peerReady) {
+startPreparedCoopGame();
 }
+
+break;
+
+
+case 'start_game':
+
+if (!isHost) {
+
+currentGameMode = 'COOP';
+peerReady = true;
+
+hideReadyScreen();
+readyWaiting = false;
+
+closeAllModals();
+
+document.getElementById('main-lobby').style.display = 'none';
+document.getElementById('btnOpenMulti').style.display = 'flex';
+
+startGame();
+
+addChatLog(`[시스템] 🤝 두 플레이어 모두 준비 완료! 1라운드 시작!`, true);
+
+startNetSync();
+
+}
+
+break;
+
+
+
+case 'state':
+
+if (!peerPlayer) {
+
+peerPlayer = { x: CW/2 + 35, y: CH-120, hp: 200, maxHp: 200, nickname: '동료', round: 1 };
+
+}
+
+if (peerPlayer) {
+
+peerPlayer.x = data.x;
+
+peerPlayer.y = data.y;
+
+peerPlayer.hp = data.hp;
+
+peerPlayer.maxHp = data.maxHp;
+
+peerPlayer.round = data.round;
+
+peerPlayer.nickname = data.nickname || '동료';
+
+peerPlayer.qBuffTimer = data.qBuffTimer || 0;
+
+peerPlayer.wBuffTimer = data.wBuffTimer || 0;
+
+updateEnemyPanel();
+
+}
+
+break;
+
+
+
+case 'shoot':
+
+// 동료가 발사한 투사체 렌더링 (아군은 절대 안 맞음)
+
+if (data.targetIdx !== undefined && minions[data.targetIdx]) {
+
+peerProjectiles.push({
+
+x: data.x, y: data.y,
+
+target: minions[data.targetIdx],
+
+damage: data.damage || 20,
+
+speed: 720,
+
+color: '#9b59b6',
+
+radius: 5
+
+});
+
+}
+
+break;
+
+
+
+case 'minion_hit':
+
+// 오직 미니언 피격만 처리! (플레이어 피격 idx < 0 은 100% 무시하여 아군 무적!)
+
+if (data.idx !== undefined && data.idx >= 0 && minions[data.idx]) {
+
+minions[data.idx].hp -= data.dmg;
+
+floatingTexts.push(new FloatingText(`-${data.dmg}`, minions[data.idx].x, minions[data.idx].y - 10, '#9b59b6'));
+
+}
+
+break;
+
+
+
+case 'chat':
+
+addChatLog(`[동료] ${data.msg}`);
+
+break;
+
+
+
+case 'ping':
+
+if (conn && conn.open) conn.send({ type:'pong', ts: data.ts });
+
+break;
+
+
+
+case 'pong':
+
+currentPing = Date.now() - data.ts;
+
+const pi = document.getElementById('ping-indicator');
+
+if (pi) pi.textContent = `핑: ${currentPing}ms`;
+
+break;
+
+
+
+case 'game_over':
+
+if (!isGameOver) {
+
+addChatLog('[시스템] 타워가 파괴되어 패배했습니다...', true);
+
+document.getElementById('game-msg').innerText = '패배!';
+
+document.getElementById('game-msg').style.display = 'block';
+
+isGameOver = true;
+
+}
+
+break;
+
+
+
+case 'dice_used':
+
+addChatLog(`[동료] 다이스 사용: ${data.result}`, true);
+
+break;
+
+}
+
+}
+
+
 
 function startNetSync() {
-    if (netSendInterval) clearInterval(netSendInterval);
-    netSendInterval = setInterval(() => {
-        if (!conn || !conn.open) return;
-        conn.send({
-            type: 'state',
-            x: player.x,
-            y: player.y,
-            hp: player.hp,
-            maxHp: player.maxHp,
-            round: round,
-            nickname: myNickname,
-            qBuffTimer: player.qBuffTimer,
-            wBuffTimer: player.wBuffTimer
-        });
-    }, 45);
 
-    setInterval(() => {
-        if (conn && conn.open) conn.send({ type:'ping', ts: Date.now() });
-    }, 3000);
+if (netSendInterval) clearInterval(netSendInterval);
+
+netSendInterval = setInterval(() => {
+
+if (!conn || !conn.open) return;
+
+conn.send({
+
+type: 'state',
+
+x: player.x,
+
+y: player.y,
+
+hp: player.hp,
+
+maxHp: player.maxHp,
+
+round: round,
+
+nickname: myNickname,
+
+qBuffTimer: player.qBuffTimer,
+
+wBuffTimer: player.wBuffTimer
+
+});
+
+}, 45);
+
+
+
+setInterval(() => {
+
+if (conn && conn.open) conn.send({ type:'ping', ts: Date.now() });
+
+}, 3000);
+
 }
+
+
 
 function sendShootEvent(x, y, damage, targetIdx) {
-    if (conn && conn.open) {
-        conn.send({ type: 'shoot', x, y, damage, targetIdx });
-    }
+
+if (conn && conn.open) {
+
+conn.send({ type: 'shoot', x, y, damage, targetIdx });
+
 }
+
+}
+
+
 
 function sendMinionHit(idx, dmg) {
-    // 오직 미니언 타격만 전송!
-    if (conn && conn.open && idx >= 0) {
-        conn.send({ type:'minion_hit', idx, dmg });
-    }
+
+// 오직 미니언 타격만 전송!
+
+if (conn && conn.open && idx >= 0) {
+
+conn.send({ type:'minion_hit', idx, dmg });
+
 }
+
+}
+
+
 
 function updateEnemyPanel() {
-    const p = document.getElementById('enemy-ui-panel');
-    if ((!isMulti && !isBotMatch) || (!peerPlayer && !isBotMatch)) { p.style.display = 'none'; return; }
-    p.style.display = 'flex';
 
-    if (isBotMatch) {
-        document.getElementById('enemy-name').textContent = '🤖 AI 봇 동료';
-        document.getElementById('enemyHpBar').style.width = '100%';
-        document.getElementById('enemyHpText').textContent = '200/200';
-        document.getElementById('enemy-round-info').textContent = `R${round}`;
-        document.getElementById('ping-indicator').textContent = '핑: 1ms';
-    } else {
-        document.getElementById('enemy-name').textContent     = peerPlayer.nickname || '동료';
-        document.getElementById('enemyHpBar').style.width     = Math.max(0,(peerPlayer.hp/peerPlayer.maxHp)*100)+'%';
-        document.getElementById('enemyHpText').textContent    = `${Math.ceil(Math.max(0,peerPlayer.hp))}/${peerPlayer.maxHp}`;
-        document.getElementById('enemy-round-info').textContent = `R${peerPlayer.round||1}`;
-    }
+const p = document.getElementById('enemy-ui-panel');
+
+if ((!isMulti && !isBotMatch) || (!peerPlayer && !isBotMatch)) { p.style.display = 'none'; return; }
+
+p.style.display = 'flex';
+
+
+
+if (isBotMatch) {
+
+document.getElementById('enemy-name').textContent = '🤖 AI 봇 동료';
+
+document.getElementById('enemyHpBar').style.width = '100%';
+
+document.getElementById('enemyHpText').textContent = '200/200';
+
+document.getElementById('enemy-round-info').textContent = `R${round}`;
+
+document.getElementById('ping-indicator').textContent = '핑: 1ms';
+
+} else {
+
+document.getElementById('enemy-name').textContent = peerPlayer.nickname || '동료';
+
+document.getElementById('enemyHpBar').style.width = Math.max(0,(peerPlayer.hp/peerPlayer.maxHp)*100)+'%';
+
+document.getElementById('enemyHpText').textContent = `${Math.ceil(Math.max(0,peerPlayer.hp))}/${peerPlayer.maxHp}`;
+
+document.getElementById('enemy-round-info').textContent = `R${peerPlayer.round||1}`;
+
 }
+
+}
+
+
 
 // ╔══════════════════════════════════════════════════════════╗
-// ║              FRIEND ROOM MODAL LOGIC                     ║
+
+// ║ FRIEND ROOM MODAL LOGIC ║
+
 // ╚══════════════════════════════════════════════════════════╝
+
 function openFriendRoomModal(mode) {
-    currentGameMode = 'COOP';
-    openModal('modalMulti');
-    document.getElementById('myPeerId').innerText = myPeerIdStr || '생성 중...';
+
+currentGameMode = 'COOP';
+
+openModal('modalMulti');
+
+document.getElementById('myPeerId').innerText = myPeerIdStr || '생성 중...';
+
 }
+
+
 
 function createHostRoom() {
-    setMultiStatus(`✅ 협동 방 생성 완료! 친구에게 이 코드를 알려주세요:\n${myPeerIdStr}`);
+
+setMultiStatus(`✅ 협동 방 생성 완료! 친구에게 이 코드를 알려주세요:\n${myPeerIdStr}`);
+
 }
+
+
 
 function connectToPeer() {
-    const destId = document.getElementById('roomCodeInput').value.trim();
-    if (!destId) { setMultiStatus('친구 접속 코드를 입력하세요.'); return; }
-    setMultiStatus('연결 시도 중...');
-    conn = peer.connect(destId, { reliable: true });
-    isHost = false;
-    setupConnection('GUEST');
+
+const destId = document.getElementById('roomCodeInput').value.trim();
+
+if (!destId) { setMultiStatus('친구 접속 코드를 입력하세요.'); return; }
+
+setMultiStatus('연결 시도 중...');
+
+conn = peer.connect(destId, { reliable: true });
+
+isHost = false;
+
+setupConnection('GUEST');
+
 }
 
+
+
 function copyMyId() {
-    const id = myPeerIdStr || document.getElementById('myPeerId').innerText;
-    if (!id || id === '생성 중...') { setMultiStatus('ID 생성 중입니다. 잠시 후 시도하세요.'); return; }
-    if (navigator.clipboard) {
-        navigator.clipboard.writeText(id).then(() => setMultiStatus('✅ 내 코드가 클립보드에 복사되었습니다!'));
-    } else {
-        const el = document.createElement('textarea');
-        el.value = id; document.body.appendChild(el);
-        el.select(); document.execCommand('copy');
-        document.body.removeChild(el);
-        setMultiStatus('✅ 코드 복사 완료!');
-    }
+
+const id = myPeerIdStr || document.getElementById('myPeerId').innerText;
+
+if (!id || id === '생성 중...') { setMultiStatus('ID 생성 중입니다. 잠시 후 시도하세요.'); return; }
+
+if (navigator.clipboard) {
+
+navigator.clipboard.writeText(id).then(() => setMultiStatus('✅ 내 코드가 클립보드에 복사되었습니다!'));
+
+} else {
+
+const el = document.createElement('textarea');
+
+el.value = id; document.body.appendChild(el);
+
+el.select(); document.execCommand('copy');
+
+document.body.removeChild(el);
+
+setMultiStatus('✅ 코드 복사 완료!');
+
 }
+
+}
+
+
 
 function setMultiStatus(msg) { document.getElementById('multiStatus').innerText = msg; }
 
+
+
 // ╔══════════════════════════════════════════════════════════╗
-// ║              RANDOM DICE SYSTEM                          ║
+
+// ║ RANDOM DICE SYSTEM ║
+
 // ╚══════════════════════════════════════════════════════════╝
+
 function rollRandomDice() {
-    const total = Object.values(DICE_RARITY_WEIGHT).reduce((a,b) => a+b, 0);
-    let rand = Math.random() * total;
-    let rarity = 'common';
-    for (const [r, w] of Object.entries(DICE_RARITY_WEIGHT)) {
-        rand -= w;
-        if (rand <= 0) { rarity = r; break; }
-    }
-    const pool = DICE_TYPES.filter(d => d.rarity === rarity);
-    return pool[Math.floor(Math.random() * pool.length)];
+
+const total = Object.values(DICE_RARITY_WEIGHT).reduce((a,b) => a+b, 0);
+
+let rand = Math.random() * total;
+
+let rarity = 'common';
+
+for (const [r, w] of Object.entries(DICE_RARITY_WEIGHT)) {
+
+rand -= w;
+
+if (rand <= 0) { rarity = r; break; }
+
 }
+
+const pool = DICE_TYPES.filter(d => d.rarity === rarity);
+
+return pool[Math.floor(Math.random() * pool.length)];
+
+}
+
+
 
 function rollDice() {
-    if (myDice.length >= 6) { addChatLog('[시스템] 주사위 슬롯(6개)이 가득 찼습니다.', true); return; }
-    if (gold < diceRollCost) { addChatLog(`[시스템] 골드가 부족합니다 (${diceRollCost}G 필요)`, true); return; }
-    gold -= diceRollCost;
-    diceRollCost = Math.floor(diceRollCost * 1.3);
 
-    const dice = rollRandomDice();
-    myDice.push({ ...dice, id: dice.id + '_' + Date.now() });
-    renderDicePanel();
-    updateUI();
+if (myDice.length >= 6) { addChatLog('[시스템] 주사위 슬롯(6개)이 가득 찼습니다.', true); return; }
 
-    showDiceResult(`🎲 ${dice.emoji} ${dice.name}!`);
-    addChatLog(`[다이스] ${dice.emoji} ${dice.name} 획득!`, true);
+if (gold < diceRollCost) { addChatLog(`[시스템] 골드가 부족합니다 (${diceRollCost}G 필요)`, true); return; }
+
+gold -= diceRollCost;
+
+diceRollCost = Math.floor(diceRollCost * 1.3);
+
+
+
+const dice = rollRandomDice();
+
+myDice.push({ ...dice, id: dice.id + '_' + Date.now() });
+
+renderDicePanel();
+
+updateUI();
+
+
+
+showDiceResult(`🎲 ${dice.emoji} ${dice.name}!`);
+
+addChatLog(`[다이스] ${dice.emoji} ${dice.name} 획득!`, true);
+
 }
+
+
 
 function useDice(slotIdx) {
-    if (!myDice[slotIdx]) return;
-    const dice = myDice[slotIdx];
-    const result = dice.effect();
-    myDice.splice(slotIdx, 1);
-    renderDicePanel();
-    updateUI();
-    showDiceResult(`${dice.emoji} ${result}`);
-    addChatLog(`[다이스] ${dice.emoji} ${dice.name} 사용: ${result}`, true);
-    if (conn && conn.open) conn.send({ type:'dice_used', result });
+
+if (!myDice[slotIdx]) return;
+
+const dice = myDice[slotIdx];
+
+const result = dice.effect();
+
+myDice.splice(slotIdx, 1);
+
+renderDicePanel();
+
+updateUI();
+
+showDiceResult(`${dice.emoji} ${result}`);
+
+addChatLog(`[다이스] ${dice.emoji} ${dice.name} 사용: ${result}`, true);
+
+if (conn && conn.open) conn.send({ type:'dice_used', result });
+
 }
+
+
 
 function renderDicePanel() {
-    const container = document.getElementById('dice-slots-container');
-    const slots = [];
-    for (let i = 0; i < 6; i++) {
-        const d = myDice[i];
-        if (d) {
-            slots.push(`<div class="dice-slot" style="border-color:${d.color};" onclick="useDice(${i})" title="${d.name} (${d.rarity})">${d.emoji}</div>`);
-        } else {
-            slots.push(`<div class="dice-slot empty" title="빈 슬롯">·</div>`);
-        }
-    }
-    container.innerHTML = slots.join('');
-    document.getElementById('dice-roll-cost').textContent = diceRollCost;
-    document.getElementById('diceCountEl').textContent = myDice.length;
+
+const container = document.getElementById('dice-slots-container');
+
+const slots = [];
+
+for (let i = 0; i < 6; i++) {
+
+const d = myDice[i];
+
+if (d) {
+
+slots.push(`<div class="dice-slot" style="border-color:${d.color};" onclick="useDice(${i})" title="${d.name} (${d.rarity})">${d.emoji}</div>`);
+
+} else {
+
+slots.push(`<div class="dice-slot empty" title="빈 슬롯">·</div>`);
+
 }
+
+}
+
+container.innerHTML = slots.join('');
+
+document.getElementById('dice-roll-cost').textContent = diceRollCost;
+
+document.getElementById('diceCountEl').textContent = myDice.length;
+
+}
+
+
 
 function showDiceResult(text) {
-    const el = document.getElementById('dice-result-overlay');
-    const te = document.getElementById('dice-result-text');
-    te.textContent = text;
-    el.style.display = 'block';
-    setTimeout(() => { el.style.display = 'none'; }, 1800);
+
+const el = document.getElementById('dice-result-overlay');
+
+const te = document.getElementById('dice-result-text');
+
+te.textContent = text;
+
+el.style.display = 'block';
+
+setTimeout(() => { el.style.display = 'none'; }, 1800);
+
 }
+
+
 
 function addDevDice() {
-    const dice = rollRandomDice();
-    if (myDice.length < 6) {
-        myDice.push({ ...dice, id: dice.id + '_' + Date.now() });
-        renderDicePanel();
-        showDiceResult(`[개발자] ${dice.emoji} ${dice.name}`);
-    }
+
+const dice = rollRandomDice();
+
+if (myDice.length < 6) {
+
+myDice.push({ ...dice, id: dice.id + '_' + Date.now() });
+
+renderDicePanel();
+
+showDiceResult(`[개발자] ${dice.emoji} ${dice.name}`);
+
 }
 
-// ╔══════════════════════════════════════════════════════════╗
-// ║              MODALS & UTILITIES                          ║
-// ╚══════════════════════════════════════════════════════════╝
-function openModal(id) { document.getElementById(id).style.display = 'flex'; }
-function closeModal(id) { document.getElementById(id).style.display = 'none'; }
-function closeAllModals() {
-    ['modalCoopSelect','modalMulti','modalMatch','modalStat','modalShop','modalNotice','modalSettings']
-        .forEach(closeModal);
 }
+
+
+
+// ╔══════════════════════════════════════════════════════════╗
+
+// ║ MODALS & UTILITIES ║
+
+// ╚══════════════════════════════════════════════════════════╝
+
+function openModal(id) { document.getElementById(id).style.display = 'flex'; }
+
+function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+function closeAllModals() {
+
+['modalCoopSelect','modalMulti','modalMatch','modalStat','modalShop','modalNotice','modalSettings']
+
+.forEach(closeModal);
+
+}
+
+
 
 function updateUI() {
-    document.getElementById('gold').innerText  = gold;
-    document.getElementById('round').innerText = round;
-    document.getElementById('diceCountEl').innerText = myDice.length;
 
-    document.getElementById('playerHpBar').style.width  = Math.max(0,(player.hp/player.maxHp)*100)+'%';
-    document.getElementById('playerHpText').innerText   = `${Math.ceil(Math.max(0,player.hp))}/${player.maxHp}`;
-    document.getElementById('towerHpBar').style.width   = Math.max(0,(tower.hp/tower.maxHp)*100)+'%';
-    document.getElementById('towerHpText').innerText    = Math.ceil(Math.max(0,tower.hp));
+document.getElementById('gold').innerText = gold;
 
-    const fmt = cd => cd > 0 ? `${cd.toFixed(1)}s` : 'READY';
-    document.getElementById('cdQ').innerText = fmt(player.qCooldown);
-    document.getElementById('cdW').innerText = fmt(player.wCooldown);
-    document.getElementById('cdE').innerText = fmt(player.eCooldown);
+document.getElementById('round').innerText = round;
+
+document.getElementById('diceCountEl').innerText = myDice.length;
+
+
+
+document.getElementById('playerHpBar').style.width = Math.max(0,(player.hp/player.maxHp)*100)+'%';
+
+document.getElementById('playerHpText').innerText = `${Math.ceil(Math.max(0,player.hp))}/${player.maxHp}`;
+
+document.getElementById('towerHpBar').style.width = Math.max(0,(tower.hp/tower.maxHp)*100)+'%';
+
+document.getElementById('towerHpText').innerText = Math.ceil(Math.max(0,tower.hp));
+
+
+
+const fmt = cd => cd > 0 ? `${cd.toFixed(1)}s` : 'READY';
+
+document.getElementById('cdQ').innerText = fmt(player.qCooldown);
+
+document.getElementById('cdW').innerText = fmt(player.wCooldown);
+
+document.getElementById('cdE').innerText = fmt(player.eCooldown);
+
 }
+
+
 
 function addChatLog(msg, sys=false) {
-    const logs = document.getElementById('chat-logs');
-    const div = document.createElement('div');
-    div.className = sys ? 'chat-msg chat-sys' : 'chat-msg';
-    div.innerText = msg;
-    logs.appendChild(div);
-    logs.scrollTop = logs.scrollHeight;
+
+const logs = document.getElementById('chat-logs');
+
+const div = document.createElement('div');
+
+div.className = sys ? 'chat-msg chat-sys' : 'chat-msg';
+
+div.innerText = msg;
+
+logs.appendChild(div);
+
+logs.scrollTop = logs.scrollHeight;
+
 }
+
+
 
 function handleChatKey(e) {
-    if (e.key !== 'Enter') return;
-    const inp = document.getElementById('chat-input');
-    const val = inp.value.trim();
-    if (!val) return;
-    addChatLog(`나: ${val}`);
-    if (conn && conn.open) conn.send({ type:'chat', msg:val });
-    if (val === '개발자모드') {
-        if (prompt('코드:') === '물게피스') {
-            isDevMode = true;
-            document.getElementById('dev-panel').style.display = 'flex';
-            addChatLog('[시스템] 개발자 모드 ON', true);
-        }
-    }
-    inp.value = '';
+
+if (e.key !== 'Enter') return;
+
+const inp = document.getElementById('chat-input');
+
+const val = inp.value.trim();
+
+if (!val) return;
+
+addChatLog(`나: ${val}`);
+
+if (conn && conn.open) conn.send({ type:'chat', msg:val });
+
+if (val === '개발자모드') {
+
+if (prompt('코드:') === '물게피스') {
+
+isDevMode = true;
+
+document.getElementById('dev-panel').style.display = 'flex';
+
+addChatLog('[시스템] 개발자 모드 ON', true);
+
 }
+
+}
+
+inp.value = '';
+
+}
+
+
 
 function addDevGold() { gold += 10000; updateUI(); addChatLog('[개발자] 10,000G 지급', true); }
+
 function toggleGameSpeed() {
-    gameSpeed = gameSpeed === 1 ? 2 : gameSpeed === 2 ? 3 : 1;
-    document.getElementById('speed-label').innerText = `${gameSpeed}x`;
+
+gameSpeed = gameSpeed === 1 ? 2 : gameSpeed === 2 ? 3 : 1;
+
+document.getElementById('speed-label').innerText = `${gameSpeed}x`;
+
 }
 
+
+
 // ╔══════════════════════════════════════════════════════════╗
-// ║              SHOP SYSTEM                                 ║
+
+// ║ SHOP SYSTEM ║
+
 // ╚══════════════════════════════════════════════════════════╝
+
 function renderShop() {
-    const atkP = Math.floor(statUpgrades.atk.basePrice * Math.pow(statUpgrades.atk.priceMult, statUpgrades.atk.level));
-    const spdP = Math.floor(statUpgrades.spd.basePrice * Math.pow(statUpgrades.spd.priceMult, statUpgrades.spd.level));
-    let html = `
-        <div class="shop-section-title">⚡ 스탯 강화</div>
-        <div class="shop-item"><div><b>공격력 +10</b> (Lv.${statUpgrades.atk.level})<br><small style="color:#aaa">${atkP}G</small></div><button class="btn-buy" onclick="buyStatUpgrade('atk')">구매</button></div>
-        <div class="shop-item"><div><b>공속 +10%</b> (Lv.${statUpgrades.spd.level})<br><small style="color:#aaa">${spdP}G</small></div><button class="btn-buy" onclick="buyStatUpgrade('spd')">구매</button></div>
-        <div class="shop-section-title">🗡️ 장비 아이템</div>`;
-    equipmentItems.forEach((it, i) => {
-        html += `<div class="shop-item"><div><b>${it.name}</b><br><small style="color:#aaa">${it.desc} / ${it.price}G</small></div>
-            ${it.bought ? '<button class="btn-buy btn-bought" disabled>완료</button>' : `<button class="btn-buy" onclick="buyEquipment(${i})">구매</button>`}</div>`;
-    });
-    document.getElementById('shopContent').innerHTML = html;
+
+const atkP = Math.floor(statUpgrades.atk.basePrice * Math.pow(statUpgrades.atk.priceMult, statUpgrades.atk.level));
+
+const spdP = Math.floor(statUpgrades.spd.basePrice * Math.pow(statUpgrades.spd.priceMult, statUpgrades.spd.level));
+
+let html = `
+
+<div class="shop-section-title">⚡ 스탯 강화</div>
+
+<div class="shop-item"><div><b>공격력 +10</b> (Lv.${statUpgrades.atk.level})<br><small style="color:#aaa">${atkP}G</small></div><button class="btn-buy" onclick="buyStatUpgrade('atk')">구매</button></div>
+
+<div class="shop-item"><div><b>공속 +10%</b> (Lv.${statUpgrades.spd.level})<br><small style="color:#aaa">${spdP}G</small></div><button class="btn-buy" onclick="buyStatUpgrade('spd')">구매</button></div>
+
+<div class="shop-section-title">🗡️ 장비 아이템</div>`;
+
+equipmentItems.forEach((it, i) => {
+
+html += `<div class="shop-item"><div><b>${it.name}</b><br><small style="color:#aaa">${it.desc} / ${it.price}G</small></div>
+
+${it.bought ? '<button class="btn-buy btn-bought" disabled>완료</button>' : `<button class="btn-buy" onclick="buyEquipment(${i})">구매</button>`}</div>`;
+
+});
+
+document.getElementById('shopContent').innerHTML = html;
+
 }
+
+
 
 function buyStatUpgrade(type) {
-    const st = statUpgrades[type];
-    const pr = Math.floor(st.basePrice * Math.pow(st.priceMult, st.level));
-    if (gold < pr) return;
-    gold -= pr;
-    if (type === 'atk') player.attackPower += 10;
-    else player.attackBaseCooldown = Math.max(0.05, player.attackBaseCooldown * 0.9);
-    st.level++;
-    updateUI(); renderShop();
+
+const st = statUpgrades[type];
+
+const pr = Math.floor(st.basePrice * Math.pow(st.priceMult, st.level));
+
+if (gold < pr) return;
+
+gold -= pr;
+
+if (type === 'atk') player.attackPower += 10;
+
+else player.attackBaseCooldown = Math.max(0.05, player.attackBaseCooldown * 0.9);
+
+st.level++;
+
+updateUI(); renderShop();
+
 }
+
+
 
 function buyEquipment(idx) {
-    const it = equipmentItems[idx];
-    if (!it.bought && gold >= it.price) {
-        gold -= it.price; it.bought = true; it.apply();
-        updateUI(); renderShop();
-    }
+
+const it = equipmentItems[idx];
+
+if (!it.bought && gold >= it.price) {
+
+gold -= it.price; it.bought = true; it.apply();
+
+updateUI(); renderShop();
+
 }
 
+}
+
+
+
 // ╔══════════════════════════════════════════════════════════╗
-// ║              GAME FLOW (START / RESET)                   ║
+
+// ║ GAME FLOW (START / RESET) ║
+
 // ╚══════════════════════════════════════════════════════════╝
+
 function startSoloPlay() {
-    currentGameMode = 'SOLO';
-    isMulti = false;
-    isBotMatch = false;
-    peerPlayer = null;
-    document.getElementById('btnOpenMulti').style.display = 'none';
-    document.getElementById('main-lobby').style.display = 'none';
-    startGame();
-    addChatLog('[시스템] 솔로 플레이 시작!', true);
+
+currentGameMode = 'SOLO';
+
+isMulti = false;
+isBotMatch = false;
+peerPlayer = null;
+
+localReady = false;
+peerReady = false;
+readyWaiting = true;
+readyRole = 'SOLO';
+
+document.getElementById('btnOpenMulti').style.display = 'none';
+document.getElementById('main-lobby').style.display = 'none';
+
+showReadyScreen('SOLO');
+
 }
 
 function startGame() {
-    resetGameState();
-    gameRunning = true;
-    lastTimestamp = 0;
-    broadcastMyPresence();
-    requestAnimationFrame(gameLoop);
+
+resetGameState();
+
+gameRunning = true;
+lastTimestamp = 0;
+
+broadcastMyPresence();
+
+if (animationFrameId) cancelAnimationFrame(animationFrameId);
+animationFrameId = requestAnimationFrame((ts) => gameLoop(ts, gameSessionId));
+
 }
 
 function resetGameState() {
-    player.x = CW/2; player.y = CH-120;
-    player.targetX = player.x; player.targetY = player.y;
-    player.hp = player.maxHp;
-    player.attackCooldown = 0;
-    player.qCooldown = 0; player.qBuffTimer = 0;
-    player.wCooldown = 0; player.wBuffTimer = 0;
-    player.eCooldown = 0;
 
-    tower.hp = tower.maxHp;
-    minions=[]; projectiles=[]; peerProjectiles=[]; floatingTexts=[]; explosions=[]; scopeEffects=[]; shockwaves=[];
-    gold = 0; round = 1;
-    isWaveActive = false; isGameOver = false;
-    myDice = []; diceRollCost = 50; freeDiceThisRound = false;
+// 이전 게임의 예약된 웨이브 타이머 완전 제거
+waveSpawnTimers.forEach(t => clearTimeout(t));
+waveSpawnTimers = [];
 
-    document.getElementById('game-msg').style.display = 'none';
-    document.getElementById('game-msg').style.color = '#e74c3c';
-    document.getElementById('game-msg').innerText = '게임 오버!';
-    document.getElementById('dice-panel').style.display = 'flex';
+if (animationFrameId) {
+cancelAnimationFrame(animationFrameId);
+animationFrameId = null;
+}
 
-    renderDicePanel();
-    updateUI();
-    if (isMulti || isBotMatch) updateEnemyPanel();
+gameSessionId++;
+
+player.x = CW/2; player.y = CH-120;
+player.targetX = player.x; player.targetY = player.y;
+
+player.hp = player.maxHp;
+player.attackCooldown = 0;
+player.qCooldown = 0; player.qBuffTimer = 0;
+player.wCooldown = 0; player.wBuffTimer = 0;
+player.eCooldown = 0;
+
+tower.hp = tower.maxHp;
+
+minions = [];
+projectiles = [];
+peerProjectiles = [];
+floatingTexts = [];
+explosions = [];
+scopeEffects = [];
+shockwaves = [];
+
+gold = 0;
+round = 1;
+
+isWaveActive = false;
+isGameOver = false;
+
+myDice = [];
+diceRollCost = 50;
+freeDiceThisRound = false;
+
+roundBannerTimer = 0;
+roundBannerText = '';
+
+document.getElementById('game-msg').style.display = 'none';
+document.getElementById('game-msg').style.color = '#e74c3c';
+document.getElementById('game-msg').innerText = '게임 오버!';
+
+document.getElementById('dice-panel').style.display = 'flex';
+
+renderDicePanel();
+updateUI();
+
+if (isMulti || isBotMatch) updateEnemyPanel();
+
 }
 
 function returnToLobby() {
-    closeModal('modalSettings');
-    isMulti = false; isBotMatch = false; peerPlayer = null;
-    gameRunning = false;
-    if (netSendInterval) { clearInterval(netSendInterval); netSendInterval = null; }
-    updateEnemyPanel();
-    document.getElementById('main-lobby').style.display = 'flex';
-    document.getElementById('dice-panel').style.display = 'none';
-    document.getElementById('enemy-ui-panel').style.display = 'none';
-    document.getElementById('game-msg').style.display = 'none';
-    broadcastMyPresence();
+
+closeAllModals();
+
+gameRunning = false;
+isGameOver = true;
+
+// 게임 루프 및 예약 웨이브를 즉시 끊어서
+// 나간 뒤 다시 시작했을 때 이전 게임의 몬스터/라운드가 섞이지 않게 함.
+if (animationFrameId) {
+cancelAnimationFrame(animationFrameId);
+animationFrameId = null;
+}
+
+waveSpawnTimers.forEach(t => clearTimeout(t));
+waveSpawnTimers = [];
+
+gameSessionId++;
+
+if (netSendInterval) {
+clearInterval(netSendInterval);
+netSendInterval = null;
+}
+
+// 이전 협동 게임 연결도 끊어서 이전 플레이어의 상태/공격 이벤트가
+// 새 솔로 또는 새 협동 게임에 섞이지 않도록 완전히 분리합니다.
+if (conn) {
+try { if (conn.open) conn.close(); } catch(e) {}
+conn = null;
+}
+
+// 현재 게임 데이터 완전 초기화
+minions = [];
+projectiles = [];
+peerProjectiles = [];
+floatingTexts = [];
+explosions = [];
+scopeEffects = [];
+shockwaves = [];
+
+gold = 0;
+round = 1;
+isWaveActive = false;
+myDice = [];
+diceRollCost = 50;
+freeDiceThisRound = false;
+
+localReady = false;
+peerReady = false;
+readyWaiting = false;
+readyRole = '';
+
+isMulti = false;
+isBotMatch = false;
+peerPlayer = null;
+
+hideReadyScreen();
+
+document.getElementById('main-lobby').style.display = 'flex';
+document.getElementById('dice-panel').style.display = 'none';
+document.getElementById('enemy-ui-panel').style.display = 'none';
+document.getElementById('game-msg').style.display = 'none';
+
+updateUI();
+renderDicePanel();
+
+broadcastMyPresence();
+
 }
 
 function saveSettings() {
-    const val = document.getElementById('setNickname').value.trim();
-    if (val) {
-        myNickname = val;
-        localStorage.setItem('nickname', myNickname);
-        document.getElementById('lobby-my-name').innerText = myNickname;
-    }
-    closeModal('modalSettings');
-    broadcastMyPresence();
+
+const val = document.getElementById('setNickname').value.trim();
+
+if (val) {
+
+myNickname = val;
+
+localStorage.setItem('nickname', myNickname);
+
+document.getElementById('lobby-my-name').innerText = myNickname;
+
 }
 
+closeModal('modalSettings');
+
+broadcastMyPresence();
+
+}
+
+
+
 // ╔══════════════════════════════════════════════════════════╗
-// ║              CONTROLS & SKILLS                           ║
+
+// ║ CONTROLS & SKILLS ║
+
 // ╚══════════════════════════════════════════════════════════╝
+
 canvas.addEventListener('pointerdown', (e) => {
-    if (isGameOver) return;
-    const rect = canvas.getBoundingClientRect();
-    player.targetX = e.clientX - rect.left;
-    player.targetY = e.clientY - rect.top;
+
+if (isGameOver) return;
+
+const rect = canvas.getBoundingClientRect();
+
+player.targetX = e.clientX - rect.left;
+
+player.targetY = e.clientY - rect.top;
+
 });
+
+
 
 document.getElementById('btnQ').addEventListener('pointerdown', (e) => {
-    e.stopPropagation();
-    if (player.qCooldown <= 0) { player.qBuffTimer = 3; player.qCooldown = 6; }
+
+e.stopPropagation();
+
+if (player.qCooldown <= 0) { player.qBuffTimer = 3; player.qCooldown = 6; }
+
 });
+
 document.getElementById('btnW').addEventListener('pointerdown', (e) => {
-    e.stopPropagation();
-    if (player.wCooldown <= 0) { player.wBuffTimer = 2.5; player.wCooldown = 7; }
+
+e.stopPropagation();
+
+if (player.wCooldown <= 0) { player.wBuffTimer = 2.5; player.wCooldown = 7; }
+
 });
+
 document.getElementById('btnE').addEventListener('pointerdown', (e) => {
-    e.stopPropagation();
-    if (player.eCooldown <= 0) {
-        player.eCooldown = 8;
-        shockwaves.push({ x:player.x, y:player.y, radius:10, alpha:1 });
-        
-        // 오직 몬스터만 타격! (아군 100% 무적)
-        for (let i = minions.length-1; i >= 0; i--) {
-            const m = minions[i];
-            if (Math.hypot(m.x-player.x, m.y-player.y) <= 160) {
-                const dmg = Math.floor(player.attackPower * 2.5);
-                m.hp -= dmg;
-                floatingTexts.push(new FloatingText(`-${dmg}`, m.x, m.y-15, '#f1c40f'));
-                sendMinionHit(i, dmg);
-            }
-        }
-    }
+
+e.stopPropagation();
+
+if (player.eCooldown <= 0) {
+
+player.eCooldown = 8;
+
+shockwaves.push({ x:player.x, y:player.y, radius:10, alpha:1 });
+
+
+// 오직 몬스터만 타격! (아군 100% 무적)
+
+for (let i = minions.length-1; i >= 0; i--) {
+
+const m = minions[i];
+
+if (Math.hypot(m.x-player.x, m.y-player.y) <= 160) {
+
+const dmg = Math.floor(player.attackPower * 2.5);
+
+m.hp -= dmg;
+
+floatingTexts.push(new FloatingText(`-${dmg}`, m.x, m.y-15, '#f1c40f'));
+
+sendMinionHit(i, dmg);
+
+}
+
+}
+
+}
+
 });
+
+
 
 document.getElementById('btnOpenStat').addEventListener('pointerdown', (e) => {
-    e.stopPropagation();
-    document.getElementById('statContent').innerHTML = `
-        • 체력: <b>${Math.ceil(player.hp)}/${player.maxHp}</b><br>
-        • 공격력: <b>${player.attackPower}</b><br>
-        • 이동속도: <b>${(player.moveSpeed/60).toFixed(1)}</b><br>
-        • 조준경 확률: <b>${Math.round(player.scopeChance*100)}%</b><br>
-        • 치명타 확률: <b>${Math.round((player.critChance||0)*100)}%</b><br>
-        • 폭발 확률: <b>${Math.round((player.explosionChance||0)*100)}%</b><br>
-        • 흡혈: <b>${player.lifesteal}</b><br>
-        • 멀티샷: <b>${player.multiShot||1}발</b><br>
-        • 주사위 보유: <b>${myDice.length}/6</b>
-    `;
-    openModal('modalStat');
+
+e.stopPropagation();
+
+document.getElementById('statContent').innerHTML = `
+
+• 체력: <b>${Math.ceil(player.hp)}/${player.maxHp}</b><br>
+
+• 공격력: <b>${player.attackPower}</b><br>
+
+• 이동속도: <b>${(player.moveSpeed/60).toFixed(1)}</b><br>
+
+• 조준경 확률: <b>${Math.round(player.scopeChance*100)}%</b><br>
+
+• 치명타 확률: <b>${Math.round((player.critChance||0)*100)}%</b><br>
+
+• 폭발 확률: <b>${Math.round((player.explosionChance||0)*100)}%</b><br>
+
+• 흡혈: <b>${player.lifesteal}</b><br>
+
+• 멀티샷: <b>${player.multiShot||1}발</b><br>
+
+• 주사위 보유: <b>${myDice.length}/6</b>
+
+`;
+
+openModal('modalStat');
+
 });
+
+
 
 document.getElementById('btnOpenShop').addEventListener('pointerdown', (e) => {
-    e.stopPropagation(); renderShop(); openModal('modalShop');
-});
-document.getElementById('btnOpenMulti').addEventListener('pointerdown', (e) => {
-    e.stopPropagation();
-    document.getElementById('myPeerId').innerText = myPeerIdStr || '생성 중...';
-    openModal('modalMulti');
+
+e.stopPropagation(); renderShop(); openModal('modalShop');
+
 });
 
+document.getElementById('btnOpenMulti').addEventListener('pointerdown', (e) => {
+
+e.stopPropagation();
+
+document.getElementById('myPeerId').innerText = myPeerIdStr || '생성 중...';
+
+openModal('modalMulti');
+
+});
+
+
+
 // ╔══════════════════════════════════════════════════════════╗
-// ║              WAVE SYSTEM                                 ║
+
+// ║ WAVE SYSTEM ║
+
 // ╚══════════════════════════════════════════════════════════╝
+
 class FloatingText {
-    constructor(text, x, y, color='#ffda79') { this.text=text;this.x=x;this.y=y;this.color=color;this.alpha=1; }
-    update(dt) { this.y -= 72*dt; this.alpha -= 1.8*dt; }
-    draw() {
-        ctx.save(); ctx.globalAlpha=Math.max(0,this.alpha);
-        ctx.font='bold 12px Outfit,Arial'; ctx.fillStyle=this.color;
-        ctx.fillText(this.text,this.x,this.y); ctx.restore();
-    }
+
+constructor(text, x, y, color='#ffda79') { this.text=text;this.x=x;this.y=y;this.color=color;this.alpha=1; }
+
+update(dt) { this.y -= 72*dt; this.alpha -= 1.8*dt; }
+
+draw() {
+
+ctx.save(); ctx.globalAlpha=Math.max(0,this.alpha);
+
+ctx.font='bold 12px Outfit,Arial'; ctx.fillStyle=this.color;
+
+ctx.fillText(this.text,this.x,this.y); ctx.restore();
+
 }
+
+}
+
+
 
 function triggerRoundBanner(r) { roundBannerText=`ROUND ${r}`; roundBannerTimer=1.5; }
 
+
+
 function startNextWave() {
-    isWaveActive = true;
-    triggerRoundBanner(round);
-    addChatLog(`[라운드] ROUND ${round} 시작!`, true);
 
-    if (!freeDiceThisRound && myDice.length < 6) {
-        freeDiceThisRound = true;
-        setTimeout(() => {
-            if (myDice.length < 6) {
-                const dice = rollRandomDice();
-                myDice.push({ ...dice, id: dice.id + '_' + Date.now() });
-                renderDicePanel();
-                showDiceResult(`🎁 라운드 무료 다이스: ${dice.emoji} ${dice.name}`);
-                addChatLog(`[다이스] 라운드 보상: ${dice.emoji} ${dice.name} 획득!`, true);
-            }
-        }, 500);
-    }
+isWaveActive = true;
 
-    const enemyCount = 5 + round * 2;
-    let spawned = 0;
+triggerRoundBanner(round);
 
-    const spawnInterval = setInterval(() => {
-        if (isGameOver || !gameRunning) { clearInterval(spawnInterval); return; }
-        const isChaser = Math.random() < 0.35;
-        minions.push({
-            x: Math.random()*(CW-80)+40, y: -20,
-            radius: isChaser ? 15 : 13,
-            speed: (0.9 + round*0.1) * 60,
-            hp: 100 + round*35, maxHp: 100 + round*35,
-            isChaser, isBoss: false,
-            attackPower: Math.max(5, Math.floor(player.attackPower * 0.3)),
-            attackCooldown: 0, attackRate: 1.5
-        });
-        spawned++;
-        if (spawned >= enemyCount) {
-            clearInterval(spawnInterval);
-            setTimeout(() => {
-                if (isGameOver || !gameRunning) return;
-                minions.push({
-                    x: CW/2, y: -30, radius: 26,
-                    speed: (0.45 + round*0.05) * 60,
-                    hp: 450 + round*320, maxHp: 450 + round*320,
-                    isChaser:false, isBoss:true,
-                    attackPower: 30, attackCooldown:0, attackRate:1
-                });
-            }, 1000);
-        }
-    }, 600);
-}
+addChatLog(`[라운드] ROUND ${round} 시작!`, true);
 
-// ╔══════════════════════════════════════════════════════════╗
-// ║              DELTA-TIME GAME LOOP                        ║
-// ╚══════════════════════════════════════════════════════════╝
-function gameLoop(timestamp) {
-    if (!gameRunning || isGameOver) return;
 
-    if (!lastTimestamp) lastTimestamp = timestamp;
-    let dt = (timestamp - lastTimestamp) / 1000;
-    dt = Math.min(dt, 0.05);
-    dt *= gameSpeed;
-    lastTimestamp = timestamp;
 
-    ctx.clearRect(0, 0, CW, CH);
+if (!freeDiceThisRound && myDice.length < 6) {
 
-    // 라인 표시
-    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
-    ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(0, MID_Y); ctx.lineTo(CW, MID_Y); ctx.stroke();
+freeDiceThisRound = true;
 
-    // 웨이브 체크
-    if (!isWaveActive && minions.length === 0) {
-        freeDiceThisRound = false;
-        startNextWave();
-    }
+setTimeout(() => {
 
-    // ─── 쿨다운 업데이트 ───
-    if (player.qCooldown > 0) player.qCooldown = Math.max(0, player.qCooldown - dt);
-    if (player.wCooldown > 0) player.wCooldown = Math.max(0, player.wCooldown - dt);
-    if (player.eCooldown > 0) player.eCooldown = Math.max(0, player.eCooldown - dt);
-    if (player.qBuffTimer > 0) player.qBuffTimer = Math.max(0, player.qBuffTimer - dt);
-    if (player.wBuffTimer > 0) player.wBuffTimer = Math.max(0, player.wBuffTimer - dt);
+if (myDice.length < 6) {
 
-    // ─── 플레이어 이동 ───
-    const spd = player.moveSpeed * (player.wBuffTimer > 0 ? 1.8 : 1);
-    const dx = player.targetX - player.x, dy = player.targetY - player.y;
-    const dist = Math.hypot(dx, dy);
-    if (dist > 2) {
-        const move = Math.min(spd*dt, dist);
-        player.x += (dx/dist)*move; player.y += (dy/dist)*move;
-    }
+const dice = rollRandomDice();
 
-    // ─── 자동 공격 (오직 몬스터만 타겟팅) ───
-    const cd = player.qBuffTimer > 0
-        ? Math.max(0.03, player.attackBaseCooldown * 0.08)
-        : player.attackBaseCooldown;
-    if (player.attackCooldown > 0) player.attackCooldown = Math.max(0, player.attackCooldown - dt);
+myDice.push({ ...dice, id: dice.id + '_' + Date.now() });
 
-    if (player.attackCooldown <= 0) {
-        let targets = minions
-            .filter(m => Math.hypot(m.x-player.x, m.y-player.y) <= player.attackRange)
-            .sort((a,b) => Math.hypot(a.x-player.x,a.y-player.y) - Math.hypot(b.x-player.x,b.y-player.y));
-
-        if (targets.length > 0) {
-            const shots = Math.min(player.multiShot || 1, targets.length);
-            for (let s = 0; s < shots; s++) {
-                let dmg = player.attackPower;
-                let color = '#2ecc71';
-                if ((player.critChance || 0) > 0 && Math.random() < player.critChance) {
-                    dmg = Math.floor(dmg * 2.2);
-                    color = '#f1c40f';
-                }
-                const targetIdx = minions.indexOf(targets[s]);
-                projectiles.push({ x:player.x, y:player.y, target:targets[s], speed:720, damage:dmg, color, radius:5 });
-                sendShootEvent(player.x, player.y, dmg, targetIdx);
-            }
-
-            // 조준경 탄
-            if (Math.random() < player.scopeChance) {
-                const st = targets.length > shots ? targets[shots] : targets[0];
-                projectiles.push({ x:player.x, y:player.y, target:st, speed:900,
-                    damage:Math.floor(player.attackPower*0.75), color:'#a55eea', radius:4 });
-                scopeEffects.push({ progress:0, maxTime:0.6 });
-            }
-            player.attackCooldown = cd;
-        }
-    }
-
-    // ─── [멀티] 동료 플레이어 렌더링 ───
-    if (isMulti && peerPlayer) {
-        ctx.save();
-        if (peerPlayer.qBuffTimer > 0) {
-            ctx.strokeStyle = '#f1c40f'; ctx.lineWidth = 3;
-            ctx.beginPath(); ctx.arc(peerPlayer.x, peerPlayer.y, player.radius + 4, 0, Math.PI * 2); ctx.stroke();
-        }
-        if (peerPlayer.wBuffTimer > 0) {
-            ctx.strokeStyle = '#3498db'; ctx.lineWidth = 3;
-            ctx.beginPath(); ctx.arc(peerPlayer.x, peerPlayer.y, player.radius + 7, 0, Math.PI * 2); ctx.stroke();
-        }
-
-        ctx.fillStyle = '#9b59b6';
-        ctx.beginPath(); ctx.arc(peerPlayer.x, peerPlayer.y, player.radius, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
-
-        ctx.fillStyle = '#fff'; ctx.font = 'bold 10px Outfit,Arial'; ctx.textAlign = 'center';
-        ctx.fillText(peerPlayer.nickname || '동료', peerPlayer.x, peerPlayer.y - player.radius - 8);
-
-        // 동료 HP 바
-        const ehpW = 40, ehpH = 4;
-        ctx.fillStyle = 'rgba(0,0,0,0.6)';
-        ctx.fillRect(peerPlayer.x - ehpW/2, peerPlayer.y - player.radius - 6, ehpW, ehpH);
-        ctx.fillStyle = '#2ecc71';
-        ctx.fillRect(peerPlayer.x - ehpW/2, peerPlayer.y - player.radius - 6, Math.max(0, (peerPlayer.hp / peerPlayer.maxHp) * ehpW), ehpH);
-
-        ctx.restore();
-    }
-
-    // ─── 내 플레이어 렌더 ───
-    ctx.save();
-    if (player.qBuffTimer > 0) {
-        ctx.strokeStyle='#f1c40f'; ctx.lineWidth=4;
-        ctx.beginPath(); ctx.arc(player.x,player.y,player.radius+4,0,Math.PI*2); ctx.stroke();
-    }
-    if (player.wBuffTimer > 0) {
-        ctx.strokeStyle='#3498db'; ctx.lineWidth=3;
-        ctx.beginPath(); ctx.arc(player.x,player.y,player.radius+7,0,Math.PI*2); ctx.stroke();
-    }
-    ctx.fillStyle='#3498db';
-    ctx.beginPath(); ctx.arc(player.x,player.y,player.radius,0,Math.PI*2); ctx.fill();
-    ctx.strokeStyle='#fff'; ctx.lineWidth=1.5; ctx.stroke();
-    ctx.fillStyle='#fff'; ctx.font='bold 10px Outfit,Arial'; ctx.textAlign='center';
-    ctx.fillText(myNickname.slice(0,6), player.x, player.y-player.radius-8);
-    ctx.restore();
-
-    // ─── 내 타워 렌더 (하단) ───
-    ctx.save();
-    const tHpRatio = tower.hp / tower.maxHp;
-    ctx.fillStyle = tHpRatio > 0.5 ? '#e74c3c' : tHpRatio > 0.25 ? '#e67e22' : '#c0392b';
-    ctx.beginPath(); ctx.arc(tower.x,tower.y,tower.radius,0,Math.PI*2); ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 2;
-    ctx.stroke();
-    ctx.fillStyle='#fff'; ctx.font='14px Arial'; ctx.textAlign='center';
-    ctx.fillText('🏰', tower.x, tower.y+5);
-    ctx.restore();
-
-    // ─── 조준경 이펙트 ───
-    for (let i = scopeEffects.length-1; i >= 0; i--) {
-        const sc = scopeEffects[i];
-        sc.progress += dt;
-        const scale = sc.progress / sc.maxTime;
-        const r2 = 10 + scale*30;
-        const al = 1-scale;
-        ctx.save();
-        ctx.strokeStyle=`rgba(165,94,234,${al})`; ctx.lineWidth=2;
-        ctx.beginPath(); ctx.arc(player.x,player.y,r2,0,Math.PI*2); ctx.stroke();
-        const ig=4+scale*4, ol=r2+6;
-        ctx.beginPath();
-        ctx.moveTo(player.x,player.y-ig); ctx.lineTo(player.x,player.y-ol);
-        ctx.moveTo(player.x,player.y+ig); ctx.lineTo(player.x,player.y+ol);
-        ctx.moveTo(player.x-ig,player.y); ctx.lineTo(player.x-ol,player.y);
-        ctx.moveTo(player.x+ig,player.y); ctx.lineTo(player.x+ol,player.y);
-        ctx.stroke(); ctx.restore();
-        if (sc.progress >= sc.maxTime) scopeEffects.splice(i,1);
-    }
-
-    // ─── E 충격파 ───
-    for (let i = shockwaves.length-1; i >= 0; i--) {
-        const sw = shockwaves[i];
-        sw.radius += 480*dt; sw.alpha -= 3*dt;
-        ctx.save();
-        ctx.strokeStyle=`rgba(241,196,15,${Math.max(0,sw.alpha)})`; ctx.lineWidth=4;
-        ctx.beginPath(); ctx.arc(sw.x,sw.y,sw.radius,0,Math.PI*2); ctx.stroke(); ctx.restore();
-        if (sw.alpha <= 0) shockwaves.splice(i,1);
-    }
-
-    // ─── 미니언 업데이트 & 렌더링 ───
-    for (let i = minions.length-1; i >= 0; i--) {
-        const m = minions[i];
-
-        if (m.isChaser) {
-            const d = Math.hypot(player.x-m.x, player.y-m.y);
-            if (d > player.radius+m.radius) {
-                const mv = Math.min(m.speed*dt, d);
-                m.x += ((player.x-m.x)/d)*mv; m.y += ((player.y-m.y)/d)*mv;
-            } else {
-                m.attackCooldown -= dt;
-                if (m.attackCooldown <= 0) { player.hp -= m.attackPower; m.attackCooldown = m.attackRate; }
-            }
-        } else {
-            if (m.y < MID_Y) {
-                m.y += m.speed*dt;
-            } else {
-                const d = Math.hypot(tower.x-m.x, tower.y-m.y);
-                if (d > tower.radius+m.radius) {
-                    const mv = Math.min(m.speed*dt, d);
-                    m.x += ((tower.x-m.x)/d)*mv; m.y += ((tower.y-m.y)/d)*mv;
-                } else {
-                    m.attackCooldown -= dt;
-                    if (m.attackCooldown <= 0) {
-                        tower.hp -= m.isBoss ? 40 : 15;
-                        m.attackCooldown = m.attackRate;
-                    }
-                }
-            }
-        }
-
-        ctx.fillStyle = m.isBoss ? '#8e44ad' : m.isChaser ? '#e67e22' : '#e74c3c';
-        ctx.beginPath(); ctx.arc(m.x,m.y,m.radius,0,Math.PI*2); ctx.fill();
-        if (m.isBoss) {
-            ctx.strokeStyle='rgba(255,255,255,0.4)'; ctx.lineWidth=2;
-            ctx.stroke();
-        }
-
-        const bw=38, bh=5, bx=m.x-bw/2, by=m.y-m.radius-14;
-        ctx.fillStyle='rgba(0,0,0,.6)'; ctx.fillRect(bx,by,bw,bh);
-        ctx.fillStyle = m.isBoss ? '#9b59b6' : '#2ecc71';
-        ctx.fillRect(bx,by,Math.max(0,(m.hp/m.maxHp)*bw),bh);
-        ctx.font='bold 8px Arial'; ctx.fillStyle='#fff'; ctx.textAlign='center';
-        ctx.fillText(Math.ceil(Math.max(0,m.hp)), m.x, by-1);
-
-        if (m.hp <= 0) {
-            gold += m.isBoss ? 100 : 15;
-            minions.splice(i,1);
-            if (minions.length === 0) { isWaveActive=false; round++; }
-        }
-    }
-
-    // ─── 내 투사체 업데이트 (오직 몬스터만 타격) ───
-    for (let i = projectiles.length-1; i >= 0; i--) {
-        const p = projectiles[i];
-        if (!p.target || (p.target.hp !== undefined && p.target.hp <= 0)) { projectiles.splice(i,1); continue; }
-        const d = Math.hypot(p.target.x-p.x, p.target.y-p.y);
-        const mv = p.speed*dt;
-        if (d <= mv) {
-            const idx = minions.indexOf(p.target);
-            if (idx >= 0) {
-                p.target.hp -= p.damage;
-                if (player.lifesteal > 0) player.hp = Math.min(player.maxHp, player.hp+player.lifesteal);
-                floatingTexts.push(new FloatingText(`-${p.damage}`, p.target.x, p.target.y-10, p.color));
-                sendMinionHit(idx, p.damage);
-            }
-
-            // 폭발 범위 공격 (오직 몬스터만 타격)
-            if ((player.explosionChance||0) > 0 && Math.random() < player.explosionChance) {
-                explosions.push({ x:p.target.x, y:p.target.y, radius:55, timer:0.22 });
-                minions.forEach((nm, nIdx) => {
-                    if (nm !== p.target && Math.hypot(nm.x-p.target.x,nm.y-p.target.y) <= 55) {
-                        const splashDmg = Math.floor(p.damage*0.6);
-                        nm.hp -= splashDmg;
-                        sendMinionHit(nIdx, splashDmg);
-                    }
-                });
-            }
-            projectiles.splice(i,1);
-        } else {
-            p.x += ((p.target.x-p.x)/d)*mv; p.y += ((p.target.y-p.y)/d)*mv;
-            ctx.fillStyle=p.color;
-            ctx.beginPath(); ctx.arc(p.x,p.y,p.radius,0,Math.PI*2); ctx.fill();
-        }
-    }
-
-    // ─── 동료 투사체 렌더링 (몬스터 타격 시 시각 효과만, 플레이어 무적) ───
-    for (let i = peerProjectiles.length-1; i >= 0; i--) {
-        const ep = peerProjectiles[i];
-        if (!ep.target || ep.target.hp <= 0) { peerProjectiles.splice(i, 1); continue; }
-        const d = Math.hypot(ep.target.x - ep.x, ep.target.y - ep.y);
-        const mv = ep.speed * dt;
-        if (d <= mv) {
-            peerProjectiles.splice(i, 1);
-        } else {
-            ep.x += ((ep.target.x - ep.x)/d) * mv;
-            ep.y += ((ep.target.y - ep.y)/d) * mv;
-            ctx.fillStyle = ep.color;
-            ctx.beginPath(); ctx.arc(ep.x, ep.y, ep.radius, 0, Math.PI*2); ctx.fill();
-        }
-    }
-
-    // ─── 폭발 & 플로팅 텍스트 ───
-    for (let i = explosions.length-1; i >= 0; i--) {
-        const ex = explosions[i];
-        ctx.fillStyle=`rgba(230,126,34,${(ex.timer/0.22)*0.55})`;
-        ctx.beginPath(); ctx.arc(ex.x,ex.y,ex.radius,0,Math.PI*2); ctx.fill();
-        ex.timer -= dt;
-        if (ex.timer <= 0) explosions.splice(i,1);
-    }
-
-    for (let i = floatingTexts.length-1; i >= 0; i--) {
-        floatingTexts[i].update(dt); floatingTexts[i].draw();
-        if (floatingTexts[i].alpha <= 0) floatingTexts.splice(i,1);
-    }
-
-    // ─── 라운드 배너 ───
-    if (roundBannerTimer > 0) {
-        roundBannerTimer -= dt;
-        const al = Math.min(1, roundBannerTimer/0.5);
-        ctx.save(); ctx.globalAlpha=al;
-        ctx.fillStyle='rgba(0,0,0,.5)';
-        ctx.fillRect(0, CH/2-40, CW, 80);
-        ctx.font='bold 30px Outfit,Arial'; ctx.fillStyle='#f1c40f';
-        ctx.textAlign='center'; ctx.shadowColor='#e67e22'; ctx.shadowBlur=15;
-        ctx.fillText(roundBannerText, CW/2, CH/2+10); ctx.restore();
-    }
-
-    // ─── 게임 오버 ───
-    if (player.hp <= 0 || tower.hp <= 0) {
-        isGameOver = true;
-        gameRunning = false;
-        document.getElementById('game-msg').style.display = 'block';
-        broadcastMyPresence();
-        if (conn && conn.open) conn.send({ type:'game_over' });
-        return;
-    }
-
-    updateUI();
-    if (isMulti || isBotMatch) updateEnemyPanel();
-    requestAnimationFrame(gameLoop);
-}
-
-// ╔══════════════════════════════════════════════════════════╗
-// ║              INITIALIZATION                              ║
-// ╚══════════════════════════════════════════════════════════╝
-updateUI();
 renderDicePanel();
+
+showDiceResult(`🎁 라운드 무료 다이스: ${dice.emoji} ${dice.name}`);
+
+addChatLog(`[다이스] 라운드 보상: ${dice.emoji} ${dice.name} 획득!`, true);
+
+}
+
+}, 500);
+
+}
+
+
+
+const enemyCount = 5 + round * 2;
+
+let spawned = 0;
+
+
+
+const spawnInterval = setInterval(() => {
+
+if (isGameOver || !gameRunning) { clearInterval(spawnInterval); return; }
+
+const isChaser = Math.random() < 0.35;
+
+minions.push({
+
+x: Math.random()*(CW-80)+40, y: -20,
+
+radius: isChaser ? 15 : 13,
+
+speed: (0.9 + round*0.1) * 60,
+
+hp: 100 + round*35, maxHp: 100 + round*35,
+
+isChaser, isBoss: false,
+
+attackPower: Math.max(5, Math.floor(player.attackPower * 0.3)),
+
+attackCooldown: 0, attackRate: 1.5
+
+});
+
+spawned++;
+
+if (spawned >= enemyCount) {
+
+clearInterval(spawnInterval);
+
+setTimeout(() => {
+
+if (isGameOver || !gameRunning) return;
+
+minions.push({
+
+x: CW/2, y: -30, radius: 26,
+
+speed: (0.45 + round*0.05) * 60,
+
+hp: 450 + round*320, maxHp: 450 + round*320,
+
+isChaser:false, isBoss:true,
+
+attackPower: 30, attackCooldown:0, attackRate:1
+
+});
+
+}, 1000);
+
+}
+
+}, 600);
+
+}
+
+
+
+function startNextWave() {
+
+isWaveActive = true;
+
+const session = gameSessionId;
+const waveRound = round;
+
+triggerRoundBanner(waveRound);
+addChatLog(`[라운드] ROUND ${waveRound} 시작!`, true);
+
+if (!freeDiceThisRound && myDice.length < 6) {
+
+freeDiceThisRound = true;
+
+const diceTimer = setTimeout(() => {
+
+if (session !== gameSessionId || isGameOver || !gameRunning) return;
+
+if (myDice.length < 6) {
+const dice = rollRandomDice();
+myDice.push({ ...dice, id: dice.id + '_' + Date.now() });
+renderDicePanel();
+showDiceResult(`🎁 라운드 무료 다이스: ${dice.emoji} ${dice.name}`);
+addChatLog(`[다이스] 라운드 보상: ${dice.emoji} ${dice.name} 획득!`, true);
+}
+
+}, 500);
+
+waveSpawnTimers.push(diceTimer);
+
+}
+
+const enemyCount = 5 + waveRound * 2;
+let spawned = 0;
+
+// ROUND 배너가 먼저 보이고 약 1.5초 후 몬스터가 등장
+const startDelay = setTimeout(() => {
+
+if (session !== gameSessionId || isGameOver || !gameRunning) return;
+
+const spawnInterval = setInterval(() => {
+
+if (session !== gameSessionId || isGameOver || !gameRunning) {
+clearInterval(spawnInterval);
+return;
+}
+
+const isChaser = Math.random() < 0.35;
+
+minions.push({
+x: Math.random()*(CW-80)+40, y: -20,
+radius: isChaser ? 15 : 13,
+speed: (0.9 + waveRound*0.1) * 60,
+hp: 100 + waveRound*35, maxHp: 100 + waveRound*35,
+isChaser, isBoss: false,
+attackPower: Math.max(5, Math.floor(player.attackPower * 0.3)),
+attackCooldown: 0, attackRate: 1.5
+});
+
+spawned++;
+
+if (spawned >= enemyCount) {
+
+clearInterval(spawnInterval);
+
+const bossTimer = setTimeout(() => {
+
+if (session !== gameSessionId || isGameOver || !gameRunning) return;
+
+minions.push({
+x: CW/2, y: -30, radius: 26,
+speed: (0.45 + waveRound*0.05) * 60,
+hp: 450 + waveRound*320, maxHp: 450 + waveRound*320,
+isChaser:false, isBoss:true,
+attackPower: 30, attackCooldown:0, attackRate:1
+});
+
+}, 1000);
+
+waveSpawnTimers.push(bossTimer);
+
+}
+
+}, 600);
+
+}, 1500);
+
+waveSpawnTimers.push(startDelay);
+
+}
+
+
+// ╔══════════════════════════════════════════════════════════╗
+
+// ║ DELTA-TIME GAME LOOP ║
+
+// ╚══════════════════════════════════════════════════════════╝
+
+function gameLoop(timestamp, session = gameSessionId) {
+
+if (session !== gameSessionId || !gameRunning || isGameOver) return;
+
+
+
+if (!lastTimestamp) lastTimestamp = timestamp;
+
+let dt = (timestamp - lastTimestamp) / 1000;
+
+dt = Math.min(dt, 0.05);
+
+dt *= gameSpeed;
+
+lastTimestamp = timestamp;
+
+
+
+ctx.clearRect(0, 0, CW, CH);
+
+
+
+// 라인 표시
+
+ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+
+ctx.lineWidth = 1;
+
+ctx.beginPath(); ctx.moveTo(0, MID_Y); ctx.lineTo(CW, MID_Y); ctx.stroke();
+
+
+
+// 웨이브 체크
+
+if (!isWaveActive && minions.length === 0) {
+
+freeDiceThisRound = false;
+
+startNextWave();
+
+}
+
+
+
+// ─── 쿨다운 업데이트 ───
+
+if (player.qCooldown > 0) player.qCooldown = Math.max(0, player.qCooldown - dt);
+
+if (player.wCooldown > 0) player.wCooldown = Math.max(0, player.wCooldown - dt);
+
+if (player.eCooldown > 0) player.eCooldown = Math.max(0, player.eCooldown - dt);
+
+if (player.qBuffTimer > 0) player.qBuffTimer = Math.max(0, player.qBuffTimer - dt);
+
+if (player.wBuffTimer > 0) player.wBuffTimer = Math.max(0, player.wBuffTimer - dt);
+
+
+
+// ─── 플레이어 이동 ───
+
+const spd = player.moveSpeed * (player.wBuffTimer > 0 ? 1.8 : 1);
+
+const dx = player.targetX - player.x, dy = player.targetY - player.y;
+
+const dist = Math.hypot(dx, dy);
+
+if (dist > 2) {
+
+const move = Math.min(spd*dt, dist);
+
+player.x += (dx/dist)*move; player.y += (dy/dist)*move;
+
+}
+
+
+
+// ─── 자동 공격 (오직 몬스터만 타겟팅) ───
+
+const cd = player.qBuffTimer > 0
+
+? Math.max(0.03, player.attackBaseCooldown * 0.08)
+
+: player.attackBaseCooldown;
+
+if (player.attackCooldown > 0) player.attackCooldown = Math.max(0, player.attackCooldown - dt);
+
+
+
+if (player.attackCooldown <= 0) {
+
+let targets = minions
+
+.filter(m => Math.hypot(m.x-player.x, m.y-player.y) <= player.attackRange)
+
+.sort((a,b) => Math.hypot(a.x-player.x,a.y-player.y) - Math.hypot(b.x-player.x,b.y-player.y));
+
+
+
+if (targets.length > 0) {
+
+const shots = Math.min(player.multiShot || 1, targets.length);
+
+for (let s = 0; s < shots; s++) {
+
+let dmg = player.attackPower;
+
+let color = '#2ecc71';
+
+if ((player.critChance || 0) > 0 && Math.random() < player.critChance) {
+
+dmg = Math.floor(dmg * 2.2);
+
+color = '#f1c40f';
+
+}
+
+const targetIdx = minions.indexOf(targets[s]);
+
+projectiles.push({ x:player.x, y:player.y, target:targets[s], speed:720, damage:dmg, color, radius:5 });
+
+sendShootEvent(player.x, player.y, dmg, targetIdx);
+
+}
+
+
+
+// 조준경 탄
+
+if (Math.random() < player.scopeChance) {
+
+const st = targets.length > shots ? targets[shots] : targets[0];
+
+projectiles.push({ x:player.x, y:player.y, target:st, speed:900,
+
+damage:Math.floor(player.attackPower*0.75), color:'#a55eea', radius:4 });
+
+scopeEffects.push({ progress:0, maxTime:0.6 });
+
+}
+
+player.attackCooldown = cd;
+
+}
+
+}
+
+
+
+// ─── [멀티] 동료 플레이어 렌더링 ───
+
+if (isMulti && peerPlayer) {
+
+ctx.save();
+
+if (peerPlayer.qBuffTimer > 0) {
+
+ctx.strokeStyle = '#f1c40f'; ctx.lineWidth = 3;
+
+ctx.beginPath(); ctx.arc(peerPlayer.x, peerPlayer.y, player.radius + 4, 0, Math.PI * 2); ctx.stroke();
+
+}
+
+if (peerPlayer.wBuffTimer > 0) {
+
+ctx.strokeStyle = '#3498db'; ctx.lineWidth = 3;
+
+ctx.beginPath(); ctx.arc(peerPlayer.x, peerPlayer.y, player.radius + 7, 0, Math.PI * 2); ctx.stroke();
+
+}
+
+
+
+ctx.fillStyle = '#9b59b6';
+
+ctx.beginPath(); ctx.arc(peerPlayer.x, peerPlayer.y, player.radius, 0, Math.PI * 2); ctx.fill();
+
+ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+
+
+
+ctx.fillStyle = '#fff'; ctx.font = 'bold 10px Outfit,Arial'; ctx.textAlign = 'center';
+
+ctx.fillText(peerPlayer.nickname || '동료', peerPlayer.x, peerPlayer.y - player.radius - 8);
+
+
+
+// 동료 HP 바
+
+const ehpW = 40, ehpH = 4;
+
+ctx.fillStyle = 'rgba(0,0,0,0.6)';
+
+ctx.fillRect(peerPlayer.x - ehpW/2, peerPlayer.y - player.radius - 6, ehpW, ehpH);
+
+ctx.fillStyle = '#2ecc71';
+
+ctx.fillRect(peerPlayer.x - ehpW/2, peerPlayer.y - player.radius - 6, Math.max(0, (peerPlayer.hp / peerPlayer.maxHp) * ehpW), ehpH);
+
+
+
+ctx.restore();
+
+}
+
+
+
+// ─── 내 플레이어 렌더 ───
+
+ctx.save();
+
+if (player.qBuffTimer > 0) {
+
+ctx.strokeStyle='#f1c40f'; ctx.lineWidth=4;
+
+ctx.beginPath(); ctx.arc(player.x,player.y,player.radius+4,0,Math.PI*2); ctx.stroke();
+
+}
+
+if (player.wBuffTimer > 0) {
+
+ctx.strokeStyle='#3498db'; ctx.lineWidth=3;
+
+ctx.beginPath(); ctx.arc(player.x,player.y,player.radius+7,0,Math.PI*2); ctx.stroke();
+
+}
+
+ctx.fillStyle='#3498db';
+
+ctx.beginPath(); ctx.arc(player.x,player.y,player.radius,0,Math.PI*2); ctx.fill();
+
+ctx.strokeStyle='#fff'; ctx.lineWidth=1.5; ctx.stroke();
+
+ctx.fillStyle='#fff'; ctx.font='bold 10px Outfit,Arial'; ctx.textAlign='center';
+
+ctx.fillText(myNickname.slice(0,6), player.x, player.y-player.radius-8);
+
+ctx.restore();
+
+
+
+// ─── 내 타워 렌더 (하단) ───
+
+ctx.save();
+
+const tHpRatio = tower.hp / tower.maxHp;
+
+ctx.fillStyle = tHpRatio > 0.5 ? '#e74c3c' : tHpRatio > 0.25 ? '#e67e22' : '#c0392b';
+
+ctx.beginPath(); ctx.arc(tower.x,tower.y,tower.radius,0,Math.PI*2); ctx.fill();
+
+ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 2;
+
+ctx.stroke();
+
+ctx.fillStyle='#fff'; ctx.font='14px Arial'; ctx.textAlign='center';
+
+ctx.fillText('🏰', tower.x, tower.y+5);
+
+ctx.restore();
+
+
+
+// ─── 조준경 이펙트 ───
+
+for (let i = scopeEffects.length-1; i >= 0; i--) {
+
+const sc = scopeEffects[i];
+
+sc.progress += dt;
+
+const scale = sc.progress / sc.maxTime;
+
+const r2 = 10 + scale*30;
+
+const al = 1-scale;
+
+ctx.save();
+
+ctx.strokeStyle=`rgba(165,94,234,${al})`; ctx.lineWidth=2;
+
+ctx.beginPath(); ctx.arc(player.x,player.y,r2,0,Math.PI*2); ctx.stroke();
+
+const ig=4+scale*4, ol=r2+6;
+
+ctx.beginPath();
+
+ctx.moveTo(player.x,player.y-ig); ctx.lineTo(player.x,player.y-ol);
+
+ctx.moveTo(player.x,player.y+ig); ctx.lineTo(player.x,player.y+ol);
+
+ctx.moveTo(player.x-ig,player.y); ctx.lineTo(player.x-ol,player.y);
+
+ctx.moveTo(player.x+ig,player.y); ctx.lineTo(player.x+ol,player.y);
+
+ctx.stroke(); ctx.restore();
+
+if (sc.progress >= sc.maxTime) scopeEffects.splice(i,1);
+
+}
+
+
+
+// ─── E 충격파 ───
+
+for (let i = shockwaves.length-1; i >= 0; i--) {
+
+const sw = shockwaves[i];
+
+sw.radius += 480*dt; sw.alpha -= 3*dt;
+
+ctx.save();
+
+ctx.strokeStyle=`rgba(241,196,15,${Math.max(0,sw.alpha)})`; ctx.lineWidth=4;
+
+ctx.beginPath(); ctx.arc(sw.x,sw.y,sw.radius,0,Math.PI*2); ctx.stroke(); ctx.restore();
+
+if (sw.alpha <= 0) shockwaves.splice(i,1);
+
+}
+
+
+
+// ─── 미니언 업데이트 & 렌더링 ───
+
+for (let i = minions.length-1; i >= 0; i--) {
+
+const m = minions[i];
+
+
+
+if (m.isChaser) {
+
+const d = Math.hypot(player.x-m.x, player.y-m.y);
+
+if (d > player.radius+m.radius) {
+
+const mv = Math.min(m.speed*dt, d);
+
+m.x += ((player.x-m.x)/d)*mv; m.y += ((player.y-m.y)/d)*mv;
+
+} else {
+
+m.attackCooldown -= dt;
+
+if (m.attackCooldown <= 0) { player.hp -= m.attackPower; m.attackCooldown = m.attackRate; }
+
+}
+
+} else {
+
+if (m.y < MID_Y) {
+
+m.y += m.speed*dt;
+
+} else {
+
+const d = Math.hypot(tower.x-m.x, tower.y-m.y);
+
+if (d > tower.radius+m.radius) {
+
+const mv = Math.min(m.speed*dt, d);
+
+m.x += ((tower.x-m.x)/d)*mv; m.y += ((tower.y-m.y)/d)*mv;
+
+} else {
+
+m.attackCooldown -= dt;
+
+if (m.attackCooldown <= 0) {
+
+tower.hp -= m.isBoss ? 40 : 15;
+
+m.attackCooldown = m.attackRate;
+
+}
+
+}
+
+}
+
+}
+
+
+
+ctx.fillStyle = m.isBoss ? '#8e44ad' : m.isChaser ? '#e67e22' : '#e74c3c';
+
+ctx.beginPath(); ctx.arc(m.x,m.y,m.radius,0,Math.PI*2); ctx.fill();
+
+if (m.isBoss) {
+
+ctx.strokeStyle='rgba(255,255,255,0.4)'; ctx.lineWidth=2;
+
+ctx.stroke();
+
+}
+
+
+
+const bw=38, bh=5, bx=m.x-bw/2, by=m.y-m.radius-14;
+
+ctx.fillStyle='rgba(0,0,0,.6)'; ctx.fillRect(bx,by,bw,bh);
+
+ctx.fillStyle = m.isBoss ? '#9b59b6' : '#2ecc71';
+
+ctx.fillRect(bx,by,Math.max(0,(m.hp/m.maxHp)*bw),bh);
+
+ctx.font='bold 8px Arial'; ctx.fillStyle='#fff'; ctx.textAlign='center';
+
+ctx.fillText(Math.ceil(Math.max(0,m.hp)), m.x, by-1);
+
+
+
+if (m.hp <= 0) {
+
+gold += m.isBoss ? 100 : 15;
+
+minions.splice(i,1);
+
+if (minions.length === 0) { isWaveActive=false; round++; }
+
+}
+
+}
+
+
+
+// ─── 내 투사체 업데이트 (오직 몬스터만 타격) ───
+
+for (let i = projectiles.length-1; i >= 0; i--) {
+
+const p = projectiles[i];
+
+if (!p.target || (p.target.hp !== undefined && p.target.hp <= 0)) { projectiles.splice(i,1); continue; }
+
+const d = Math.hypot(p.target.x-p.x, p.target.y-p.y);
+
+const mv = p.speed*dt;
+
+if (d <= mv) {
+
+const idx = minions.indexOf(p.target);
+
+if (idx >= 0) {
+
+p.target.hp -= p.damage;
+
+if (player.lifesteal > 0) player.hp = Math.min(player.maxHp, player.hp+player.lifesteal);
+
+floatingTexts.push(new FloatingText(`-${p.damage}`, p.target.x, p.target.y-10, p.color));
+
+sendMinionHit(idx, p.damage);
+
+}
+
+
+
+// 폭발 범위 공격 (오직 몬스터만 타격)
+
+if ((player.explosionChance||0) > 0 && Math.random() < player.explosionChance) {
+
+explosions.push({ x:p.target.x, y:p.target.y, radius:55, timer:0.22 });
+
+minions.forEach((nm, nIdx) => {
+
+if (nm !== p.target && Math.hypot(nm.x-p.target.x,nm.y-p.target.y) <= 55) {
+
+const splashDmg = Math.floor(p.damage*0.6);
+
+nm.hp -= splashDmg;
+
+sendMinionHit(nIdx, splashDmg);
+
+}
+
+});
+
+}
+
+projectiles.splice(i,1);
+
+} else {
+
+p.x += ((p.target.x-p.x)/d)*mv; p.y += ((p.target.y-p.y)/d)*mv;
+
+ctx.fillStyle=p.color;
+
+ctx.beginPath(); ctx.arc(p.x,p.y,p.radius,0,Math.PI*2); ctx.fill();
+
+}
+
+}
+
+
+
+// ─── 동료 투사체 렌더링 (몬스터 타격 시 시각 효과만, 플레이어 무적) ───
+
+for (let i = peerProjectiles.length-1; i >= 0; i--) {
+
+const ep = peerProjectiles[i];
+
+if (!ep.target || ep.target.hp <= 0) { peerProjectiles.splice(i, 1); continue; }
+
+const d = Math.hypot(ep.target.x - ep.x, ep.target.y - ep.y);
+
+const mv = ep.speed * dt;
+
+if (d <= mv) {
+
+peerProjectiles.splice(i, 1);
+
+} else {
+
+ep.x += ((ep.target.x - ep.x)/d) * mv;
+
+ep.y += ((ep.target.y - ep.y)/d) * mv;
+
+ctx.fillStyle = ep.color;
+
+ctx.beginPath(); ctx.arc(ep.x, ep.y, ep.radius, 0, Math.PI*2); ctx.fill();
+
+}
+
+}
+
+
+
+// ─── 폭발 & 플로팅 텍스트 ───
+
+for (let i = explosions.length-1; i >= 0; i--) {
+
+const ex = explosions[i];
+
+ctx.fillStyle=`rgba(230,126,34,${(ex.timer/0.22)*0.55})`;
+
+ctx.beginPath(); ctx.arc(ex.x,ex.y,ex.radius,0,Math.PI*2); ctx.fill();
+
+ex.timer -= dt;
+
+if (ex.timer <= 0) explosions.splice(i,1);
+
+}
+
+
+
+for (let i = floatingTexts.length-1; i >= 0; i--) {
+
+floatingTexts[i].update(dt); floatingTexts[i].draw();
+
+if (floatingTexts[i].alpha <= 0) floatingTexts.splice(i,1);
+
+}
+
+
+
+// ─── 라운드 배너 ───
+
+if (roundBannerTimer > 0) {
+
+roundBannerTimer -= dt;
+
+const al = Math.min(1, roundBannerTimer/0.5);
+
+ctx.save(); ctx.globalAlpha=al;
+
+ctx.fillStyle='rgba(0,0,0,.5)';
+
+ctx.fillRect(0, CH/2-40, CW, 80);
+
+ctx.font='bold 30px Outfit,Arial'; ctx.fillStyle='#f1c40f';
+
+ctx.textAlign='center'; ctx.shadowColor='#e67e22'; ctx.shadowBlur=15;
+
+ctx.fillText(roundBannerText, CW/2, CH/2+10); ctx.restore();
+
+}
+
+
+
+// ─── 게임 오버 ───
+
+if (player.hp <= 0 || tower.hp <= 0) {
+
+isGameOver = true;
+
+gameRunning = false;
+
+document.getElementById('game-msg').style.display = 'block';
+
+broadcastMyPresence();
+
+if (conn && conn.open) conn.send({ type:'game_over' });
+
+return;
+
+}
+
+
+
+updateUI();
+
+if (isMulti || isBotMatch) updateEnemyPanel();
+
+animationFrameId = requestAnimationFrame((ts) => gameLoop(ts, gameSessionId));
+
+}
+
+
+
+// ╔══════════════════════════════════════════════════════════╗
+
+// ║ INITIALIZATION ║
+
+// ╚══════════════════════════════════════════════════════════╝
+
+updateUI();
+
+renderDicePanel();
+
 initP2PLobbySystem();
+
 </script>
+
 </body>
+
 </html>
