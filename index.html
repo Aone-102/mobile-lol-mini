@@ -80,6 +80,26 @@ z-index:500; overflow-y:auto; gap:12px;
 
 .lobby-header { text-align:center; }
 
+/* v5.7 개발자 공지 */
+#lobby-dev-notice {
+width:100%; max-width:320px; display:none;
+background:linear-gradient(90deg,rgba(142,68,173,.35),rgba(52,152,219,.22));
+border:1px solid rgba(155,89,182,.65); border-radius:10px;
+padding:8px 10px; font-size:11px; color:#fff;
+box-shadow:0 0 16px rgba(155,89,182,.15);
+}
+#lobby-dev-notice b { color:#f1c40f; }
+
+.social-tabs { display:flex; gap:6px; width:100%; max-width:320px; }
+.social-tabs .btn-lobby { flex:1; padding:9px; font-size:12px; }
+.lobby-chat-box {
+background:rgba(0,0,0,.35); border:1px solid var(--border);
+border-radius:8px; padding:7px;
+}
+#lobby-chat-logs { height:180px; overflow-y:auto; display:flex; flex-direction:column; gap:4px; font-size:11px; margin-bottom:6px; }
+.lobby-chat-row { display:flex; gap:5px; }
+#lobby-chat-input { flex:1; background:rgba(255,255,255,.08); border:1px solid var(--border); color:#fff; border-radius:5px; padding:6px; font-size:11px; min-width:0; }
+
 .lobby-title {
 
 font-size:24px; font-weight:900; color:var(--gold);
@@ -643,6 +663,13 @@ ID: <b id="my-peer-short" style="color:var(--green);">생성중...</b> 📋
 
 
 
+<div id="lobby-dev-notice">🛠️ <b>개발자 모드</b> <span id="lobby-dev-notice-text">활성화됨</span></div>
+
+<div class="social-tabs">
+<button class="btn-lobby btn-sub-action" onclick="openModal('modalSocial')">👥 소셜 / 로비 채팅</button>
+<button class="btn-lobby" onclick="toggleLobbyDevMode()">🛠️ 개발자 모드</button>
+</div>
+
 <div class="lobby-menu">
 
 <button class="btn-lobby btn-start" onclick="startSoloPlay()">👤 솔로 플레이</button>
@@ -657,7 +684,7 @@ ID: <b id="my-peer-short" style="color:var(--green);">생성중...</b> 📋
 
 </div>
 
-<div style="font-size:10px;color:#555;">v5.5 — 협동 전용 모드 & 아군 무적 안전 패치</div>
+<div style="font-size:10px;color:#555;">v5.7 — 개발자 모드 공유 & 소셜 로비 패치</div>
 
 </div>
 
@@ -929,6 +956,23 @@ style="flex:1;background:rgba(255,255,255,.07);border:1px solid var(--border);co
 
 
 
+<div class="modal" id="modalSocial">
+<div class="modal-title">👥 소셜 / 로비 채팅</div>
+<div class="modal-content">
+<div class="lobby-chat-box">
+<div style="font-size:11px;color:var(--gold);font-weight:700;margin-bottom:6px;">실시간 로비 채팅</div>
+<div id="lobby-chat-logs"><div class="chat-msg chat-sys">[시스템] 로비에 입장했습니다. 접속자를 확인하고 대화해보세요.</div></div>
+<div class="lobby-chat-row">
+<input id="lobby-chat-input" type="text" placeholder="로비에 메시지 보내기..." onkeypress="handleLobbyChatKey(event)">
+<button class="btn-buy" onclick="sendLobbyChat()" style="padding:6px 9px;">전송</button>
+</div>
+</div>
+<div style="margin-top:8px;font-size:10px;color:#aaa;">현재 접속자</div>
+<div id="social-player-list" style="margin-top:5px;"></div>
+</div>
+<button class="btn-close" onclick="closeModal('modalSocial')">닫기</button>
+</div>
+
 <div class="modal" id="modalNotice">
 
 <div class="modal-title">📢 공지사항</div>
@@ -962,6 +1006,16 @@ style="flex:1;background:rgba(255,255,255,.07);border:1px solid var(--border);co
 - 🚩 <b>1라운드 연출 개선</b>: 게임에 들어오면 먼저 <b>ROUND 1</b> 배너가 표시되고 잠시 후 몬스터가 등장합니다.<br>
 - 🤝 <b>협동 READY 시스템</b>: 두 플레이어가 모두 READY를 눌러야 협동 전투가 시작됩니다. 한 명이 준비하지 않았으면 몬스터가 먼저 나오지 않습니다.<br>
 - 🤖 <b>AI 봇 협동</b>: 봇 모드도 READY 화면을 거친 뒤 전투를 시작합니다.
+</div>
+
+<div style="margin-bottom:10px;border-bottom:1px solid #333;padding-bottom:8px;">
+<b style="color:#9b59b6;">[v5.7] 개발자 모드 & 소셜 로비 패치</b><br>
+- 🛠️ <b>로비 개발자 모드</b>: 이제 게임에 들어가지 않아도 로비에서 개발자 모드를 켜고 끌 수 있습니다.<br>
+- 📢 <b>개발자 공지</b>: 개발자 모드를 켜면 로비 상단에 설정한 공지가 표시되어 누가 개발자 모드를 켰는지 바로 확인할 수 있습니다.<br>
+- ⚡ <b>협동 배속 동기화</b>: 개발자 모드에서 변경한 1x/2x/3x 배속이 협동 팀원에게도 즉시 적용되도록 수정했습니다.<br>
+- 👥 <b>소셜 탭 추가</b>: 로비에서 현재 접속자 목록과 상태를 확인할 수 있는 소셜/로비 채팅을 추가했습니다.<br>
+- 💬 <b>로비 채팅</b>: 게임에 들어가기 전에도 접속한 사람들과 채팅할 수 있으며, 채팅에 닉네임이 표시됩니다.<br>
+- 🟡 <b>개발자 표시</b>: 개발자 모드가 켜진 접속자는 소셜 목록에서 🛠️DEV로 표시됩니다.
 </div>
 
 <div>
@@ -1053,6 +1107,7 @@ let isGameOver = false, gameRunning = false;
 let gameSpeed = 1;
 
 let isDevMode = false;
+let lobbyDevAnnouncement = '';
 
 let roundBannerTimer = 0, roundBannerText = '';
 
@@ -1592,6 +1647,10 @@ mode: 'COOP',
 
 matching: isMatchingActive,
 
+devMode: isDevMode,
+
+devAnnouncement: lobbyDevAnnouncement,
+
 ts: Date.now()
 
 };
@@ -1623,6 +1682,10 @@ status: gameRunning ? 'playing' : (isMatchingActive ? 'matching' : 'lobby'),
 mode: 'COOP',
 
 matching: isMatchingActive,
+
+devMode: isDevMode,
+
+devAnnouncement: lobbyDevAnnouncement,
 
 ts: Date.now()
 
@@ -1683,6 +1746,10 @@ status: gameRunning ? 'playing' : (isMatchingActive ? 'matching' : 'lobby'),
 mode: 'COOP',
 
 matching: isMatchingActive,
+
+devMode: isDevMode,
+
+devAnnouncement: lobbyDevAnnouncement,
 
 ts: Date.now()
 
@@ -1811,6 +1878,68 @@ renderLobbyPlayerList();
 }
 
 
+
+function updateLobbyDevNotice() {
+const box = document.getElementById('lobby-dev-notice');
+const text = document.getElementById('lobby-dev-notice-text');
+if (!box || !text) return;
+const devs = [];
+if (isDevMode) devs.push(lobbyDevAnnouncement || `${myNickname}님이 개발자 모드를 활성화했습니다.`);
+for (const p of lobbyPeersMap.values()) {
+if (p.devMode) devs.push(p.devAnnouncement || `${p.nickname || '소환사'}님이 개발자 모드를 활성화했습니다.`);
+}
+if (devs.length) {
+box.style.display = 'block';
+text.textContent = [...new Set(devs)].join('  •  ');
+} else {
+box.style.display = 'none';
+}
+}
+
+function renderSocialPlayerList() {
+const el = document.getElementById('social-player-list');
+if (!el) return;
+const colors = ['#3498db','#e74c3c','#2ecc71','#f39c12','#9b59b6','#1abc9c'];
+const all = [{uid:myUniqueId,nickname:myNickname+' (나)',status:gameRunning?'playing':'lobby',isSelf:true}, ...Array.from(lobbyPeersMap.values())];
+el.innerHTML = all.map((p,i)=>{
+const status = p.status==='playing'?'🎮 게임중':p.status==='matching'?'⏳ 매칭중':'🟢 로비';
+const dev = p.devMode ? `<span style="color:#f1c40f;font-size:9px;margin-left:4px;">🛠️DEV</span>` : '';
+return `<div class="pli"><div class="pli-avatar" style="background:${colors[i%colors.length]}22;border:1px solid ${colors[i%colors.length]};">👤</div><div class="pli-name">${p.nickname}${dev}</div><div class="pli-status st-wait">${status}</div></div>`;
+}).join('');
+}
+
+function addLobbyChatLog(msg, sys=false) {
+const logs=document.getElementById('lobby-chat-logs');
+if(!logs)return;
+const div=document.createElement('div'); div.className=sys?'chat-msg chat-sys':'chat-msg'; div.innerText=msg; logs.appendChild(div); logs.scrollTop=logs.scrollHeight;
+}
+
+function handleLobbyChatKey(e){ if(e.key==='Enter') sendLobbyChat(); }
+function sendLobbyChat(){
+const inp=document.getElementById('lobby-chat-input'); if(!inp)return;
+const msg=inp.value.trim(); if(!msg)return;
+const payload={_lobby:true,type:'lobby_chat',uid:myUniqueId,nickname:myNickname,msg:msg,ts:Date.now()};
+addLobbyChatLog(`[나] ${msg}`);
+if(localChannel){try{localChannel.postMessage(payload);}catch(e){}}
+if(isLobbyHub){ for(const cl of clientConns){if(cl.open){try{cl.send(payload);}catch(e){}}} } else if(hubConn&&hubConn.open){try{hubConn.send(payload);}catch(e){}}
+inp.value='';
+}
+
+function toggleLobbyDevMode(){
+if(isDevMode){
+if(!confirm('개발자 모드를 끄시겠습니까?')) return;
+isDevMode=false; lobbyDevAnnouncement='';
+document.getElementById('dev-panel').style.display = 'none';
+addLobbyChatLog('[시스템] 개발자 모드 OFF',true);
+broadcastMyPresence(); updateLobbyDevNotice(); return;
+}
+if(prompt('개발자 모드 코드:') !== '물게피스') return;
+const msg=prompt('로비 상단에 표시할 개발자 공지를 입력하세요.', `${myNickname}님이 개발자 모드를 활성화했습니다.`);
+isDevMode=true; lobbyDevAnnouncement=(msg||`${myNickname}님이 개발자 모드를 활성화했습니다.`).trim();
+updateLobbyDevNotice();
+addLobbyChatLog(`[시스템] 🛠️ ${lobbyDevAnnouncement}`,true);
+broadcastMyPresence();
+}
 
 function renderLobbyPlayerList() {
 
@@ -2315,6 +2444,16 @@ break;
 
 
 
+case 'dev_speed':
+
+if (isDevMode || data.speed) {
+gameSpeed = Math.max(1, Math.min(3, Number(data.speed) || 1));
+const speedEl = document.getElementById('speed-label');
+if (speedEl) speedEl.innerText = `${gameSpeed}x`;
+addChatLog(`[개발자] ${data.by || '팀원'}이 배속을 ${gameSpeed}x로 변경했습니다.`, true);
+}
+break;
+
 case 'state':
 
 if (!peerPlayer) {
@@ -2340,6 +2479,11 @@ peerPlayer.nickname = data.nickname || '동료';
 peerPlayer.qBuffTimer = data.qBuffTimer || 0;
 
 peerPlayer.wBuffTimer = data.wBuffTimer || 0;
+if (data.gameSpeed) {
+gameSpeed = Math.max(1, Math.min(3, Number(data.gameSpeed) || 1));
+const speedEl = document.getElementById('speed-label');
+if (speedEl) speedEl.innerText = `${gameSpeed}x`;
+}
 
 updateEnemyPanel();
 
@@ -2797,7 +2941,7 @@ function closeModal(id) { document.getElementById(id).style.display = 'none'; }
 
 function closeAllModals() {
 
-['modalCoopSelect','modalMulti','modalMatch','modalStat','modalShop','modalNotice','modalSettings']
+['modalCoopSelect','modalMulti','modalMatch','modalStat','modalShop','modalNotice','modalSettings','modalSocial']
 
 .forEach(closeModal);
 
@@ -2874,10 +3018,11 @@ if (val === '개발자모드') {
 if (prompt('코드:') === '물게피스') {
 
 isDevMode = true;
-
+lobbyDevAnnouncement = `${myNickname}님이 개발자 모드를 활성화했습니다.`;
 document.getElementById('dev-panel').style.display = 'flex';
-
 addChatLog('[시스템] 개발자 모드 ON', true);
+broadcastMyPresence();
+updateLobbyDevNotice();
 
 }
 
@@ -2893,9 +3038,17 @@ function addDevGold() { gold += 10000; updateUI(); addChatLog('[개발자] 10,00
 
 function toggleGameSpeed() {
 
+if (!isDevMode) return;
+
 gameSpeed = gameSpeed === 1 ? 2 : gameSpeed === 2 ? 3 : 1;
 
 document.getElementById('speed-label').innerText = `${gameSpeed}x`;
+
+// 협동에서는 개발자 모드 배속을 팀원에게 즉시 동기화
+if (isMulti && conn && conn.open) {
+try { conn.send({ type:'dev_speed', speed:gameSpeed, by:myNickname }); } catch(e) {}
+}
+addChatLog(`[개발자] 게임 배속 ${gameSpeed}x`, true);
 
 }
 
@@ -3002,6 +3155,8 @@ showReadyScreen('SOLO');
 }
 
 function startGame() {
+
+document.getElementById('dev-panel').style.display = isDevMode ? 'flex' : 'none';
 
 resetGameState();
 
@@ -4133,6 +4288,8 @@ animationFrameId = requestAnimationFrame((ts) => gameLoop(ts, gameSessionId));
 updateUI();
 
 renderDicePanel();
+renderSocialPlayerList();
+updateLobbyDevNotice();
 
 initP2PLobbySystem();
 
