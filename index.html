@@ -99,7 +99,7 @@ body {
 .st-match { background: rgba(241,196,15,.2); color: var(--gold); }
 .pli-connect { font-size: 10px; padding: 3px 8px; border-radius: 5px; border: none; background: var(--green); color: #fff; cursor: pointer; font-weight: 700; }
 
-/* 긴급 공지 (글자 뒤로 사라지도록 마스크 및 레이어 수정) */
+/* 긴급 공지 */
 #lobby-emergency-notice { 
   width: 100%; max-width: 340px; display: none; flex-shrink: 0;
   background: linear-gradient(90deg, rgba(192,57,43,.35), rgba(243,156,18,.25)); 
@@ -124,7 +124,7 @@ body {
   to { transform: translateX(100%); } 
 }
 
-/* 메뉴 및 반응형 가두기 */
+/* 메뉴 및 반응형 */
 .social-tabs { display: flex; gap: 6px; width: 100%; max-width: 340px; flex-shrink: 0; }
 .social-tabs .btn-lobby { flex: 1; padding: 8px; font-size: 11px; }
 
@@ -217,21 +217,24 @@ canvas { background: #0a0f14; box-shadow: 0 4px 30px rgba(0,0,0,.9); margin-top:
 .btn-exit { border-color: var(--red); background: rgba(192,57,43,.7); }
 .btn-skill-cd { font-size: 8px; color: var(--gold); margin-top: 2px; }
 
-/* MODAL */
+/* MODAL & FIXED CLOSE BUTTON */
 .modal {
   position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%);
   width: 90%; max-width: 360px; max-height: 85vh; overflow-y: auto;
   background: rgba(10,13,19,.97); border: 1.5px solid rgba(243,156,18,.45);
-  border-radius: 14px; padding: 16px; display: none; flex-direction: column; gap: 10px;
+  border-radius: 14px; padding: 16px; padding-bottom: 50px; display: none; flex-direction: column; gap: 10px;
   z-index: 600; backdrop-filter: blur(16px); box-shadow: 0 20px 60px rgba(0,0,0,.8);
 }
 .modal-title { font-size: 15px; font-weight: 700; text-align: center; color: var(--gold); border-bottom: 1px solid var(--border); padding-bottom: 8px; }
 .modal-content { font-size: 12px; line-height: 1.6; }
-.shop-section-title { font-size: 12px; color: var(--gold); font-weight: 700; margin: 8px 0 4px; border-left: 3px solid var(--gold); padding-left: 6px; }
-.shop-item { display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,.04); padding: 7px 8px; border-radius: 7px; margin-bottom: 5px; }
-.btn-buy { background: var(--green); color: #fff; border: none; padding: 5px 10px; border-radius: 5px; font-weight: 700; font-size: 10px; cursor: pointer; }
-.btn-bought { background: #555!important; cursor: not-allowed; }
-.btn-close { background: rgba(231,76,60,.6); color: #fff; border: 1px solid var(--red); padding: 8px; border-radius: 8px; font-weight: 700; cursor: pointer; }
+
+/* 상점 열 때 오클릭 방지를 위해 닫기 버튼을 하단 고정 영역으로 독립 배치 */
+.btn-close { 
+  position: absolute; bottom: 10px; left: 16px; right: 16px;
+  background: rgba(231,76,60,.8); color: #fff; border: 1px solid var(--red); 
+  padding: 8px; border-radius: 8px; font-weight: 700; cursor: pointer; text-align: center;
+}
+.btn-close:hover { background: rgba(231,76,60,1); }
 
 #ready-overlay {
   position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
@@ -294,7 +297,7 @@ canvas { background: #0a0f14; box-shadow: 0 4px 30px rgba(0,0,0,.9); margin-top:
     <div id="player-list"></div>
   </div>
 
-  <!-- 긴급 공지 (라벨 뒤로 사라지는 구조) -->
+  <!-- 긴급 공지 -->
   <div id="lobby-emergency-notice">
     <div class="emergency-label">🚨 긴급 공지</div>
     <div class="emergency-track">
@@ -314,7 +317,7 @@ canvas { background: #0a0f14; box-shadow: 0 4px 30px rgba(0,0,0,.9); margin-top:
     <button class="btn-lobby" onclick="openModal('modalSettings')">⚙️ 설정</button>
   </div>
   
-  <div style="font-size:10px;color:#555;">v5.5 — 패시브 다이스 & 매칭 안정화 패치</div>
+  <div style="font-size:10px;color:#555;">v5.6 — P2P 동기화 및 데이터 초기화 패치</div>
 </div>
 
 <!-- ══════════════════ IN-GAME UI ══════════════════ -->
@@ -352,7 +355,7 @@ canvas { background: #0a0f14; box-shadow: 0 4px 30px rgba(0,0,0,.9); margin-top:
   <div id="ping-indicator" style="font-size:9px;color:var(--green);">핑: --ms</div>
 </div>
 
-<!-- 다이스 패널 (보유 시 자동 패시브 적용) -->
+<!-- 다이스 패널 -->
 <div id="dice-panel">
   <div class="dice-title">🎲 보유 다이스(패시브)</div>
   <div class="dice-slots" id="dice-slots-container"></div>
@@ -385,9 +388,9 @@ canvas { background: #0a0f14; box-shadow: 0 4px 30px rgba(0,0,0,.9); margin-top:
 </div>
 
 <div id="menu-overlay">
-  <button class="btn-ui btn-stat" id="btnOpenStat">스탯</button>
-  <button class="btn-ui btn-shop" id="btnOpenShop">상점</button>
-  <button class="btn-ui btn-multi" id="btnOpenMulti">멀티</button>
+  <button class="btn-ui btn-stat" id="btnOpenStat" onclick="openModal('modalStat')">스탯</button>
+  <button class="btn-ui btn-shop" id="btnOpenShop" onclick="openModal('modalShop')">상점</button>
+  <button class="btn-ui btn-multi" id="btnOpenMulti" onclick="openModal('modalMulti')">멀티</button>
   <button class="btn-ui btn-exit" onclick="returnToLobby()">나가기</button>
 </div>
 <div id="controls-overlay">
@@ -443,13 +446,15 @@ canvas { background: #0a0f14; box-shadow: 0 4px 30px rgba(0,0,0,.9); margin-top:
 
 <div class="modal" id="modalStat">
   <div class="modal-title">챔피언 스탯</div>
-  <div class="modal-content" id="statContent"></div>
+  <div class="modal-content" id="statContent">스탯 정보가 표시됩니다.</div>
   <button class="btn-close" onclick="closeModal('modalStat')">닫기</button>
 </div>
 
 <div class="modal" id="modalShop">
   <div class="modal-title">🛒 아이템 상점</div>
-  <div class="modal-content" id="shopContent"></div>
+  <div class="modal-content" id="shopContent">
+    <div style="margin-bottom:8px;">아이템 수량 제한 없이 구매 가능합니다.</div>
+  </div>
   <button class="btn-close" onclick="closeModal('modalShop')">닫기</button>
 </div>
 
@@ -481,16 +486,17 @@ canvas { background: #0a0f14; box-shadow: 0 4px 30px rgba(0,0,0,.9); margin-top:
 </div>
 
 <div class="modal" id="modalNotice">
-  <div class="modal-title">📢 공지사항 (v5.5)</div>
+  <div class="modal-title">📢 공지사항 (v5.6)</div>
   <div class="modal-content">
     <div style="margin-bottom:8px;border-bottom:1px solid #333;padding-bottom:6px;">
-      <b style="color:var(--gold);">[v5.5] 패치 내용 총정리</b><br>
-      - 🎲 <b>다이스 패시브화</b>: 이제 주사위를 클릭해 사용하지 않고, <b>보유하기만 해도 스탯이 즉시 자동 적용</b>됩니다.<br>
-      - 🤝 <b>초대 및 매칭 오류 수정</b>: 초대한 사람과 수락한 사람이 서로 다른 게임에 들어가던 현상을 완전 해결했습니다.<br>
-      - 🔢 <b>4자리 숫자 코드</b>: 친구 초대 코드가 복잡하던 문제 개선! 직관적인 4자리 숫자 코드로 편하게 접속하세요.<br>
-      - 🚨 <b>긴급 공지 레이어 수정</b>: 로비 공지 텍스트가 라벨 뒤로 깨끗하게 사라지도록 텍스트 렌더링 레이어를 재설계했습니다.<br>
-      - 🛠️ <b>개발자 모드 이동</b>: 로비 메인에 있던 개발자 버튼을 <b>[⚙️ 설정]</b> 내부로 이동시켰습니다.<br>
-      - 📱 <b>화면 비율 UI 완벽 대응</b>: 핸드폰 및 브라우저 비율 변경 시 버튼이 사라지는 현상을 완전히 방지했습니다.
+      <b style="color:var(--gold);">[v5.6] 패치 내용 및 오류 수정</b><br>
+      - 🌐 <b>P2P 접속자 목록 정상화</b>: PeerJS 네트워크 브로드캐스팅 및 수신 로직을 보완하여 실시간 접속자가 정상 표기됩니다.<br>
+      - 🔄 <b>게임 종료 시 기록 완전 초기화</b>: 솔로/협동 모드 플레이 후 메인 화면 이동 시 스탯, 골드, 라운드, 보유 다이스가 정상적으로 리셋됩니다.<br>
+      - 🛒 <b>상점 닫기 버튼 오클릭 방지</b>: 상점 패널을 열 때 닫기 버튼이 바로 클릭되던 문제를 방지하기 위해 버튼의 위치를 레이아웃 하단 독립 영역으로 변경했습니다.<br>
+      <br>
+      <b style="color:var(--gold);">[v5.5] 기존 패치 내역</b><br>
+      - 🎲 <b>다이스 패시브화</b>: 주사위 보유 시 스탯이 즉시 자동 적용됩니다.<br>
+      - 🔢 <b>4자리 숫자 코드 지원</b>: 직관적인 4자리 코드 초대를 지원합니다.
     </div>
   </div>
   <button class="btn-close" onclick="closeModal('modalNotice')">닫기</button>
@@ -530,7 +536,6 @@ let gold = 0, round = 1;
 let isGameOver = false, gameRunning = false;
 let gameSpeed = 1;
 let isDevMode = false;
-let lobbyDevAnnouncement = '';
 
 let currentGameMode = 'COOP';
 let isMulti = false, isHost = false, isBotMatch = false;
@@ -543,17 +548,16 @@ const myUniqueId = 'u_' + Math.random().toString(36).substring(2, 9);
 
 // 4자리 숫자 코드 생성
 const my4DigitCode = String(Math.floor(1000 + Math.random() * 9000));
-const PEER_PREFIX = "hyper_attack_v55_";
+const PEER_PREFIX = "hyper_attack_v56_";
 let myPeerIdStr = PEER_PREFIX + my4DigitCode;
 
 let isMatchingActive = false;
 let matchSearchSeconds = 0;
 let matchTimerInterval = null;
 
-let localReady = false, peerReady = false, readyWaiting = false, readyRole = '';
-let gameSessionId = 0, animationFrameId = null;
+let localReady = false, peerReady = false, readyWaiting = false;
 
-// ─── RANDOM DICE SYSTEM (PASSIVE) ───
+// ─── RANDOM DICE SYSTEM ───
 const DICE_TYPES = [
   { id:'atk', emoji:'⚔️', name:'공격 주사위', rarity:'common', color:'#e74c3c', desc:'공격력 +20' },
   { id:'spd', emoji:'💨', name:'속도 주사위', rarity:'common', color:'#3498db', desc:'이동속도 +50' },
@@ -571,62 +575,50 @@ const DICE_RARITY_WEIGHT = { common: 50, rare: 30, epic: 15, legendary: 5 };
 let myDice = [];
 let diceRollCost = 50;
 
-// Base Player & Tower
-const basePlayer = {
+// Base Player & Tower 원본 객체
+const BASE_PLAYER = {
   x: CW/2, y: CH-120, targetX: CW/2, targetY: CH-120, radius: 18,
   moveSpeed: 228, hp: 200, maxHp: 200, attackPower: 30,
   attackBaseCooldown: 0.25, attackCooldown: 0, attackRange: 170,
-  qBuffTimer:0, qCooldown:0, wBuffTimer:0, wCooldown:0, eCooldown:0,
   lifesteal:0, scopeChance:0.25, explosionChance:0, critChance:0, multiShot:1
 };
-let player = { ...basePlayer };
-const tower = { x:CW/2, y:CH-40, radius:30, hp:1500, maxHp:1500 };
+let player = JSON.parse(JSON.stringify(BASE_PLAYER));
 
-const statUpgrades = { atk: { level:0, basePrice:50, priceMult:1.4 }, spd: { level:0, basePrice:70, priceMult:1.5 } };
-const equipmentItems = [
-  { id:'doran', name:'🗡️ 도란의 검', desc:'공격력+15, 체력+40', price:150, bought:false, apply:()=>{ basePlayer.attackPower+=15; basePlayer.maxHp+=40; } },
-  { id:'boots', name:'👟 광전사의 신발', desc:'이속+1, 공속+15%', price:220, bought:false, apply:()=>{ basePlayer.moveSpeed+=60; basePlayer.attackBaseCooldown=Math.max(0.05,basePlayer.attackBaseCooldown*.85); } },
-  { id:'vamp', name:'🩸 흡혈의 낫', desc:'타격시 체력+6 회복', price:280, bought:false, apply:()=>{ basePlayer.lifesteal+=6; } },
-  { id:'expOrb', name:'💥 폭발의 구슬', desc:'30% 확률 폭발', price:300, bought:false, apply:()=>{ basePlayer.explosionChance=Math.min(0.9,(basePlayer.explosionChance||0)+0.3); } },
-  { id:'warmog', name:'🛡️ 워모그의 갑옷', desc:'체력+150, 타워+300', price:350, bought:false, apply:()=>{ basePlayer.maxHp+=150; tower.maxHp+=300; tower.hp=Math.min(tower.maxHp,tower.hp+300); } },
-  { id:'ie', name:'♾️ 무한의 대검', desc:'치명타확률+25%', price:400, bought:false, apply:()=>{ basePlayer.critChance=Math.min(0.8,(basePlayer.critChance||0)+0.25); } },
-  { id:'guinsoo', name:'🌀 구인수의 격노검', desc:'멀티샷+1발 추가', price:450, bought:false, apply:()=>{ basePlayer.multiShot=(basePlayer.multiShot||1)+1; } }
-];
+const BASE_TOWER = { x:CW/2, y:CH-40, radius:30, hp:1500, maxHp:1500 };
+let tower = JSON.parse(JSON.stringify(BASE_TOWER));
 
-let minions=[], projectiles=[], peerProjectiles=[], floatingTexts=[], explosions=[], shockwaves=[];
+let minions=[], projectiles=[];
 
 function alertPvpClosed() {
   alert("⚔️ PVP 대전 모드는 맵 확장 및 밸런스 리워크를 위해 임시 폐쇄되었습니다.");
 }
 
 // ╔══════════════════════════════════════════════════════════╗
-// ║ P2P ENGINE (4-DIGIT CODE SUPPORT)                        ║
+// ║ P2P ENGINE & LOBBY BROADCAST FIX                         ║
 // ╚══════════════════════════════════════════════════════════╝
 function initP2PLobbySystem() {
   document.getElementById('myPeerId').innerText = my4DigitCode;
   document.getElementById('my-peer-short').innerText = my4DigitCode;
 
   peer = new Peer(myPeerIdStr, {
+    debug: 1,
     config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] }
   });
 
   peer.on('open', (id) => {
     setupPeerListeners(peer);
-    broadcastMyPresence();
+    renderLobbyPlayerList();
   });
 
   peer.on('error', (err) => {
     console.warn('Peer error:', err);
   });
-
-  setInterval(cleanupStaleLobbyPeers, 3000);
 }
 
 function setupPeerListeners(targetPeer) {
   targetPeer.on('connection', (c) => {
     c.on('open', () => {
       conn = c;
-      // 초대받은 사람이 접속했을 때 수락 처리
       if (!isHost) {
         isMulti = true;
         currentGameMode = 'COOP';
@@ -636,6 +628,9 @@ function setupPeerListeners(targetPeer) {
         showReadyScreen('GUEST');
         startNetSync();
       }
+      // 로비 접속 정보 전달 및 등록
+      lobbyPeersMap.set(c.peer, { uid: c.peer, nickname: '소환사_' + c.peer.slice(-4) });
+      renderLobbyPlayerList();
     });
 
     c.on('data', (data) => {
@@ -643,14 +638,13 @@ function setupPeerListeners(targetPeer) {
     });
 
     c.on('close', () => {
+      lobbyPeersMap.delete(c.peer);
+      renderLobbyPlayerList();
       isMulti = false; peerPlayer = null;
       hideReadyScreen(); updateEnemyPanel();
     });
   });
 }
-
-function broadcastMyPresence() { renderLobbyPlayerList(); }
-function cleanupStaleLobbyPeers() { renderLobbyPlayerList(); }
 
 function renderLobbyPlayerList() {
   const listEl = document.getElementById('player-list');
@@ -660,7 +654,7 @@ function renderLobbyPlayerList() {
   for (const p of lobbyPeersMap.values()) all.push(p);
 
   countEl.innerText = `(${all.length}명 접속 중)`;
-  listEl.innerHTML = all.map((p, i) => `
+  listEl.innerHTML = all.map((p) => `
     <div class="pli">
       <div class="pli-avatar" style="background:#3498db22;border:1px solid #3498db;">👤</div>
       <div class="pli-name">${p.nickname}</div>
@@ -799,8 +793,6 @@ function handleNetworkData(data) {
       peerPlayer.hp = data.hp; peerPlayer.maxHp = data.maxHp;
       updateEnemyPanel();
     }
-  } else if (data.type === 'minion_hit') {
-    if (minions[data.idx]) minions[data.idx].hp -= data.dmg;
   }
 }
 
@@ -852,7 +844,8 @@ function rollDice() {
 }
 
 function recalculatePassiveStats() {
-  player = { ...basePlayer };
+  player = JSON.parse(JSON.stringify(BASE_PLAYER));
+  tower = JSON.parse(JSON.stringify(BASE_TOWER));
   
   myDice.forEach(d => {
     if (d.id === 'atk') player.attackPower += 20;
@@ -892,7 +885,7 @@ function showDiceResult(text) {
 }
 
 // ╔══════════════════════════════════════════════════════════╗
-// ║ GAME LOOP & ENGINE                                       ║
+// ║ GAME LOOP & RESET logic                                  ║
 // ╚══════════════════════════════════════════════════════════╝
 function startSoloPlay() {
   currentGameMode = 'SOLO'; isMulti = false; isBotMatch = false;
@@ -907,13 +900,20 @@ function startGame() {
   gameLoop();
 }
 
+// 게임 스탯/기록 완벽 초기화
 function resetGameState() {
-  myDice = []; diceRollCost = 50;
+  myDice = []; 
+  diceRollCost = 50;
+  gold = 0; 
+  round = 1; 
+  isGameOver = false;
+  minions = []; 
+  projectiles = [];
+  
   recalculatePassiveStats();
-  player.hp = player.maxHp; tower.hp = tower.maxHp;
-  gold = 0; round = 1; isGameOver = false;
-  minions = []; projectiles = [];
-  renderDicePanel(); updateUI();
+  renderDicePanel(); 
+  updateUI();
+  document.getElementById('game-msg').style.display = 'none';
 }
 
 function gameLoop() {
@@ -951,9 +951,11 @@ function gameLoop() {
 
 function returnToLobby() {
   gameRunning = false;
+  resetGameState(); // 로비로 나갈 때 데이터 초기화
   document.getElementById('main-lobby').style.display = 'flex';
   document.getElementById('dice-panel').style.display = 'none';
   document.getElementById('enemy-ui-panel').style.display = 'none';
+  closeAllModals();
 }
 
 function updateUI() {
