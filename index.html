@@ -695,7 +695,7 @@ ID: <b id="my-peer-short" style="color:var(--green);">생성중...</b> 📋
 
 </div>
 
-<div style="font-size:10px;color:#555;">v5.13 — 협동 매칭/연결 안정화 & 전체 버그 수정 패치</div>
+<div style="font-size:10px;color:#555;">v5.14 — 협동 매칭 허브/나가기 안정화 & 추가 버그 수정 패치</div>
 
 </div>
 
@@ -1044,6 +1044,17 @@ style="flex:1;background:rgba(255,255,255,.07);border:1px solid var(--border);co
 - 🚨 <b>긴급 공지 영역</b>: 로비의 긴급 공지를 모든 이용자에게 표시할 수 있도록 추가되었습니다.<br>
 - 👥 <b>소셜 / 로비 채팅</b>: 현재 접속자와 로비 채팅 기능이 추가되었습니다.<br>
 - 🛠️ <b>개발자 모드</b>: 로비에서 개발자 공지를 등록하고 협동 게임의 배속을 팀원과 동기화할 수 있습니다.
+</div>
+
+<div style="margin-bottom:10px;border-bottom:1px solid #333;padding-bottom:8px;">
+<b style="color:#00cec9;">[v5.14] 협동 매칭 허브/나가기 안정화 & 추가 버그 수정 패치</b><br>
+- 🛰️ <b>HUB 매칭 버그 수정</b>: 이제 <b>방장 HUB만 매칭 상대를 발견하던 문제</b>를 수정했습니다. HUB가 각 이용자의 매칭 신호를 다른 이용자에게 정상 중계하여 일반 이용자끼리도 서로 매칭됩니다.<br>
+- 🎮 <b>매칭 후 게임 진입 안정화</b>: 매칭 상대를 찾은 뒤 실제 P2P 게임 연결이 완료될 때까지 상태를 유지하고, 연결이 완료되면 READY 화면으로 정상 진입합니다.<br>
+- 🚪 <b>나가기 버튼 수정</b>: 매칭/연결 중 나가기를 눌러도 화면이 멈추거나 매칭 상태가 남지 않도록 연결, 타이머, READY 상태를 모두 정리합니다.<br>
+- 💬 <b>나가기 안내 메시지</b>: 정상적으로 로비로 돌아오면 <b>“정상적으로 로비로 나갔습니다”</b> 시스템 메시지가 표시됩니다.<br>
+- 🧹 <b>매칭 취소 정리 강화</b>: 매칭 취소 시 진행 중인 WebRTC 연결 시도와 매칭 타이머까지 즉시 종료됩니다.<br>
+- 🔄 <b>로비 상태 복구</b>: 나간 뒤 다시 매칭을 눌러도 이전 상대/연결 정보가 남지 않고 새로운 매칭을 시작합니다.<br>
+- 🛡️ <b>기존 버전 유지</b>: v5.5, v5.6, v5.10, v5.12, v5.13의 기존 공지 및 수정 내역은 삭제하지 않았습니다.
 </div>
 
 <div style="margin-bottom:10px;border-bottom:1px solid #333;padding-bottom:8px;">
@@ -1598,6 +1609,10 @@ function setupPeerListeners(targetPeer) {
       if (data && data._lobby) {
         handleLobbyMsg(data);
 
+        // HUB는 단순 저장소가 아니라 모든 클라이언트의 로비 신호를
+        // 서로 전달하는 중계점입니다. 기존에는 HUB가 받은 heartbeat가
+        // 다른 클라이언트에게 전달되지 않아, HUB 자신만 매칭 상대를
+        // 볼 수 있는 문제가 있었습니다.
         if (isLobbyHub) {
           for (const cl of clientConns) {
             if (cl !== c && cl.open) {
@@ -2222,15 +2237,42 @@ addChatLog(`[시스템] 🤖 AI 봇 동료와의 2인 협동 모드입니다. �
 
 
 function cancelMatchmaking() {
+  // 매칭 중 취소를 누르면 연결 시도 중인 WebRTC도 즉시 끊습니다.
+  isMatchingActive = false;
+  matchingPeerUid = null;
 
-isMatchingActive = false;
-matchingPeerUid = null;
-if (matchConnectTimeout) { clearTimeout(matchConnectTimeout); matchConnectTimeout = null; }
-if (matchTimerInterval) clearInterval(matchTimerInterval);
+  if (matchConnectTimeout) {
+    clearTimeout(matchConnectTimeout);
+    matchConnectTimeout = null;
+  }
 
-closeModal('modalMatch');
-broadcastMyPresence();
+  if (matchTimerInterval) {
+    clearInterval(matchTimerInterval);
+    matchTimerInterval = null;
+  }
 
+  if (conn) {
+    try { if (conn.open || conn.connecting) conn.close(); } catch(e) {}
+    conn = null;
+  }
+
+  isMulti = false;
+  isBotMatch = false;
+  peerPlayer = null;
+  localReady = false;
+  peerReady = false;
+  readyWaiting = false;
+  readyRole = '';
+
+  hideReadyScreen();
+  document.getElementById('main-lobby').style.display = 'flex';
+  document.getElementById('btnOpenMulti').style.display = 'flex';
+  document.getElementById('enemy-ui-panel').style.display = 'none';
+  closeAllModals();
+
+  addLobbyChatLog('[시스템] ✅ 매칭을 취소하고 로비로 나갔습니다.', true);
+  addChatLog('[시스템] ✅ 매칭을 취소하고 로비로 나갔습니다.', true);
+  broadcastMyPresence();
 }
 
 
@@ -3381,10 +3423,31 @@ if (isMulti || isBotMatch) updateEnemyPanel();
 }
 
 function returnToLobby() {
+  // 어떤 화면에서 나가기를 눌러도 매칭/연결 상태가 남지 않도록
+  // 매칭 타이머와 연결 시도를 먼저 정리합니다.
+  const wasMatching = isMatchingActive || matchingPeerUid || (conn && !gameRunning);
 
-closeAllModals();
+  isMatchingActive = false;
+  matchingPeerUid = null;
 
-gameRunning = false;
+  if (matchConnectTimeout) {
+    clearTimeout(matchConnectTimeout);
+    matchConnectTimeout = null;
+  }
+
+  if (matchTimerInterval) {
+    clearInterval(matchTimerInterval);
+    matchTimerInterval = null;
+  }
+
+  if (conn) {
+    try { if (conn.open || conn.connecting) conn.close(); } catch(e) {}
+    conn = null;
+  }
+
+  closeAllModals();
+
+  gameRunning = false;
 isGameOver = true;
 
 // 게임 루프 및 예약 웨이브를 즉시 끊어서
@@ -3450,6 +3513,11 @@ document.getElementById('game-msg').style.display = 'none';
 
 updateUI();
 renderDicePanel();
+
+if (wasMatching) {
+  addLobbyChatLog('[시스템] ✅ 정상적으로 로비로 나갔습니다. 매칭 상태도 해제되었습니다.', true);
+  addChatLog('[시스템] ✅ 정상적으로 로비로 나갔습니다. 매칭 상태도 해제되었습니다.', true);
+}
 
 broadcastMyPresence();
 
