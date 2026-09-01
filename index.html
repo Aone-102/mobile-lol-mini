@@ -473,7 +473,9 @@ justify-content:center; cursor:pointer; transition:transform .1s; }
 
 .btn-multi { border-color:var(--purple); }
 
-.btn-exit { border-color:var(--red); background:rgba(192,57,43,.7); }
+.btn-exit { border-color:var(--red); background:rgba(192,57,43,.7); position:relative; z-index:1001; pointer-events:auto; }
+#menu-overlay { pointer-events:auto; z-index:1000; }
+#menu-overlay .btn-ui { pointer-events:auto; }
 
 .btn-skill-cd { font-size:8px; color:var(--gold); margin-top:2px; }
 
@@ -1086,6 +1088,17 @@ style="flex:1;background:rgba(255,255,255,.07);border:1px solid var(--border);co
 - 🧹 <b>네트워크 타이머 정리</b>: 게임을 여러 번 시작/종료할 때 Ping 및 동기화 타이머가 중복 생성되는 문제를 수정했습니다.<br>
 - 🚨 <b>긴급 공지 고정</b>: 긴급 공지 내용이 움직이지 않고 한 자리에서 표시되도록 변경했습니다.<br>
 - 🛡️ <b>연결 종료 안정화</b>: 협동 연결 종료 시 READY/동료 패널/네트워크 상태가 정상적으로 초기화됩니다.
+</div>
+
+<div style="margin-bottom:10px;border-bottom:1px solid #333;padding-bottom:8px;">
+<b style="color:#ff7675;">[v5.17] 접속자 정리 & 협동 월드/나가기 최종 안정화 패치</b><br>
+- 🚪 <b>게임/READY/매칭 나가기 완전 수정</b>: 나가기 버튼의 클릭 영역과 이벤트를 강화하고, 어떤 상태에서도 로비 복귀가 가능하도록 정리했습니다.<br>
+- 📡 <b>접속 종료 즉시 반영</b>: 로비를 떠날 때 HUB에 퇴장 신호를 보내 실시간 접속자 목록에서 즉시 제거됩니다.<br>
+- 🧹 <b>유령 접속자 제거</b>: 이전에 들어왔던 이용자가 남아 보이던 문제를 수정하고, HUB의 최신 접속자 목록으로 클라이언트 목록을 통째로 갱신합니다.<br>
+- ⏱️ <b>하트비트 정리 강화</b>: 일정 시간 응답이 없는 이용자는 HUB에서 제거한 뒤 모든 이용자에게 최신 목록을 재전송합니다.<br>
+- 👾 <b>협동 몬스터 동기화 강화</b>: HOST가 연결 직후/게임 시작 직후/팀원의 요청 시 최신 월드를 즉시 전송하고, GUEST는 HOST 월드만 표시합니다.<br>
+- 🔄 <b>월드 동기화 재요청 강화</b>: GUEST가 초기 월드를 받지 못하면 반복 요청하고, 오래된 월드 패킷이 최신 상태를 덮어쓰지 못하도록 세션/순번을 확인합니다.<br>
+- 📜 <b>기존 공지 유지</b>: v5.5, v5.6, v5.10, v5.12, v5.13, v5.14, v5.15, v5.16의 기존 공지 및 수정 내역은 삭제하지 않았습니다.
 </div>
 
 <div>
@@ -1736,7 +1749,8 @@ function broadcastMyPresence() {
 function broadcastFullLobbyList() {
   if (!isLobbyHub) return;
 
-  const list = Array.from(lobbyPeersMap.values());
+  const now = Date.now();
+  const list = Array.from(lobbyPeersMap.values()).filter(p => now - Number(p.lastSeen || 0) <= 4500);
   list.push({
     uid: myUniqueId,
     nickname: myNickname,
@@ -1770,6 +1784,16 @@ if (!data) return;
 
 if (data.type === 'request_full_list' && isLobbyHub) {
     broadcastFullLobbyList();
+  } else if (data.type === 'leave' && data.uid) {
+    lobbyPeersMap.delete(data.uid);
+    if (isLobbyHub) {
+      // HUB 자신이 받은 퇴장 신호도 즉시 다른 클라이언트에 전달합니다.
+      for (const cl of clientConns) {
+        if (cl.open) { try { cl.send(data); } catch(e) {} }
+      }
+      broadcastFullLobbyList();
+    }
+    renderLobbyPlayerList();
   } else if (data.type === 'heartbeat' && data.uid !== myUniqueId) {
 
 lobbyPeersMap.set(data.uid, {
@@ -1799,23 +1823,18 @@ attemptAutoMatch(data);
 }
 
 } else if (data.type === 'full_list' && Array.isArray(data.list)) {
-
-for (const p of data.list) {
-
-if (p.uid !== myUniqueId) {
-
-lobbyPeersMap.set(p.uid, {
-
-...p,
-
-lastSeen: Date.now()
-
-});
-
-}
-
-}
-updateLobbyDevNotice();
+  // 최신 전체 목록을 기준으로 교체합니다. 기존 목록에 없는 유저가
+  // 남아 있는 유령 접속자 문제를 방지합니다.
+  const incoming = new Map();
+  for (const p of data.list) {
+    if (p.uid !== myUniqueId && p.uid) {
+      incoming.set(p.uid, { ...p, lastSeen: Date.now() });
+    }
+  }
+  lobbyPeersMap.clear();
+  for (const [uid, p] of incoming) lobbyPeersMap.set(uid, p);
+  updateLobbyDevNotice();
+  renderLobbyPlayerList();
 
 } else if (data.type === 'lobby_chat') {
   if (data.uid !== myUniqueId) addLobbyChatLog(`[${data.nickname || '소환사'}] ${data.msg || ''}`);
@@ -1896,22 +1915,42 @@ renderLobbyPlayerList();
 
 
 
+function sendLobbyLeaveNotice(reason='leave') {
+  const payload = {
+    _lobby: true, type: 'leave', uid: myUniqueId, peerId: myPeerIdStr,
+    reason, ts: Date.now()
+  };
+  try {
+    if (localChannel) localChannel.postMessage(payload);
+  } catch(e) {}
+  try {
+    if (isLobbyHub) {
+      lobbyPeersMap.delete(myUniqueId);
+      for (const cl of clientConns) { if (cl.open) { try { cl.send(payload); } catch(e) {} } }
+      broadcastFullLobbyList();
+    } else if (hubConn && hubConn.open) {
+      hubConn.send(payload);
+    }
+  } catch(e) {}
+}
+
+function stopLobbyNetworkTimers() {
+  if (lobbyHeartbeatTimer) { clearInterval(lobbyHeartbeatTimer); lobbyHeartbeatTimer = null; }
+  if (lobbyCleanupTimer) { clearInterval(lobbyCleanupTimer); lobbyCleanupTimer = null; }
+  if (lobbyRecoveryTimer) { clearTimeout(lobbyRecoveryTimer); lobbyRecoveryTimer = null; }
+}
+
 function cleanupStaleLobbyPeers() {
-
-const now = Date.now();
-
-for (const [uid, p] of lobbyPeersMap.entries()) {
-
-if (now - p.lastSeen > 5000) {
-
-lobbyPeersMap.delete(uid);
-
-}
-
-}
-
-renderLobbyPlayerList();
-
+  const now = Date.now();
+  let changed = false;
+  for (const [uid, p] of lobbyPeersMap.entries()) {
+    if (now - Number(p.lastSeen || 0) > 4500) {
+      lobbyPeersMap.delete(uid);
+      changed = true;
+    }
+  }
+  renderLobbyPlayerList();
+  if (changed && isLobbyHub) broadcastFullLobbyList();
 }
 
 
@@ -2411,6 +2450,12 @@ function setupConnection(role) {
     startNetSync();
     updateEnemyPanel();
     broadcastMyPresence();
+    // HOST는 연결 직후 초기 월드를 예약 전송하여 GUEST가 빈 맵으로
+    // 시작하는 타이밍 문제를 방지합니다.
+    if (isHost) {
+      setTimeout(() => { if (isMulti && isHost && conn && conn.open) sendCoopWorldState(true); }, 80);
+      setTimeout(() => { if (isMulti && isHost && conn && conn.open) sendCoopWorldState(true); }, 400);
+    }
   };
 
   const handleClose = () => {
@@ -2637,6 +2682,8 @@ case 'start_game':
     startGame();
     startNetSync();
     requestCoopWorld();
+    setTimeout(() => requestCoopWorld(), 180);
+    setTimeout(() => requestCoopWorld(), 700);
 
     addChatLog(`[시스템] 🤝 HOST로부터 게임 시작 신호를 받았습니다. 월드를 동기화하는 중...`, true);
   }
@@ -2663,7 +2710,11 @@ case 'request_world':
 case 'world_state':
   // HOST 권위 월드 동기화: GUEST는 절대로 자기 몬스터 월드를 생성하지 않습니다.
   if (!isHost && isMulti && Array.isArray(data.minions)) {
+    const incomingSession = Number(data.gameSession) || 0;
     const incomingSeq = Number(data.seq) || 0;
+    // 새 게임 세션이면 순번을 새로 시작합니다. 다른 이전 게임의 패킷은 무시합니다.
+    if (incomingSession && incomingSession < gameSessionId) break;
+    if (incomingSession && incomingSession > gameSessionId) gameSessionId = incomingSession;
     if (incomingSeq && incomingSeq < coopLastWorldSeq) break;
 
     coopLastWorldSeq = incomingSeq;
@@ -3516,104 +3567,78 @@ if (isMulti || isBotMatch) updateEnemyPanel();
 }
 
 function returnToLobby() {
-  // 어떤 화면에서 나가기를 눌러도 매칭/연결 상태가 남지 않도록
-  // 매칭 타이머와 연결 시도를 먼저 정리합니다.
-  const wasMatching = isMatchingActive || matchingPeerUid || (conn && !gameRunning);
+  const wasInGame = gameRunning || isMulti || readyWaiting;
+  const wasMatching = isMatchingActive || !!matchingPeerUid || !!invitePendingPeerId;
 
+  // 먼저 상대/HUB에 퇴장을 알리고 모든 예약 작업을 중단합니다.
+  sendLobbyLeaveNotice(wasInGame ? 'game_exit' : 'leave');
   isMatchingActive = false;
   matchingPeerUid = null;
+  invitePendingPeerId = null;
 
-  if (matchConnectTimeout) {
-    clearTimeout(matchConnectTimeout);
-    matchConnectTimeout = null;
-  }
+  if (matchConnectTimeout) { clearTimeout(matchConnectTimeout); matchConnectTimeout = null; }
+  if (matchTimerInterval) { clearInterval(matchTimerInterval); matchTimerInterval = null; }
+  if (coopWorldRequestTimer) { clearInterval(coopWorldRequestTimer); coopWorldRequestTimer = null; }
+  if (netSendInterval) { clearInterval(netSendInterval); netSendInterval = null; }
+  if (pingInterval) { clearInterval(pingInterval); pingInterval = null; }
 
-  if (matchTimerInterval) {
-    clearInterval(matchTimerInterval);
-    matchTimerInterval = null;
-  }
+  if (animationFrameId) { cancelAnimationFrame(animationFrameId); animationFrameId = null; }
+  waveSpawnTimers.forEach(t => clearTimeout(t));
+  waveSpawnTimers = [];
+  gameSessionId++;
 
-  if (conn) {
-    try { if (conn.open || conn.connecting) conn.close(); } catch(e) {}
-    conn = null;
-  }
-
-  closeAllModals();
+  const oldConn = conn;
+  conn = null;
+  if (oldConn) { try { if (oldConn.open || oldConn.connecting) oldConn.close(); } catch(e) {} }
 
   gameRunning = false;
-isGameOver = true;
-
-// 게임 루프 및 예약 웨이브를 즉시 끊어서
-// 나간 뒤 다시 시작했을 때 이전 게임의 몬스터/라운드가 섞이지 않게 함.
-if (animationFrameId) {
-cancelAnimationFrame(animationFrameId);
-animationFrameId = null;
-}
-
-waveSpawnTimers.forEach(t => clearTimeout(t));
-waveSpawnTimers = [];
-
-gameSessionId++;
-
-if (netSendInterval) {
-clearInterval(netSendInterval);
-netSendInterval = null;
-}
-if (pingInterval) {
-clearInterval(pingInterval);
-pingInterval = null;
-}
-
-// 이전 협동 게임 연결도 끊어서 이전 플레이어의 상태/공격 이벤트가
-// 새 솔로 또는 새 협동 게임에 섞이지 않도록 완전히 분리합니다.
-if (conn) {
-try { if (conn.open) conn.close(); } catch(e) {}
-conn = null;
+  isGameOver = true;
+  isMulti = false;
+  isHost = false;
+  isBotMatch = false;
   connectionFinalized = false;
-}
+  coopWorldReady = false;
+  coopStartReceived = false;
+  coopLastWorldSeq = 0;
+  peerPlayer = null;
+  peerProjectiles = [];
+  localReady = false;
+  peerReady = false;
+  readyWaiting = false;
+  readyRole = '';
 
-// 현재 게임 데이터 완전 초기화
-minions = [];
-projectiles = [];
-peerProjectiles = [];
-floatingTexts = [];
-explosions = [];
-scopeEffects = [];
-shockwaves = [];
+  minions = [];
+  projectiles = [];
+  floatingTexts = [];
+  explosions = [];
+  scopeEffects = [];
+  shockwaves = [];
+  gold = 0;
+  round = 1;
+  isWaveActive = false;
+  myDice = [];
+  diceRollCost = 50;
+  freeDiceThisRound = false;
+  player.x = CW/2; player.y = CH-120;
+  player.targetX = player.x; player.targetY = player.y;
+  player.hp = player.maxHp;
+  tower.hp = tower.maxHp;
 
-gold = 0;
-round = 1;
-isWaveActive = false;
-myDice = [];
-diceRollCost = 50;
-freeDiceThisRound = false;
+  hideReadyScreen();
+  closeAllModals();
+  document.getElementById('main-lobby').style.display = 'flex';
+  document.getElementById('dice-panel').style.display = 'none';
+  document.getElementById('enemy-ui-panel').style.display = 'none';
+  document.getElementById('game-msg').style.display = 'none';
+  document.getElementById('btnOpenMulti').style.display = 'flex';
+  updateUI();
+  renderDicePanel();
 
-localReady = false;
-peerReady = false;
-readyWaiting = false;
-readyRole = '';
+  addLobbyChatLog('[시스템] ✅ 정상적으로 로비로 나갔습니다. 매칭/게임 상태가 모두 해제되었습니다.', true);
+  if (wasMatching || wasInGame) addChatLog('[시스템] ✅ 정상적으로 로비로 나갔습니다.', true);
 
-isMulti = false;
-isBotMatch = false;
-peerPlayer = null;
-
-hideReadyScreen();
-
-document.getElementById('main-lobby').style.display = 'flex';
-document.getElementById('dice-panel').style.display = 'none';
-document.getElementById('enemy-ui-panel').style.display = 'none';
-document.getElementById('game-msg').style.display = 'none';
-
-updateUI();
-renderDicePanel();
-
-if (wasMatching) {
-  addLobbyChatLog('[시스템] ✅ 정상적으로 로비로 나갔습니다. 매칭 상태도 해제되었습니다.', true);
-  addChatLog('[시스템] ✅ 정상적으로 로비로 나갔습니다. 매칭 상태도 해제되었습니다.', true);
-}
-
-broadcastMyPresence();
-
+  // 새 heartbeat를 즉시 보내고 이후 정상 주기로 복귀합니다.
+  broadcastMyPresence();
 }
 
 function saveSettings() {
@@ -4507,6 +4532,24 @@ updateUI();
 renderDicePanel();
 renderSocialPlayerList();
 updateLobbyDevNotice();
+
+// 브라우저 탭 닫기/새로고침에서도 유령 접속자가 남지 않도록 마지막 퇴장 신호를 시도합니다.
+window.addEventListener('pagehide', () => {
+  try { sendLobbyLeaveNotice('pagehide'); } catch(e) {}
+});
+window.addEventListener('beforeunload', () => {
+  try { sendLobbyLeaveNotice('beforeunload'); } catch(e) {}
+});
+
+// 나가기 버튼은 HTML onclick과 별도로 pointerup도 연결하여
+// 모바일/데스크톱에서 이벤트가 막히는 경우를 방지합니다.
+const exitButton = document.querySelector('#menu-overlay .btn-exit');
+if (exitButton) {
+  exitButton.addEventListener('pointerup', (e) => {
+    e.preventDefault(); e.stopPropagation();
+    returnToLobby();
+  }, { passive:false });
+}
 
 initP2PLobbySystem();
 
