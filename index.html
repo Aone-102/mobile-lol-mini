@@ -100,8 +100,7 @@ box-shadow:0 0 16px rgba(155,89,182,.15);
 /* v5.12 긴급 공지 */
 #lobby-emergency-notice { width:100%; max-width:420px; display:none; background:linear-gradient(90deg,rgba(192,57,43,.28),rgba(243,156,18,.22)); border:1.5px solid rgba(231,76,60,.7); border-radius:10px; padding:9px 0; overflow:hidden; white-space:nowrap; box-shadow:0 0 18px rgba(231,76,60,.18); }
 #lobby-emergency-notice .emergency-label { display:inline-block; margin-left:10px; margin-right:10px; color:#ff7675; font-weight:900; font-size:11px; vertical-align:middle; }
-#lobby-emergency-notice-text { display:inline-block; min-width:max-content; color:#fff; font-size:11px; font-weight:700; animation:lobbyEmergencyMarquee 16s linear infinite; }
-@keyframes lobbyEmergencyMarquee { from { transform:translateX(20px); } to { transform:translateX(-100%); } }
+#lobby-emergency-notice-text { display:inline-block; min-width:0; max-width:calc(100% - 105px); color:#fff; font-size:11px; font-weight:700; white-space:normal; vertical-align:middle; line-height:1.35; }
 .social-tabs { display:flex; gap:6px; width:100%; max-width:320px; }
 .social-tabs .btn-lobby { flex:1; padding:9px; font-size:12px; }
 .lobby-chat-box {
@@ -696,7 +695,7 @@ ID: <b id="my-peer-short" style="color:var(--green);">생성중...</b> 📋
 
 </div>
 
-<div style="font-size:10px;color:#555;">v5.12 — 긴급 공지 & 협동 매칭 안정화 패치</div>
+<div style="font-size:10px;color:#555;">v5.13 — 협동 매칭/연결 안정화 & 전체 버그 수정 패치</div>
 
 </div>
 
@@ -1034,10 +1033,29 @@ style="flex:1;background:rgba(255,255,255,.07);border:1px solid var(--border);co
 <b style="color:#f1c40f;">[v5.10] 개발자 모드 & 협동 초대 수정 패치</b><br>
 - 🛠️ <b>개발자 모드 활성화 안내 변경</b>: 개발자 모드를 켜도 화면 중앙에 "000님이 개발자모드를 활성화" 같은 별도 안내가 뜨지 않습니다.<br>
 - 📋 <b>개발자 모드 메뉴</b>: 개발자 모드를 활성화한 뒤 로비의 <b>개발자 모드</b> 버튼을 다시 누르면 메뉴가 열립니다.<br>
-- 📢 <b>공지하기</b>: 메뉴에서 공지를 입력하면 로비 상단에서 <b>왼쪽 → 오른쪽</b>으로 이동하는 전광판으로 표시됩니다.<br>
+- 📢 <b>공지하기</b>: 메뉴에서 공지를 입력하면 로비 상단에서 <b>고정된 긴급 공지 영역에 표시됩니다.<br>
 - 🛑 <b>개발자 모드 끄기</b>: 같은 메뉴에서 개발자 모드를 바로 끌 수 있습니다.<br>
 - 🤝 <b>협동 초대 수정</b>: 이제 초대 버튼을 눌러도 초대한 사람이 즉시 게임에 들어가지 않습니다. 상대방이 초대창에서 <b>수락</b>해야만 게임 연결 및 READY 화면으로 진입합니다.<br>
 - ❌ <b>초대 거절</b>: 상대가 거절하면 게임에 입장하지 않고 로비에 그대로 남습니다.
+</div>
+
+<div style="margin-bottom:10px;border-bottom:1px solid #333;padding-bottom:8px;">
+<b style="color:#1abc9c;">[v5.12] 긴급 공지 & 협동 매칭 안정화 패치</b><br>
+- 🚨 <b>긴급 공지 영역</b>: 로비의 긴급 공지를 모든 이용자에게 표시할 수 있도록 추가되었습니다.<br>
+- 👥 <b>소셜 / 로비 채팅</b>: 현재 접속자와 로비 채팅 기능이 추가되었습니다.<br>
+- 🛠️ <b>개발자 모드</b>: 로비에서 개발자 공지를 등록하고 협동 게임의 배속을 팀원과 동기화할 수 있습니다.
+</div>
+
+<div style="margin-bottom:10px;border-bottom:1px solid #333;padding-bottom:8px;">
+<b style="color:#00cec9;">[v5.13] 협동 매칭/연결 안정화 & 전체 버그 수정 패치</b><br>
+- 🔧 <b>협동 매칭 핵심 버그 수정</b>: "매칭되었습니다" 메시지만 뜨고 실제 게임으로 넘어가지 않던 문제를 수정했습니다.<br>
+- 🔌 <b>P2P 연결 완료 처리 수정</b>: 연결 완료 후 READY 이벤트가 누락되던 문제를 수정하여 실제 협동 READY 화면으로 진입합니다.<br>
+- 🔁 <b>매칭 재시도 개선</b>: 연결 실패/시간 초과 시 매칭 상태를 복구하고 다른 상대를 다시 찾도록 수정했습니다.<br>
+- 🛰️ <b>로비 P2P 복구 개선</b>: 허브 연결이 끊기거나 PeerJS 시그널링 연결이 끊겼을 때 중복 Peer 생성 없이 재연결을 시도합니다.<br>
+- 🌐 <b>협동 월드 동기화 개선</b>: HOST가 몬스터/웨이브 상태를 동기화하여 두 플레이어의 랜덤 생성 및 라운드가 서로 달라지는 문제를 줄였습니다.<br>
+- 🧹 <b>네트워크 타이머 정리</b>: 게임을 여러 번 시작/종료할 때 Ping 및 동기화 타이머가 중복 생성되는 문제를 수정했습니다.<br>
+- 🚨 <b>긴급 공지 고정</b>: 긴급 공지 내용이 움직이지 않고 한 자리에서 표시되도록 변경했습니다.<br>
+- 🛡️ <b>연결 종료 안정화</b>: 협동 연결 종료 시 READY/동료 패널/네트워크 상태가 정상적으로 초기화됩니다.
 </div>
 
 <div>
@@ -1347,467 +1365,360 @@ alert("⚔️ PVP 대전 모드는 맵 확장 및 밸런스 리워크를 위해 
 // ╚══════════════════════════════════════════════════════════╝
 
 function initP2PLobbySystem() {
+  renderLobbyPlayerList();
+  attemptBeHubOrClient();
 
-renderLobbyPlayerList();
+  if (localChannel) {
+    localChannel.onmessage = (e) => {
+      handleLobbyMsg(e.data);
+    };
+  }
 
-attemptBeHubOrClient();
+  if (lobbyHeartbeatTimer) clearInterval(lobbyHeartbeatTimer);
+  if (lobbyCleanupTimer) clearInterval(lobbyCleanupTimer);
 
+  lobbyHeartbeatTimer = setInterval(() => {
+    sendHeartbeatToHubOrClients();
+  }, 1500);
 
-
-if (localChannel) {
-
-localChannel.onmessage = (e) => {
-
-handleLobbyMsg(e.data);
-
-};
-
+  lobbyCleanupTimer = setInterval(() => {
+    cleanupStaleLobbyPeers();
+  }, 3000);
 }
 
-
-
-setInterval(sendHeartbeatToHubOrClients, 1500);
-
-setInterval(cleanupStaleLobbyPeers, 3000);
-
+function getPeerConfig() {
+  return {
+    config: {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun.cloudflare.com:3478' }
+      ]
+    }
+  };
 }
-
-
 
 function attemptBeHubOrClient() {
+  if (gameRunning || isMulti || isBotMatch) return;
 
-const testPeer = new Peer(LOBBY_HUB_BASE_ID, {
+  // 이미 정상적인 Peer가 있으면 중복 Peer를 만들지 않습니다.
+  if (peer && !peer.destroyed && !peer.disconnected && (isLobbyHub || hubConn)) return;
 
-config: {
+  const testPeer = new Peer(LOBBY_HUB_BASE_ID, getPeerConfig());
 
-iceServers: [
+  let settled = false;
 
-{ urls: 'stun:stun.l.google.com:19302' },
+  testPeer.on('open', (id) => {
+    if (settled) return;
+    settled = true;
 
-{ urls: 'stun:stun1.l.google.com:19302' },
+    if (peer && peer !== testPeer && !peer.destroyed) {
+      try { peer.destroy(); } catch(e) {}
+    }
 
-{ urls: 'stun:stun.cloudflare.com:3478' }
+    peer = testPeer;
+    isLobbyHub = true;
+    myPeerIdStr = id;
+    hubConn = null;
 
-]
+    setupPeerListeners(peer);
 
+    const idEl = document.getElementById('myPeerId');
+    const shortEl = document.getElementById('my-peer-short');
+    if (idEl) idEl.innerText = id;
+    if (shortEl) shortEl.innerText = '방장_HUB';
+
+    updateServerStatus(true);
+    broadcastMyPresence();
+  });
+
+  testPeer.on('error', (err) => {
+    if (settled) return;
+    settled = true;
+
+    try { testPeer.destroy(); } catch(e) {}
+    isLobbyHub = false;
+
+    createClientPeerAndConnectHub();
+  });
+
+  testPeer.on('disconnected', () => {
+    if (peer === testPeer && !gameRunning) {
+      updateServerStatus(false);
+      try { testPeer.reconnect(); } catch(e) {}
+    }
+  });
 }
-
-});
-
-
-
-testPeer.on('open', (id) => {
-
-peer = testPeer;
-
-isLobbyHub = true;
-
-myPeerIdStr = id;
-
-setupPeerListeners(peer);
-
-document.getElementById('myPeerId').innerText = id;
-
-document.getElementById('my-peer-short').innerText = '방장_HUB';
-
-broadcastMyPresence();
-
-});
-
-
-
-testPeer.on('error', (err) => {
-
-testPeer.destroy();
-
-isLobbyHub = false;
-
-createClientPeerAndConnectHub();
-
-});
-
-}
-
-
 
 function createClientPeerAndConnectHub() {
+  if (gameRunning || isMulti || isBotMatch) return;
+  if (peer && !peer.destroyed && !isLobbyHub) {
+    if (peer.open) {
+      connectToLobbyHub();
+    }
+    return;
+  }
 
-peer = new Peer(undefined, {
+  peer = new Peer(undefined, getPeerConfig());
 
-config: {
+  peer.on('open', (id) => {
+    myPeerIdStr = id;
+    setupPeerListeners(peer);
 
-iceServers: [
+    const idEl = document.getElementById('myPeerId');
+    const shortEl = document.getElementById('my-peer-short');
+    if (idEl) idEl.innerText = id;
+    if (shortEl) shortEl.innerText = id.substring(0, 6) + '...';
 
-{ urls: 'stun:stun.l.google.com:19302' },
+    updateServerStatus(true);
+    connectToLobbyHub();
+    broadcastMyPresence();
+  });
 
-{ urls: 'stun:stun1.l.google.com:19302' },
+  peer.on('disconnected', () => {
+    updateServerStatus(false);
+    if (!gameRunning) {
+      try { peer.reconnect(); } catch(e) {}
+      scheduleLobbyRecovery(1800);
+    }
+  });
 
-{ urls: 'stun:stun.cloudflare.com:3478' }
-
-]
-
+  peer.on('error', (err) => {
+    console.warn('[Client Peer]', err);
+    if (!gameRunning && !isMulti) {
+      updateServerStatus(false);
+      scheduleLobbyRecovery(2500);
+    }
+  });
 }
 
-});
-
-
-
-peer.on('open', (id) => {
-
-myPeerIdStr = id;
-
-setupPeerListeners(peer);
-
-document.getElementById('myPeerId').innerText = id;
-
-document.getElementById('my-peer-short').innerText = id.substring(0, 6) + '...';
-
-connectToLobbyHub();
-
-broadcastMyPresence();
-
-});
-
-
-
-peer.on('error', (err) => {
-
-console.warn('[Client Peer]', err);
-
-});
-
+function updateServerStatus(online) {
+  const dot = document.getElementById('server-status-dot');
+  if (!dot) return;
+  dot.style.background = online ? 'var(--green)' : 'var(--red)';
+  dot.title = online ? 'P2P 서버 연결됨' : 'P2P 서버 재연결 중';
 }
 
+function scheduleLobbyRecovery(delay = 1500) {
+  if (gameRunning || isMulti || isBotMatch) return;
+  if (lobbyRecoveryTimer) clearTimeout(lobbyRecoveryTimer);
 
+  lobbyRecoveryTimer = setTimeout(() => {
+    lobbyRecoveryTimer = null;
+    if (gameRunning || isMulti || isBotMatch) return;
+
+    if (!peer || peer.destroyed) {
+      isLobbyHub = false;
+      createClientPeerAndConnectHub();
+      return;
+    }
+
+    if (isLobbyHub) {
+      broadcastMyPresence();
+      return;
+    }
+
+    if (peer.open && (!hubConn || !hubConn.open)) {
+      connectToLobbyHub();
+    } else if (peer.disconnected) {
+      try { peer.reconnect(); } catch(e) {}
+    }
+  }, delay);
+}
 
 function connectToLobbyHub() {
+  if (!peer || peer.destroyed || isLobbyHub || !peer.open) return;
+  if (hubConn && (hubConn.open || hubConn.connecting)) return;
 
-if (!peer || isLobbyHub) return;
+  try {
+    hubConn = peer.connect(LOBBY_HUB_BASE_ID, {
+      reliable: true,
+      serialization: 'json'
+    });
 
-try {
+    hubConn.on('open', () => {
+      updateServerStatus(true);
+      sendHeartbeatToHub();
+      broadcastFullLobbyListRequest();
+    });
 
-hubConn = peer.connect(LOBBY_HUB_BASE_ID, { reliable: true });
+    hubConn.on('data', (data) => {
+      handleLobbyMsg(data);
+    });
 
+    hubConn.on('close', () => {
+      if (hubConn && hubConn.peer === LOBBY_HUB_BASE_ID) hubConn = null;
+      updateServerStatus(false);
+      if (!gameRunning && !isMulti) scheduleLobbyRecovery(800);
+    });
 
-hubConn.on('open', () => {
-
-sendHeartbeatToHub();
-
-});
-
-
-
-hubConn.on('data', (data) => {
-
-handleLobbyMsg(data);
-
-});
-
-
-
-hubConn.on('close', () => {
-
-hubConn = null;
-
-setTimeout(attemptBeHubOrClient, 1000);
-
-});
-
-
-
-hubConn.on('error', () => {});
-
-} catch(e) {}
-
+    hubConn.on('error', () => {
+      if (!gameRunning && !isMulti) scheduleLobbyRecovery(1200);
+    });
+  } catch(e) {
+    hubConn = null;
+    if (!gameRunning && !isMulti) scheduleLobbyRecovery(1500);
+  }
 }
 
-
+function broadcastFullLobbyListRequest() {
+  if (!hubConn || !hubConn.open) return;
+  try {
+    hubConn.send({
+      _lobby: true,
+      type: 'request_full_list',
+      uid: myUniqueId,
+      ts: Date.now()
+    });
+  } catch(e) {}
+}
 
 function setupPeerListeners(targetPeer) {
+  if (!targetPeer) return;
 
-targetPeer.on('connection', (c) => {
+  targetPeer.on('connection', (c) => {
+    c.on('open', () => {
+      if (isLobbyHub) {
+        clientConns.add(c);
+        broadcastFullLobbyList();
+        return;
+      }
 
-c.on('open', () => {
+      // 자동 매칭/초대에서 상대가 먼저 연결한 GUEST 처리
+      if (conn && conn.open && conn !== c) {
+        try { c.close(); } catch(e) {}
+        return;
+      }
 
-if (isLobbyHub) {
+      conn = c;
+      setupConnection('GUEST');
+    });
 
-clientConns.add(c);
+    c.on('data', (data) => {
+      if (data && data._lobby) {
+        handleLobbyMsg(data);
 
-broadcastFullLobbyList();
+        if (isLobbyHub) {
+          for (const cl of clientConns) {
+            if (cl !== c && cl.open) {
+              try { cl.send(data); } catch(e) {}
+            }
+          }
+        }
+      } else {
+        if (!conn || conn !== c) {
+          conn = c;
+          isHost = false;
+          isMulti = true;
+        }
+        handleNetworkData(data);
+      }
+    });
 
-} else {
+    c.on('close', () => {
+      if (isLobbyHub) clientConns.delete(c);
 
-// 자동 매칭/초대에서 상대가 먼저 연결한 GUEST 처리
-conn = c;
-isHost = false;
-isMulti = true;
-isBotMatch = false;
-currentGameMode = 'COOP';
+      if (conn === c) {
+        conn = null;
 
-localReady = false;
-peerReady = false;
-readyWaiting = true;
-readyRole = 'GUEST';
-
-peerPlayer = {
-x: CW / 2 + 35,
-y: CH - 120,
-hp: 200, maxHp: 200,
-nickname: '동료', round: 1,
-qBuffTimer: 0, wBuffTimer: 0
-};
-
-closeAllModals();
-document.getElementById('main-lobby').style.display = 'none';
-document.getElementById('btnOpenMulti').style.display = 'flex';
-
-showReadyScreen('GUEST');
-sendReadyState();
-startNetSync();
-
-addChatLog('[협동] 동료의 연결을 확인했습니다. 두 플레이어가 READY를 눌러주세요!', true);
-
+        if (!gameRunning) {
+          isMulti = false;
+          peerPlayer = null;
+          localReady = false;
+          peerReady = false;
+          readyWaiting = false;
+          hideReadyScreen();
+          updateEnemyPanel();
+        }
+      }
+    });
+  });
 }
-
-});
-
-
-
-c.on('data', (data) => {
-
-if (data && data._lobby) {
-
-handleLobbyMsg(data);
-
-if (isLobbyHub) {
-
-for (const cl of clientConns) {
-
-if (cl !== c && cl.open) {
-
-try { cl.send(data); } catch(e){}
-
-}
-
-}
-
-}
-
-} else {
-
-if (!conn || conn !== c) {
-
-conn = c;
-
-isHost = false;
-
-isMulti = true;
-
-}
-
-handleNetworkData(data);
-
-}
-
-});
-
-
-
-c.on('close', () => {
-
-if (isLobbyHub) clientConns.delete(c);
-
-if (conn === c) {
-
-isMulti = false;
-peerPlayer = null;
-localReady = false;
-peerReady = false;
-readyWaiting = false;
-hideReadyScreen();
-
-if (netSendInterval) {
-clearInterval(netSendInterval);
-netSendInterval = null;
-}
-
-updateEnemyPanel();
-
-}
-
-});
-
-});
-
-}
-
-
 
 function sendHeartbeatToHubOrClients() {
-
-broadcastMyPresence();
-
+  broadcastMyPresence();
 }
-
-
 
 function sendHeartbeatToHub() {
+  if (!hubConn || !hubConn.open) return;
 
-if (hubConn && hubConn.open) {
+  const payload = {
+    _lobby: true,
+    type: 'heartbeat',
+    uid: myUniqueId,
+    nickname: myNickname,
+    peerId: myPeerIdStr,
+    status: gameRunning ? 'playing' : (isMatchingActive ? 'matching' : 'lobby'),
+    mode: 'COOP',
+    matching: isMatchingActive,
+    devMode: isDevMode,
+    devAnnouncement: lobbyDevAnnouncement,
+    ts: Date.now()
+  };
 
-const payload = {
-
-_lobby: true,
-
-type: 'heartbeat',
-
-uid: myUniqueId,
-
-nickname: myNickname,
-
-peerId: myPeerIdStr,
-
-status: gameRunning ? 'playing' : (isMatchingActive ? 'matching' : 'lobby'),
-
-mode: 'COOP',
-
-matching: isMatchingActive,
-
-devMode: isDevMode,
-
-devAnnouncement: lobbyDevAnnouncement,
-
-ts: Date.now()
-
-};
-
-try { hubConn.send(payload); } catch(e){}
-
+  try { hubConn.send(payload); } catch(e) {}
 }
-
-}
-
-
 
 function broadcastMyPresence() {
+  const payload = {
+    _lobby: true,
+    type: 'heartbeat',
+    uid: myUniqueId,
+    nickname: myNickname,
+    peerId: myPeerIdStr,
+    status: gameRunning ? 'playing' : (isMatchingActive ? 'matching' : 'lobby'),
+    mode: 'COOP',
+    matching: isMatchingActive,
+    devMode: isDevMode,
+    devAnnouncement: lobbyDevAnnouncement,
+    ts: Date.now()
+  };
 
-const payload = {
+  if (localChannel) {
+    try { localChannel.postMessage(payload); } catch(e) {}
+  }
 
-_lobby: true,
+  if (isLobbyHub) {
+    for (const cl of clientConns) {
+      if (cl.open) {
+        try { cl.send(payload); } catch(e) {}
+      }
+    }
+  } else {
+    sendHeartbeatToHub();
+  }
 
-type: 'heartbeat',
-
-uid: myUniqueId,
-
-nickname: myNickname,
-
-peerId: myPeerIdStr,
-
-status: gameRunning ? 'playing' : (isMatchingActive ? 'matching' : 'lobby'),
-
-mode: 'COOP',
-
-matching: isMatchingActive,
-
-devMode: isDevMode,
-
-devAnnouncement: lobbyDevAnnouncement,
-
-ts: Date.now()
-
-};
-
-
-
-if (localChannel) {
-
-try { localChannel.postMessage(payload); } catch(e){}
-
+  renderLobbyPlayerList();
 }
-
-
-
-if (isLobbyHub) {
-
-for (const cl of clientConns) {
-
-if (cl.open) {
-
-try { cl.send(payload); } catch(e){}
-
-}
-
-}
-
-} else {
-
-sendHeartbeatToHub();
-
-}
-
-
-
-renderLobbyPlayerList();
-
-}
-
-
 
 function broadcastFullLobbyList() {
+  if (!isLobbyHub) return;
 
-if (!isLobbyHub) return;
+  const list = Array.from(lobbyPeersMap.values());
+  list.push({
+    uid: myUniqueId,
+    nickname: myNickname,
+    peerId: myPeerIdStr,
+    status: gameRunning ? 'playing' : (isMatchingActive ? 'matching' : 'lobby'),
+    mode: 'COOP',
+    matching: isMatchingActive,
+    devMode: isDevMode,
+    devAnnouncement: lobbyDevAnnouncement,
+    ts: Date.now()
+  });
 
-const list = Array.from(lobbyPeersMap.values());
+  const payload = {
+    _lobby: true,
+    type: 'full_list',
+    list
+  };
 
-list.push({
-
-uid: myUniqueId,
-
-nickname: myNickname,
-
-peerId: myPeerIdStr,
-
-status: gameRunning ? 'playing' : (isMatchingActive ? 'matching' : 'lobby'),
-
-mode: 'COOP',
-
-matching: isMatchingActive,
-
-devMode: isDevMode,
-
-devAnnouncement: lobbyDevAnnouncement,
-
-ts: Date.now()
-
-});
-
-
-
-const payload = {
-
-_lobby: true,
-
-type: 'full_list',
-
-list: list
-
-};
-
-
-
-for (const cl of clientConns) {
-
-if (cl.open) {
-
-try { cl.send(payload); } catch(e){}
-
+  for (const cl of clientConns) {
+    if (cl.open) {
+      try { cl.send(payload); } catch(e) {}
+    }
+  }
 }
-
-}
-
-}
-
-
 
 function handleLobbyMsg(data) {
 
@@ -1815,7 +1726,9 @@ if (!data) return;
 
 
 
-if (data.type === 'heartbeat' && data.uid !== myUniqueId) {
+if (data.type === 'request_full_list' && isLobbyHub) {
+    broadcastFullLobbyList();
+  } else if (data.type === 'heartbeat' && data.uid !== myUniqueId) {
 
 lobbyPeersMap.set(data.uid, {
 
@@ -2137,82 +2050,150 @@ ${actionBtn}
 // ╚══════════════════════════════════════════════════════════╝
 
 function startMatchmaking(mode) {
-currentGameMode = 'COOP';
-isMatchingActive = true;
-isBotMatch = false;
-matchSearchSeconds = 0;
-matchingPeerUid = null;
-if (matchConnectTimeout) { clearTimeout(matchConnectTimeout); matchConnectTimeout = null; }
+  currentGameMode = 'COOP';
+  isMatchingActive = true;
+  isBotMatch = false;
+  matchSearchSeconds = 0;
+  matchingPeerUid = null;
 
-openModal('modalMatch');
-document.getElementById('matchModalTitle').innerText = `🔍 2인 협동 실시간 매칭`;
-document.getElementById('matchText').innerText = '함께할 동료 소환사를 찾는 중입니다...';
-document.getElementById('matchBotOption').style.display = 'none';
+  if (matchConnectTimeout) {
+    clearTimeout(matchConnectTimeout);
+    matchConnectTimeout = null;
+  }
 
-broadcastMyPresence();
+  openModal('modalMatch');
+  document.getElementById('matchModalTitle').innerText = '🔍 2인 협동 실시간 매칭';
+  document.getElementById('matchText').innerText = '함께할 동료 소환사를 찾는 중입니다...';
+  document.getElementById('matchBotOption').style.display = 'none';
 
-if (matchTimerInterval) clearInterval(matchTimerInterval);
-matchTimerInterval = setInterval(() => {
-if (!isMatchingActive) { clearInterval(matchTimerInterval); return; }
-matchSearchSeconds++;
-document.getElementById('matchTimeElapsed').innerText = `매칭 대기: ${matchSearchSeconds}초`;
-if (matchSearchSeconds >= 4) document.getElementById('matchBotOption').style.display = 'block';
-}, 1000);
+  broadcastMyPresence();
+
+  if (matchTimerInterval) clearInterval(matchTimerInterval);
+  matchTimerInterval = setInterval(() => {
+    if (!isMatchingActive) {
+      clearInterval(matchTimerInterval);
+      matchTimerInterval = null;
+      return;
+    }
+
+    matchSearchSeconds++;
+    document.getElementById('matchTimeElapsed').innerText = `매칭 대기: ${matchSearchSeconds}초`;
+
+    if (matchSearchSeconds >= 4) {
+      document.getElementById('matchBotOption').style.display = 'block';
+    }
+  }, 1000);
 }
 
-function attemptAutoMatch(opponent){
- if(!isMatchingActive||!myPeerIdStr||!opponent.peerId||opponent.uid===myUniqueId)return;
- if(opponent.status!=='matching' || !opponent.matching)return;
- if(matchingPeerUid && matchingPeerUid!==opponent.uid)return;
+function attemptAutoMatch(opponent) {
+  if (!isMatchingActive || !myPeerIdStr || !opponent.peerId || opponent.uid === myUniqueId) return;
+  if (opponent.status !== 'matching' || !opponent.matching) return;
+  if (matchingPeerUid && matchingPeerUid !== opponent.uid) return;
 
- // 여러 명이 동시에 매칭될 때 항상 가장 낮은 UID 두 명만 한 쌍으로 확정합니다.
- const candidates=Array.from(lobbyPeersMap.values())
-   .filter(p=>p.uid!==myUniqueId && p.matching && p.status==='matching' && p.peerId)
-   .sort((a,b)=>String(a.uid).localeCompare(String(b.uid)));
- if(!candidates.length)return;
- const smallest=[myUniqueId,...candidates.map(p=>p.uid)].sort()[0];
- if(smallest!==myUniqueId){
-   // 내가 이번 매칭의 선두가 아니면 상대의 연결을 기다립니다.
-   matchingPeerUid=candidates[0]?.uid||null;
-   document.getElementById('matchText').innerText=`${candidates[0]?.nickname||'상대'}님의 연결을 기다리는 중...`;
-   return;
- }
- const target=candidates[0];
- if(matchingPeerUid && matchingPeerUid!==target.uid)return;
- matchingPeerUid=target.uid;
- document.getElementById('matchBotOption').style.display='none';
- document.getElementById('matchText').innerText=`${target.nickname}님과 매칭되었습니다. 연결을 준비하는 중...`;
- isMatchingActive=false;
- if(matchTimerInterval)clearInterval(matchTimerInterval);
- if(matchConnectTimeout)clearTimeout(matchConnectTimeout);
+  const candidates = Array.from(lobbyPeersMap.values())
+    .filter(p =>
+      p.uid !== myUniqueId &&
+      p.matching &&
+      p.status === 'matching' &&
+      p.peerId &&
+      p.status !== 'playing'
+    )
+    .sort((a,b) => String(a.uid).localeCompare(String(b.uid)));
 
- try{
-   conn=peer.connect(target.peerId,{reliable:true});
-   isHost=true;
-   matchConnectTimeout=setTimeout(()=>{
-     if(matchingPeerUid===target.uid&&(!conn||!conn.open)){
-       matchingPeerUid=null; conn=null; isMatchingActive=true;
-       document.getElementById('matchText').innerText='연결이 지연되었습니다. 다른 상대를 다시 찾는 중...';
-       broadcastMyPresence();
-     }
-   },10000);
-   conn.on('open',()=>{
-     if(matchConnectTimeout)clearTimeout(matchConnectTimeout);
-     matchConnectTimeout=null; matchingPeerUid=null; setupConnection('HOST');
-   });
-   conn.on('error',()=>{
-     if(matchConnectTimeout)clearTimeout(matchConnectTimeout);
-     matchConnectTimeout=null; matchingPeerUid=null; conn=null; isMatchingActive=true;
-     document.getElementById('matchText').innerText='연결에 실패했습니다. 다른 상대를 다시 찾는 중...';
-     broadcastMyPresence();
-   });
- }catch(e){
-   matchingPeerUid=null; conn=null; isMatchingActive=true;
-   document.getElementById('matchText').innerText='매칭 연결에 실패했습니다. 다시 찾는 중...';
-   broadcastMyPresence();
- }
+  if (!candidates.length) return;
+
+  const allUids = [myUniqueId, ...candidates.map(p => p.uid)].sort();
+  const smallestUid = allUids[0];
+
+  // 가장 작은 UID를 가진 한 명만 연결을 시작합니다.
+  // 중요: 연결이 실제 open 될 때까지 isMatchingActive를 유지해야
+  // 상대방의 heartbeat에서도 매칭 대상으로 남습니다.
+  if (smallestUid !== myUniqueId) {
+    matchingPeerUid = candidates[0]?.uid || null;
+    document.getElementById('matchText').innerText =
+      `${candidates[0]?.nickname || '상대'}님의 연결을 기다리는 중...`;
+    return;
+  }
+
+  const target = candidates[0];
+  if (!target || target.uid === myUniqueId) return;
+  if (matchingPeerUid && matchingPeerUid !== target.uid) return;
+
+  matchingPeerUid = target.uid;
+  document.getElementById('matchBotOption').style.display = 'none';
+  document.getElementById('matchText').innerText =
+    `${target.nickname}님과 매칭되었습니다. 게임 연결 중...`;
+
+  // 연결이 성공하기 전까지 matching 상태를 유지합니다.
+  isMatchingActive = true;
+  broadcastMyPresence();
+
+  if (matchConnectTimeout) clearTimeout(matchConnectTimeout);
+
+  try {
+    if (conn && conn.open) {
+      try { conn.close(); } catch(e) {}
+      conn = null;
+    }
+
+    conn = peer.connect(target.peerId, {
+      reliable: true,
+      serialization: 'json'
+    });
+
+    isHost = true;
+    connectionFinalized = false;
+
+    conn.on('open', () => {
+      if (matchConnectTimeout) {
+        clearTimeout(matchConnectTimeout);
+        matchConnectTimeout = null;
+      }
+
+      matchingPeerUid = null;
+      isMatchingActive = false;
+      if (matchTimerInterval) {
+        clearInterval(matchTimerInterval);
+        matchTimerInterval = null;
+      }
+
+      setupConnection('HOST');
+    });
+
+    conn.on('error', () => {
+      if (matchConnectTimeout) clearTimeout(matchConnectTimeout);
+      matchConnectTimeout = null;
+      matchingPeerUid = null;
+      conn = null;
+
+      if (!gameRunning) {
+        isMatchingActive = true;
+        document.getElementById('matchText').innerText =
+          '연결에 실패했습니다. 다른 상대를 다시 찾는 중...';
+        broadcastMyPresence();
+      }
+    });
+
+    matchConnectTimeout = setTimeout(() => {
+      if (matchingPeerUid === target.uid && (!conn || !conn.open)) {
+        try { if (conn) conn.close(); } catch(e) {}
+        matchingPeerUid = null;
+        conn = null;
+        isMatchingActive = true;
+        document.getElementById('matchText').innerText =
+          '연결 시간이 초과되었습니다. 다른 상대를 다시 찾는 중...';
+        broadcastMyPresence();
+      }
+    }, 12000);
+  } catch(e) {
+    matchingPeerUid = null;
+    conn = null;
+    isMatchingActive = true;
+    document.getElementById('matchText').innerText =
+      '매칭 연결에 실패했습니다. 다시 찾는 중...';
+    broadcastMyPresence();
+  }
 }
-
 
 function startBotMatch() {
 
@@ -2309,68 +2290,112 @@ addLobbyChatLog(`[시스템] ${targetName}님에게 협동 모드 초대를 보�
 // ╚══════════════════════════════════════════════════════════╝
 
 function setupConnection(role) {
+  if (!conn) return;
 
-isHost = (role === 'HOST');
-isBotMatch = false;
-isMulti = true;
-currentGameMode = 'COOP';
+  isHost = (role === 'HOST');
+  isBotMatch = false;
+  isMulti = true;
+  currentGameMode = 'COOP';
 
-localReady = false;
-peerReady = false;
-readyWaiting = true;
-readyRole = role;
+  localReady = false;
+  peerReady = false;
+  readyWaiting = true;
+  readyRole = role;
+  connectionFinalized = false;
 
-peerPlayer = {
-x: CW / 2 + 35,
-y: CH - 120,
-hp: 200, maxHp: 200,
-nickname: '동료',
-round: 1,
-qBuffTimer: 0,
-wBuffTimer: 0
-};
+  peerPlayer = {
+    x: CW / 2 + 35,
+    y: CH - 120,
+    hp: 200, maxHp: 200,
+    nickname: '동료',
+    round: 1,
+    qBuffTimer: 0,
+    wBuffTimer: 0
+  };
 
-conn.on('open', () => {
+  const finalizeConnection = () => {
+    if (connectionFinalized || !conn) return;
+    connectionFinalized = true;
 
-setMultiStatus('✅ 동료 소환사와 실시간 P2P 연결 성공!');
-addChatLog(`[협동] ${isHost ? 'HOST' : 'GUEST'}로 게임에 참가했습니다!`, true);
+    setMultiStatus('✅ 동료 소환사와 실시간 P2P 연결 성공!');
+    addChatLog(`[협동] ${isHost ? 'HOST' : 'GUEST'}로 게임에 참가했습니다!`, true);
 
-isMulti = true;
-isMatchingActive = false;
+    isMulti = true;
+    isMatchingActive = false;
+    matchingPeerUid = null;
 
-closeAllModals();
-document.getElementById('main-lobby').style.display = 'none';
-document.getElementById('btnOpenMulti').style.display = 'flex';
+    if (matchConnectTimeout) {
+      clearTimeout(matchConnectTimeout);
+      matchConnectTimeout = null;
+    }
+    if (matchTimerInterval) {
+      clearInterval(matchTimerInterval);
+      matchTimerInterval = null;
+    }
 
-showReadyScreen(role);
-sendReadyState();
+    closeAllModals();
+    document.getElementById('main-lobby').style.display = 'none';
+    document.getElementById('btnOpenMulti').style.display = 'flex';
 
-startNetSync();
+    showReadyScreen(role);
+    sendReadyState();
+    startNetSync();
+    updateEnemyPanel();
+    broadcastMyPresence();
+  };
 
-});
+  const handleClose = () => {
+    if (conn && conn.open) return;
 
-conn.on('data', handleNetworkData);
+    if (netSendInterval) {
+      clearInterval(netSendInterval);
+      netSendInterval = null;
+    }
+    if (pingInterval) {
+      clearInterval(pingInterval);
+      pingInterval = null;
+    }
 
-conn.on('close', () => {
+    isMulti = false;
+    peerPlayer = null;
+    localReady = false;
+    peerReady = false;
+    readyWaiting = false;
+    connectionFinalized = false;
 
-addChatLog('[시스템] 동료 연결이 끊어졌습니다.', true);
+    if (!gameRunning) {
+      hideReadyScreen();
+      updateEnemyPanel();
+      document.getElementById('main-lobby').style.display = 'flex';
+      document.getElementById('modalMatch').style.display = 'none';
+      addChatLog('[시스템] 동료 연결이 끊어졌습니다.', true);
+      broadcastMyPresence();
+    }
+  };
 
-isMulti = false;
-peerPlayer = null;
-localReady = false;
-peerReady = false;
-readyWaiting = false;
+  // 같은 conn에 중복 등록하지 않도록 한 번만 설정합니다.
+  if (!conn.__gameHandlersInstalled) {
+    conn.__gameHandlersInstalled = true;
 
-if (netSendInterval) {
-clearInterval(netSendInterval);
-netSendInterval = null;
-}
+    conn.on('open', finalizeConnection);
 
-hideReadyScreen();
-updateEnemyPanel();
+    conn.on('data', (data) => {
+      handleNetworkData(data);
+    });
 
-});
+    conn.on('close', handleClose);
 
+    conn.on('error', (err) => {
+      console.warn('[Game Connection]', err);
+      if (!gameRunning) {
+        addLobbyChatLog('[시스템] 협동 연결 오류가 발생했습니다. 다시 연결을 시도해주세요.', true);
+      }
+    });
+  }
+
+  // PeerJS에서는 setupConnection이 open 이벤트 이후 호출될 수 있습니다.
+  // 이 경우 open 이벤트를 기다리면 READY 화면이 영원히 뜨지 않으므로 즉시 마무리합니다.
+  if (conn.open) finalizeConnection();
 }
 
 function showReadyScreen(role) {
@@ -2555,7 +2580,28 @@ addChatLog(`[개발자] ${data.by || '팀원'}이 배속을 ${gameSpeed}x로 변
 }
 break;
 
-case 'state':
+case 'world_state':
+    // HOST 권위 월드 동기화: 게스트의 몬스터/라운드 드리프트 방지
+    if (!isHost && isMulti && Array.isArray(data.minions)) {
+      minions = data.minions.map(m => ({
+        x:Number(m.x)||0, y:Number(m.y)||0,
+        radius:Number(m.radius)||13,
+        speed:Number(m.speed)||60,
+        hp:Number(m.hp)||0, maxHp:Number(m.maxHp)||1,
+        isChaser:!!m.isChaser, isBoss:!!m.isBoss,
+        attackPower:Number(m.attackPower)||5,
+        attackCooldown:Number(m.attackCooldown)||0,
+        attackRate:Number(m.attackRate)||1.5
+      }));
+      round = Number(data.round)||1;
+      tower.hp = Math.max(0, Number(data.towerHp)||0);
+      tower.maxHp = Math.max(1, Number(data.towerMaxHp)||tower.maxHp);
+      isWaveActive = !!data.isWaveActive;
+      updateUI();
+    }
+    break;
+
+    case 'state':
 
 if (!peerPlayer) {
 
@@ -2697,48 +2743,53 @@ break;
 
 
 function startNetSync() {
+  if (netSendInterval) clearInterval(netSendInterval);
+  if (pingInterval) clearInterval(pingInterval);
 
-if (netSendInterval) clearInterval(netSendInterval);
+  netSendInterval = setInterval(() => {
+    if (!conn || !conn.open) return;
 
-netSendInterval = setInterval(() => {
+    try {
+      conn.send({
+        type: 'state',
+        x: player.x,
+        y: player.y,
+        hp: player.hp,
+        maxHp: player.maxHp,
+        round: round,
+        nickname: myNickname,
+        qBuffTimer: player.qBuffTimer,
+        wBuffTimer: player.wBuffTimer,
+        gameSpeed: gameSpeed
+      });
 
-if (!conn || !conn.open) return;
+      // HOST가 웨이브/몬스터 상태를 권위적으로 동기화합니다.
+      // 게스트가 서로 다른 Math.random() 결과로 몬스터 목록을 만드는 문제를 방지합니다.
+      if (isHost && isMulti) {
+        conn.send({
+          type: 'world_state',
+          round,
+          towerHp: tower.hp,
+          towerMaxHp: tower.maxHp,
+          isWaveActive,
+          minions: minions.map(m => ({
+            x:m.x, y:m.y, radius:m.radius,
+            speed:m.speed, hp:m.hp, maxHp:m.maxHp,
+            isChaser:!!m.isChaser, isBoss:!!m.isBoss,
+            attackPower:m.attackPower, attackCooldown:m.attackCooldown,
+            attackRate:m.attackRate
+          }))
+        });
+      }
+    } catch(e) {}
+  }, 45);
 
-conn.send({
-
-type: 'state',
-
-x: player.x,
-
-y: player.y,
-
-hp: player.hp,
-
-maxHp: player.maxHp,
-
-round: round,
-
-nickname: myNickname,
-
-qBuffTimer: player.qBuffTimer,
-
-wBuffTimer: player.wBuffTimer
-
-});
-
-}, 45);
-
-
-
-setInterval(() => {
-
-if (conn && conn.open) conn.send({ type:'ping', ts: Date.now() });
-
-}, 3000);
-
+  pingInterval = setInterval(() => {
+    if (conn && conn.open) {
+      try { conn.send({ type:'ping', ts: Date.now() }); } catch(e) {}
+    }
+  }, 3000);
 }
-
-
 
 function sendShootEvent(x, y, damage, targetIdx) {
 
@@ -3352,12 +3403,17 @@ if (netSendInterval) {
 clearInterval(netSendInterval);
 netSendInterval = null;
 }
+if (pingInterval) {
+clearInterval(pingInterval);
+pingInterval = null;
+}
 
 // 이전 협동 게임 연결도 끊어서 이전 플레이어의 상태/공격 이벤트가
 // 새 솔로 또는 새 협동 게임에 섞이지 않도록 완전히 분리합니다.
 if (conn) {
 try { if (conn.open) conn.close(); } catch(e) {}
 conn = null;
+  connectionFinalized = false;
 }
 
 // 현재 게임 데이터 완전 초기화
@@ -3578,106 +3634,6 @@ function startNextWave() {
 
 isWaveActive = true;
 
-triggerRoundBanner(round);
-
-addChatLog(`[라운드] ROUND ${round} 시작!`, true);
-
-
-
-if (!freeDiceThisRound && myDice.length < 6) {
-
-freeDiceThisRound = true;
-
-setTimeout(() => {
-
-if (myDice.length < 6) {
-
-const dice = rollRandomDice();
-
-myDice.push({ ...dice, id: dice.id + '_' + Date.now() });
-
-renderDicePanel();
-
-showDiceResult(`🎁 라운드 무료 다이스: ${dice.emoji} ${dice.name}`);
-
-addChatLog(`[다이스] 라운드 보상: ${dice.emoji} ${dice.name} 획득!`, true);
-
-}
-
-}, 500);
-
-}
-
-
-
-const enemyCount = 5 + round * 2;
-
-let spawned = 0;
-
-
-
-const spawnInterval = setInterval(() => {
-
-if (isGameOver || !gameRunning) { clearInterval(spawnInterval); return; }
-
-const isChaser = Math.random() < 0.35;
-
-minions.push({
-
-x: Math.random()*(CW-80)+40, y: -20,
-
-radius: isChaser ? 15 : 13,
-
-speed: (0.9 + round*0.1) * 60,
-
-hp: 100 + round*35, maxHp: 100 + round*35,
-
-isChaser, isBoss: false,
-
-attackPower: Math.max(5, Math.floor(player.attackPower * 0.3)),
-
-attackCooldown: 0, attackRate: 1.5
-
-});
-
-spawned++;
-
-if (spawned >= enemyCount) {
-
-clearInterval(spawnInterval);
-
-setTimeout(() => {
-
-if (isGameOver || !gameRunning) return;
-
-minions.push({
-
-x: CW/2, y: -30, radius: 26,
-
-speed: (0.45 + round*0.05) * 60,
-
-hp: 450 + round*320, maxHp: 450 + round*320,
-
-isChaser:false, isBoss:true,
-
-attackPower: 30, attackCooldown:0, attackRate:1
-
-});
-
-}, 1000);
-
-}
-
-}, 600);
-
-}
-
-
-
-function startNextWave() {
-
-isWaveActive = true;
-
 const session = gameSessionId;
 const waveRound = round;
 
@@ -3806,7 +3762,7 @@ ctx.beginPath(); ctx.moveTo(0, MID_Y); ctx.lineTo(CW, MID_Y); ctx.stroke();
 
 // 웨이브 체크
 
-if (!isWaveActive && minions.length === 0) {
+if ((!isMulti || isHost || isBotMatch) && !isWaveActive && minions.length === 0) {
 
 freeDiceThisRound = false;
 
