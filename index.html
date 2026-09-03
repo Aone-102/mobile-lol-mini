@@ -281,7 +281,7 @@ margin-top:4px; padding:10px; font-size:13px; }
 
 #top-ui {
 
-display:flex; justify-content:space-between; align-items:center;
+display:none; justify-content:space-between; align-items:center;
 
 width:100%; max-width:480px; padding:5px 10px;
 
@@ -417,6 +417,7 @@ canvas { background:#0a0f14; box-shadow:0 4px 30px rgba(0,0,0,.9); margin-top:34
 
 #chat-container {
 
+display:none;
 position:absolute; bottom:82px; left:10px; width:200px;
 
 background:rgba(0,0,0,.55); border:1px solid var(--border);
@@ -447,11 +448,11 @@ border-radius:4px; padding:3px 6px; font-size:11px; }
 
 #controls-overlay { position:absolute; bottom:15px; right:10px;
 
-display:flex; gap:7px; z-index:10; }
+display:none; gap:7px; z-index:10; }
 
 #menu-overlay { position:absolute; bottom:15px; left:10px;
 
-display:flex; gap:5px; z-index:10; }
+display:none; gap:5px; z-index:10; }
 
 
 
@@ -1230,6 +1231,7 @@ let isMatchingActive = false;
 let matchSearchSeconds = 0;
 
 let matchTimerInterval = null;
+let matchScanInterval = null;
 let matchingPeerUid = null;
 let matchConnectTimeout = null;
 let invitePendingPeerId = null;
@@ -2137,6 +2139,7 @@ function startMatchmaking(mode) {
   matchSearchSeconds = 0;
   matchingPeerUid = null;
 
+  if (matchScanInterval) { clearInterval(matchScanInterval); matchScanInterval = null; }
   if (matchConnectTimeout) {
     clearTimeout(matchConnectTimeout);
     matchConnectTimeout = null;
@@ -2164,6 +2167,23 @@ function startMatchmaking(mode) {
       document.getElementById('matchBotOption').style.display = 'block';
     }
   }, 1000);
+
+  // heartbeat가 정확히 동시에 도착하지 않아도 매칭 목록을 계속 검사합니다.
+  if (matchScanInterval) clearInterval(matchScanInterval);
+  matchScanInterval = setInterval(() => {
+    if (!isMatchingActive) {
+      clearInterval(matchScanInterval);
+      matchScanInterval = null;
+      return;
+    }
+    // HUB에 최신 상태를 다시 알리고 전체 목록도 요청합니다.
+    broadcastMyPresence();
+    broadcastFullLobbyListRequest();
+    const candidates = Array.from(lobbyPeersMap.values())
+      .filter(p => p.uid !== myUniqueId && p.matching && p.status === 'matching' && p.peerId && p.peerId !== myPeerIdStr)
+      .sort((a,b) => String(a.uid).localeCompare(String(b.uid)));
+    if (candidates.length) attemptAutoMatch(candidates[0]);
+  }, 700);
 }
 
 function attemptAutoMatch(opponent) {
@@ -2177,6 +2197,7 @@ function attemptAutoMatch(opponent) {
       p.matching &&
       p.status === 'matching' &&
       p.peerId &&
+      p.peerId !== myPeerIdStr &&
       p.status !== 'playing'
     )
     .sort((a,b) => String(a.uid).localeCompare(String(b.uid)));
@@ -2233,6 +2254,7 @@ function attemptAutoMatch(opponent) {
 
       matchingPeerUid = null;
       isMatchingActive = false;
+      if (matchScanInterval) { clearInterval(matchScanInterval); matchScanInterval = null; }
       if (matchTimerInterval) {
         clearInterval(matchTimerInterval);
         matchTimerInterval = null;
@@ -2307,6 +2329,7 @@ function cancelMatchmaking() {
   isMatchingActive = false;
   matchingPeerUid = null;
 
+  if (matchScanInterval) { clearInterval(matchScanInterval); matchScanInterval = null; }
   if (matchConnectTimeout) {
     clearTimeout(matchConnectTimeout);
     matchConnectTimeout = null;
@@ -3476,7 +3499,28 @@ showReadyScreen('SOLO');
 
 }
 
+function showInGameUI() {
+  const ids = [
+    ['top-ui','flex'],
+    ['menu-overlay','flex'],
+    ['controls-overlay','flex'],
+    ['chat-container','flex']
+  ];
+  ids.forEach(([id, display]) => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = display;
+  });
+}
+
+function hideInGameUI() {
+  ['top-ui','menu-overlay','controls-overlay','chat-container','enemy-ui-panel','dice-panel','dev-panel'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+}
+
 function startGame() {
+  showInGameUI();
   document.getElementById('dev-panel').style.display = isDevMode ? 'flex' : 'none';
 
   resetGameState();
@@ -3567,6 +3611,7 @@ if (isMulti || isBotMatch) updateEnemyPanel();
 }
 
 function returnToLobby() {
+  hideInGameUI();
   const wasInGame = gameRunning || isMulti || readyWaiting;
   const wasMatching = isMatchingActive || !!matchingPeerUid || !!invitePendingPeerId;
 
@@ -3575,6 +3620,7 @@ function returnToLobby() {
   isMatchingActive = false;
   matchingPeerUid = null;
   invitePendingPeerId = null;
+  if (matchScanInterval) { clearInterval(matchScanInterval); matchScanInterval = null; }
 
   if (matchConnectTimeout) { clearTimeout(matchConnectTimeout); matchConnectTimeout = null; }
   if (matchTimerInterval) { clearInterval(matchTimerInterval); matchTimerInterval = null; }
@@ -4527,6 +4573,7 @@ animationFrameId = requestAnimationFrame((ts) => gameLoop(ts, gameSessionId));
 
 // ╚══════════════════════════════════════════════════════════╝
 
+hideInGameUI();
 updateUI();
 
 renderDicePanel();
