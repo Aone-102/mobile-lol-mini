@@ -56,7 +56,67 @@ display:flex; flex-direction:column;
 
 align-items:center; justify-content:center;
 
-min-height:100vh; overflow:hidden; }
+min-height:100vh; min-height:100dvh; overflow:hidden;
+-webkit-tap-highlight-color:transparent; }
+
+/* Mobile 화면 상태 잠금: 로비에서는 인게임 UI가 절대 보이지 않습니다. */
+body.is-lobby #top-ui,
+body.is-lobby #enemy-ui-panel,
+body.is-lobby #dice-panel,
+body.is-lobby #dev-panel,
+body.is-lobby #gameCanvas,
+body.is-lobby #chat-container,
+body.is-lobby #menu-overlay,
+body.is-lobby #controls-overlay,
+body.is-lobby #ready-overlay,
+body.is-lobby #game-msg,
+body.is-lobby #dice-result-overlay { display:none !important; }
+
+/* 손가락 입력 기기(가로모드 포함)는 항상 모바일 레이아웃을 사용합니다. */
+@media (max-width: 600px), (hover: none) and (pointer: coarse) {
+  #main-lobby {
+    min-height:100dvh; justify-content:flex-start;
+    padding:calc(14px + env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) calc(14px + env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
+    gap:10px;
+  }
+  .lobby-header { margin-bottom:2px; }
+  .lobby-title { font-size:22px; }
+  .my-info-bar, .lobby-panel, .lobby-menu, .social-tabs { max-width:none; }
+  .lobby-panel { padding:10px; }
+  #player-list { max-height:100px; }
+  .lobby-menu { gap:7px; }
+  .btn-lobby { min-height:46px; padding:11px; font-size:14px; }
+  .social-tabs .btn-lobby { min-height:40px; padding:8px; }
+  #top-ui { max-width:none; padding:calc(5px + env(safe-area-inset-top)) 8px 5px; }
+  canvas { margin-top:34px; max-width:100vw; height:auto; touch-action:none; }
+  #chat-container { position:fixed; left:8px; bottom:76px; width:min(180px, calc(100vw - 120px)); }
+  #menu-overlay { position:fixed; left:10px; bottom:calc(12px + env(safe-area-inset-bottom)); gap:5px; }
+  #controls-overlay { position:fixed; right:10px; bottom:calc(12px + env(safe-area-inset-bottom)); gap:6px; }
+  .btn-ui { width:46px; height:46px; font-size:10px; }
+  #dice-panel { top:calc(34px + env(safe-area-inset-top)); left:5px; min-width:0; }
+  #enemy-ui-panel { top:calc(34px + env(safe-area-inset-top)); right:5px; min-width:105px; }
+  .modal { width:calc(100% - 24px); max-height:calc(100dvh - 24px); padding:15px; }
+}
+
+/* 마우스/키보드 PC 전용 레이아웃 */
+@media (min-width: 601px) and (hover: hover) and (pointer: fine) {
+  #main-lobby { padding:40px 32px 24px; justify-content:center; gap:16px; }
+  #main-lobby > .my-info-bar, #main-lobby > .lobby-panel,
+  #main-lobby > .social-tabs { max-width:620px; }
+  #main-lobby > .lobby-menu { max-width:620px; display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px; }
+  .lobby-menu .btn-start { grid-column:1 / -1; }
+  .lobby-title { font-size:32px; }
+  .btn-lobby { min-height:48px; }
+  #player-list { max-height:160px; }
+  #top-ui { width:var(--game-width); max-width:calc(100vw - 24px); }
+  canvas { margin-top:34px; max-width:calc(100vw - 24px); }
+  #chat-container { position:fixed; left:20px; bottom:92px; width:240px; }
+  #menu-overlay { position:fixed; left:20px; bottom:20px; gap:8px; }
+  #controls-overlay { position:fixed; right:20px; bottom:20px; gap:8px; }
+  .btn-ui { width:56px; height:56px; }
+  #dice-panel { left:14px; }
+  #enemy-ui-panel { right:14px; }
+}
 
 
 
@@ -422,7 +482,7 @@ position:absolute; bottom:82px; left:10px; width:200px;
 
 background:rgba(0,0,0,.55); border:1px solid var(--border);
 
-border-radius:8px; padding:6px; display:flex;
+border-radius:8px; padding:6px;
 
 flex-direction:column; gap:4px; z-index:20; backdrop-filter:blur(4px);
 
@@ -615,7 +675,7 @@ display:none; z-index:180; text-align:center; pointer-events:none;
 
 </head>
 
-<body>
+<body class="is-lobby">
 
 
 
@@ -698,7 +758,7 @@ ID: <b id="my-peer-short" style="color:var(--green);">생성중...</b> 📋
 
 </div>
 
-<div style="font-size:10px;color:#555;">v5.16 — 협동 HOST 권위 월드 동기화 & 팀원 게임 진입 안정화</div>
+<div style="font-size:10px;color:#555;">v5.18 — 로비 복귀 안정화 & PC/모바일 반응형 UI</div>
 
 </div>
 
@@ -1015,6 +1075,24 @@ style="flex:1;background:rgba(255,255,255,.07);border:1px solid var(--border);co
 
 <div style="margin-bottom:10px;border-bottom:1px solid #333;padding-bottom:8px;">
 
+<b style="color:#74b9ff;">[v5.18] 로비 복귀 안정화 & PC/모바일 반응형 UI</b><br>
+
+- 🚪 <b>나가기 검은 화면 수정</b>: 나가기 버튼을 누르면 네트워크/게임 상태를 정리하기 전에 로비를 즉시 표시하도록 변경했습니다. 정리 과정에서 문제가 생겨도 검은 화면에 남지 않습니다.<br>
+
+- 🛡️ <b>중복 나가기 방지</b>: 모바일에서 pointerup과 click이 겹쳐 로비 초기화가 두 번 실행될 수 있던 처리를 하나의 click 이벤트로 통일했습니다.<br>
+
+- 📱 <b>모바일 UI 전용 배치</b>: 터치 기기에서는 안전 영역, 세로 로비, 하단 조작 버튼, 작은 화면 모달을 기준으로 표시됩니다. 휴대폰 가로모드도 모바일 UI를 유지합니다.<br>
+
+- 🖥️ <b>PC UI 전용 배치</b>: 마우스/키보드 PC에서는 넓은 전장 캔버스, 2열 로비 메뉴, 커진 조작 버튼과 채팅창으로 표시됩니다.<br>
+
+- 👁️ <b>로비 UI 숨김 보강</b>: 로비 상태에서는 인게임 캔버스·스킬·메뉴·채팅·준비창을 강제로 숨기며, 게임/READY 진입 때만 표시합니다.<br>
+
+- 💬 <b>채팅 초기 노출 수정</b>: 인게임 채팅창의 중복 display 선언을 정리해 로비에서 보이지 않도록 수정했습니다.
+
+</div>
+
+<div style="margin-bottom:10px;border-bottom:1px solid #333;padding-bottom:8px;">
+
 <b style="color:var(--green);">[v5.5] 협동 모드 아군 피격 완전 방지 패치</b><br>
 
 - 🛡️ <b>아군 무적 시스템</b>: 조준경, 폭발, 멀티샷, E 스킬 충격파 등 모든 공격에서 <b>동료 소환사 타격 무효화 및 무적 판정</b> 적용.<br>
@@ -1160,13 +1238,21 @@ const ctx = canvas.getContext('2d');
 
 
 
-const CW = Math.min(window.innerWidth, 480);
+// PC는 넓은 전장, 휴대폰/태블릿은 손가락 조작에 맞춘 전장을 사용합니다.
+const isMobileLayout = window.matchMedia('(max-width: 600px), (hover: none) and (pointer: coarse)').matches;
+const CW = isMobileLayout
+  ? Math.min(window.innerWidth, 480)
+  : Math.min(Math.max(520, window.innerWidth - 280), 960);
 
-const CH = Math.min(window.innerHeight - 34, 640);
+const CH = isMobileLayout
+  ? Math.min(window.innerHeight - 34, 640)
+  : Math.min(window.innerHeight - 44, 720);
 
 canvas.width = CW;
 
 canvas.height = CH;
+
+document.documentElement.style.setProperty('--game-width', `${CW}px`);
 
 const MID_Y = CH * 0.45;
 
@@ -2354,7 +2440,7 @@ function cancelMatchmaking() {
   readyRole = '';
 
   hideReadyScreen();
-  document.getElementById('main-lobby').style.display = 'flex';
+  showLobbyView();
   document.getElementById('btnOpenMulti').style.display = 'flex';
   document.getElementById('enemy-ui-panel').style.display = 'none';
   closeAllModals();
@@ -2503,7 +2589,7 @@ function setupConnection(role) {
     if (!gameRunning) {
       hideReadyScreen();
       updateEnemyPanel();
-      document.getElementById('main-lobby').style.display = 'flex';
+      showLobbyView();
       document.getElementById('modalMatch').style.display = 'none';
       addChatLog('[시스템] 동료 연결이 끊어졌습니다.', true);
       broadcastMyPresence();
@@ -2537,6 +2623,7 @@ function setupConnection(role) {
 
 function showReadyScreen(role) {
 
+document.body.classList.remove('is-lobby');
 readyWaiting = true;
 localReady = false;
 
@@ -3500,6 +3587,7 @@ showReadyScreen('SOLO');
 }
 
 function showInGameUI() {
+  document.body.classList.remove('is-lobby');
   const ids = [
     ['top-ui','flex'],
     ['menu-overlay','flex'],
@@ -3513,10 +3601,22 @@ function showInGameUI() {
 }
 
 function hideInGameUI() {
+  document.body.classList.add('is-lobby');
   ['top-ui','menu-overlay','controls-overlay','chat-container','enemy-ui-panel','dice-panel','dev-panel'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = 'none';
   });
+}
+
+// 정리 로직보다 먼저 로비를 그립니다. 이후 네트워크 정리 중 오류가 나도
+// 사용자가 검은 화면에 갇히지 않도록 하는 안전장치입니다.
+function showLobbyView() {
+  document.body.classList.add('is-lobby');
+  const lobby = document.getElementById('main-lobby');
+  if (lobby) {
+    lobby.style.display = 'flex';
+    lobby.scrollTop = 0;
+  }
 }
 
 function startGame() {
@@ -3610,7 +3710,11 @@ if (isMulti || isBotMatch) updateEnemyPanel();
 
 }
 
+let isReturningToLobby = false;
 function returnToLobby() {
+  if (isReturningToLobby) return;
+  isReturningToLobby = true;
+  showLobbyView();
   hideInGameUI();
   const wasInGame = gameRunning || isMulti || readyWaiting;
   const wasMatching = isMatchingActive || !!matchingPeerUid || !!invitePendingPeerId;
@@ -3672,7 +3776,7 @@ function returnToLobby() {
 
   hideReadyScreen();
   closeAllModals();
-  document.getElementById('main-lobby').style.display = 'flex';
+  showLobbyView();
   document.getElementById('dice-panel').style.display = 'none';
   document.getElementById('enemy-ui-panel').style.display = 'none';
   document.getElementById('game-msg').style.display = 'none';
@@ -3685,6 +3789,7 @@ function returnToLobby() {
 
   // 새 heartbeat를 즉시 보내고 이후 정상 주기로 복귀합니다.
   broadcastMyPresence();
+  isReturningToLobby = false;
 }
 
 function saveSettings() {
@@ -4588,15 +4693,9 @@ window.addEventListener('beforeunload', () => {
   try { sendLobbyLeaveNotice('beforeunload'); } catch(e) {}
 });
 
-// 나가기 버튼은 HTML onclick과 별도로 pointerup도 연결하여
-// 모바일/데스크톱에서 이벤트가 막히는 경우를 방지합니다.
-const exitButton = document.querySelector('#menu-overlay .btn-exit');
-if (exitButton) {
-  exitButton.addEventListener('pointerup', (e) => {
-    e.preventDefault(); e.stopPropagation();
-    returnToLobby();
-  }, { passive:false });
-}
+// 나가기 버튼은 HTML의 click 이벤트 한 번만 사용합니다.
+// pointerup과 click을 함께 연결하면 일부 모바일 브라우저에서
+// 로비 초기화가 두 번 실행될 수 있습니다.
 
 initP2PLobbySystem();
 
